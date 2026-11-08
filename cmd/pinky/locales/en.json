@@ -702,15 +702,19 @@
   "@callTakeOver": {
     "description": "Inside toastCouldNot: taking over a phone failed."
   },
+  "chatAgentMode": "Agent",
+  "@chatAgentMode": {
+    "description": "In-app chat: mode pill in the composer toolbar (Cursor-like)."
+  },
   "chatAllPhones": "All connected",
   "@chatAllPhones": {
     "description": "In-app chat: chip that targets every connected phone."
   },
-  "chatEmpty": "Ask about the phone selected on the left. Pinky answers here.",
+  "chatEmpty": "Describe what you want on the selected phone.",
   "@chatEmpty": {
     "description": "In-app chat: empty state in the thread."
   },
-  "chatEmptyTitle": "What should we do?",
+  "chatEmptyTitle": "Agent",
   "@chatEmptyTitle": {
     "description": "In-app chat: empty-state headline."
   },
@@ -727,6 +731,14 @@
         "example": "401 unauthorized"
       }
     }
+  },
+  "chatHistory": "Past chats",
+  "@chatHistory": {
+    "description": "In-app chat: history panel title and clock-button tooltip."
+  },
+  "chatHistoryEmpty": "No past chats yet.",
+  "@chatHistoryEmpty": {
+    "description": "In-app chat: empty history list."
   },
   "chatNeedKeyLink": "Add an API key",
   "@chatNeedKeyLink": {
@@ -748,7 +760,7 @@
   "@chatPinky": {
     "description": "In-app chat: assistant bubble label."
   },
-  "chatPlaceholder": "Ask Pinky…",
+  "chatPlaceholder": "Plan, search, build anything…",
   "@chatPlaceholder": {
     "description": "In-app chat: composer placeholder."
   },
@@ -781,6 +793,10 @@
   "chatThinking": "Thinking…",
   "@chatThinking": {
     "description": "In-app chat: while waiting for the model."
+  },
+  "chatUntitled": "New chat",
+  "@chatUntitled": {
+    "description": "In-app chat: title of a fresh session before the first message."
   },
   "chatYou": "You",
   "@chatYou": {

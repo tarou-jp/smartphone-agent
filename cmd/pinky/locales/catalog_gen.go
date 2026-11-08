@@ -2215,6 +2215,20 @@ func (msgs Messages) CallTakeOver() string {
 	return Catalog.Format(msgs.locale, "callTakeOver", nil)
 }
 
+// ChatAgentMode says "Agent"
+// in the language the app shows.
+//
+// In-app chat: mode pill in the composer toolbar (Cursor-like).
+func ChatAgentMode() string { return In(i18n.Locale()).ChatAgentMode() }
+
+// ChatAgentMode says "Agent"
+// in the language of msgs.
+//
+// In-app chat: mode pill in the composer toolbar (Cursor-like).
+func (msgs Messages) ChatAgentMode() string {
+	return Catalog.Format(msgs.locale, "chatAgentMode", nil)
+}
+
 // ChatAllPhones says "All connected"
 // in the language the app shows.
 //
@@ -2229,13 +2243,13 @@ func (msgs Messages) ChatAllPhones() string {
 	return Catalog.Format(msgs.locale, "chatAllPhones", nil)
 }
 
-// ChatEmpty says "Ask about the phone selected on the left. Pinky answers here."
+// ChatEmpty says "Describe what you want on the selected phone."
 // in the language the app shows.
 //
 // In-app chat: empty state in the thread.
 func ChatEmpty() string { return In(i18n.Locale()).ChatEmpty() }
 
-// ChatEmpty says "Ask about the phone selected on the left. Pinky answers here."
+// ChatEmpty says "Describe what you want on the selected phone."
 // in the language of msgs.
 //
 // In-app chat: empty state in the thread.
@@ -2243,13 +2257,13 @@ func (msgs Messages) ChatEmpty() string {
 	return Catalog.Format(msgs.locale, "chatEmpty", nil)
 }
 
-// ChatEmptyTitle says "What should we do?"
+// ChatEmptyTitle says "Agent"
 // in the language the app shows.
 //
 // In-app chat: empty-state headline.
 func ChatEmptyTitle() string { return In(i18n.Locale()).ChatEmptyTitle() }
 
-// ChatEmptyTitle says "What should we do?"
+// ChatEmptyTitle says "Agent"
 // in the language of msgs.
 //
 // In-app chat: empty-state headline.
@@ -2283,6 +2297,34 @@ func ChatErrReply(detail string) string { return In(i18n.Locale()).ChatErrReply(
 // In-app chat: model or network error. detail is English from the client.
 func (msgs Messages) ChatErrReply(detail string) string {
 	return Catalog.Format(msgs.locale, "chatErrReply", map[string]any{"detail": detail})
+}
+
+// ChatHistory says "Past chats"
+// in the language the app shows.
+//
+// In-app chat: history panel title and clock-button tooltip.
+func ChatHistory() string { return In(i18n.Locale()).ChatHistory() }
+
+// ChatHistory says "Past chats"
+// in the language of msgs.
+//
+// In-app chat: history panel title and clock-button tooltip.
+func (msgs Messages) ChatHistory() string {
+	return Catalog.Format(msgs.locale, "chatHistory", nil)
+}
+
+// ChatHistoryEmpty says "No past chats yet."
+// in the language the app shows.
+//
+// In-app chat: empty history list.
+func ChatHistoryEmpty() string { return In(i18n.Locale()).ChatHistoryEmpty() }
+
+// ChatHistoryEmpty says "No past chats yet."
+// in the language of msgs.
+//
+// In-app chat: empty history list.
+func (msgs Messages) ChatHistoryEmpty() string {
+	return Catalog.Format(msgs.locale, "chatHistoryEmpty", nil)
 }
 
 // ChatNeedKeyLink says "Add an API key"
@@ -2355,13 +2397,13 @@ func (msgs Messages) ChatPinky() string {
 	return Catalog.Format(msgs.locale, "chatPinky", nil)
 }
 
-// ChatPlaceholder says "Ask Pinky…"
+// ChatPlaceholder says "Plan, search, build anything…"
 // in the language the app shows.
 //
 // In-app chat: composer placeholder.
 func ChatPlaceholder() string { return In(i18n.Locale()).ChatPlaceholder() }
 
-// ChatPlaceholder says "Ask Pinky…"
+// ChatPlaceholder says "Plan, search, build anything…"
 // in the language of msgs.
 //
 // In-app chat: composer placeholder.
@@ -2451,6 +2493,20 @@ func ChatThinking() string { return In(i18n.Locale()).ChatThinking() }
 // In-app chat: while waiting for the model.
 func (msgs Messages) ChatThinking() string {
 	return Catalog.Format(msgs.locale, "chatThinking", nil)
+}
+
+// ChatUntitled says "New chat"
+// in the language the app shows.
+//
+// In-app chat: title of a fresh session before the first message.
+func ChatUntitled() string { return In(i18n.Locale()).ChatUntitled() }
+
+// ChatUntitled says "New chat"
+// in the language of msgs.
+//
+// In-app chat: title of a fresh session before the first message.
+func (msgs Messages) ChatUntitled() string {
+	return Catalog.Format(msgs.locale, "chatUntitled", nil)
 }
 
 // ChatYou says "You"
