@@ -2229,13 +2229,13 @@ func (msgs Messages) ChatAllPhones() string {
 	return Catalog.Format(msgs.locale, "chatAllPhones", nil)
 }
 
-// ChatEmpty says "Ask anything about the selected phone. New chat clears this thread."
+// ChatEmpty says "Ask about the phone selected on the left. Pinky answers here."
 // in the language the app shows.
 //
 // In-app chat: empty state in the thread.
 func ChatEmpty() string { return In(i18n.Locale()).ChatEmpty() }
 
-// ChatEmpty says "Ask anything about the selected phone. New chat clears this thread."
+// ChatEmpty says "Ask about the phone selected on the left. Pinky answers here."
 // in the language of msgs.
 //
 // In-app chat: empty state in the thread.
@@ -2243,13 +2243,27 @@ func (msgs Messages) ChatEmpty() string {
 	return Catalog.Format(msgs.locale, "chatEmpty", nil)
 }
 
-// ChatErrNoKey says "Save an API key in Settings › Model first."
+// ChatEmptyTitle says "What should we do?"
+// in the language the app shows.
+//
+// In-app chat: empty-state headline.
+func ChatEmptyTitle() string { return In(i18n.Locale()).ChatEmptyTitle() }
+
+// ChatEmptyTitle says "What should we do?"
+// in the language of msgs.
+//
+// In-app chat: empty-state headline.
+func (msgs Messages) ChatEmptyTitle() string {
+	return Catalog.Format(msgs.locale, "chatEmptyTitle", nil)
+}
+
+// ChatErrNoKey says "Add an API key in Settings › Model to chat."
 // in the language the app shows.
 //
 // In-app chat: send failed because no key is saved.
 func ChatErrNoKey() string { return In(i18n.Locale()).ChatErrNoKey() }
 
-// ChatErrNoKey says "Save an API key in Settings › Model first."
+// ChatErrNoKey says "Add an API key in Settings › Model to chat."
 // in the language of msgs.
 //
 // In-app chat: send failed because no key is saved.
@@ -2271,13 +2285,13 @@ func (msgs Messages) ChatErrReply(detail string) string {
 	return Catalog.Format(msgs.locale, "chatErrReply", map[string]any{"detail": detail})
 }
 
-// ChatNeedKeyLink says "Open Model settings"
+// ChatNeedKeyLink says "Add an API key"
 // in the language the app shows.
 //
 // In-app chat: link to Settings › Model.
 func ChatNeedKeyLink() string { return In(i18n.Locale()).ChatNeedKeyLink() }
 
-// ChatNeedKeyLink says "Open Model settings"
+// ChatNeedKeyLink says "Add an API key"
 // in the language of msgs.
 //
 // In-app chat: link to Settings › Model.
@@ -2341,13 +2355,13 @@ func (msgs Messages) ChatPinky() string {
 	return Catalog.Format(msgs.locale, "chatPinky", nil)
 }
 
-// ChatPlaceholder says "Message Pinky…"
+// ChatPlaceholder says "Ask Pinky…"
 // in the language the app shows.
 //
 // In-app chat: composer placeholder.
 func ChatPlaceholder() string { return In(i18n.Locale()).ChatPlaceholder() }
 
-// ChatPlaceholder says "Message Pinky…"
+// ChatPlaceholder says "Ask Pinky…"
 // in the language of msgs.
 //
 // In-app chat: composer placeholder.
@@ -2355,13 +2369,55 @@ func (msgs Messages) ChatPlaceholder() string {
 	return Catalog.Format(msgs.locale, "chatPlaceholder", nil)
 }
 
-// ChatSection says "Chat"
+// ChatScopeAll says "All phones"
+// in the language the app shows.
+//
+// In-app chat: header subtitle when All phones is selected.
+func ChatScopeAll() string { return In(i18n.Locale()).ChatScopeAll() }
+
+// ChatScopeAll says "All phones"
+// in the language of msgs.
+//
+// In-app chat: header subtitle when All phones is selected.
+func (msgs Messages) ChatScopeAll() string {
+	return Catalog.Format(msgs.locale, "chatScopeAll", nil)
+}
+
+// ChatScopeNone says "No phone selected"
+// in the language the app shows.
+//
+// In-app chat: header subtitle with no phone selected.
+func ChatScopeNone() string { return In(i18n.Locale()).ChatScopeNone() }
+
+// ChatScopeNone says "No phone selected"
+// in the language of msgs.
+//
+// In-app chat: header subtitle with no phone selected.
+func (msgs Messages) ChatScopeNone() string {
+	return Catalog.Format(msgs.locale, "chatScopeNone", nil)
+}
+
+// ChatScopeOne says "{name}"
+// in the language the app shows.
+//
+// In-app chat: header subtitle for one phone.
+func ChatScopeOne(name string) string { return In(i18n.Locale()).ChatScopeOne(name) }
+
+// ChatScopeOne says "{name}"
+// in the language of msgs.
+//
+// In-app chat: header subtitle for one phone.
+func (msgs Messages) ChatScopeOne(name string) string {
+	return Catalog.Format(msgs.locale, "chatScopeOne", map[string]any{"name": name})
+}
+
+// ChatSection says "Agent"
 // in the language the app shows.
 //
 // In-app chat: section title on the phone page's right column.
 func ChatSection() string { return In(i18n.Locale()).ChatSection() }
 
-// ChatSection says "Chat"
+// ChatSection says "Agent"
 // in the language of msgs.
 //
 // In-app chat: section title on the phone page's right column.
@@ -15285,13 +15341,13 @@ func (msgs Messages) SettingsLanguageSystem() string {
 	return Catalog.Format(msgs.locale, "settingsLanguageSystem", nil)
 }
 
-// SettingsModelExperiment says "Fork experiment. Upstream Pinky does not ship a model; keys stay in your keychain."
+// SettingsModelExperiment says "Experimental on this fork."
 // in the language the app shows.
 //
 // Settings › Model: note under the intro.
 func SettingsModelExperiment() string { return In(i18n.Locale()).SettingsModelExperiment() }
 
-// SettingsModelExperiment says "Fork experiment. Upstream Pinky does not ship a model; keys stay in your keychain."
+// SettingsModelExperiment says "Experimental on this fork."
 // in the language of msgs.
 //
 // Settings › Model: note under the intro.
@@ -15299,13 +15355,13 @@ func (msgs Messages) SettingsModelExperiment() string {
 	return Catalog.Format(msgs.locale, "settingsModelExperiment", nil)
 }
 
-// SettingsModelIntro says "Call an LLM from Pinky's chat. The key never goes to agents or into settings.json."
+// SettingsModelIntro says "Keys for the Agent chat. Stored in your keychain only."
 // in the language the app shows.
 //
 // Settings › Model: description under the title.
 func SettingsModelIntro() string { return In(i18n.Locale()).SettingsModelIntro() }
 
-// SettingsModelIntro says "Call an LLM from Pinky's chat. The key never goes to agents or into settings.json."
+// SettingsModelIntro says "Keys for the Agent chat. Stored in your keychain only."
 // in the language of msgs.
 //
 // Settings › Model: description under the title.
@@ -15373,13 +15429,13 @@ func (msgs Messages) SettingsModelKeyErrSave(detail string) string {
 	return Catalog.Format(msgs.locale, "settingsModelKeyErrSave", map[string]any{"detail": detail})
 }
 
-// SettingsModelKeyMissing says "No API key saved yet"
+// SettingsModelKeyMissing says "No key yet"
 // in the language the app shows.
 //
 // Settings › Model: when nothing is in the keychain for the provider.
 func SettingsModelKeyMissing() string { return In(i18n.Locale()).SettingsModelKeyMissing() }
 
-// SettingsModelKeyMissing says "No API key saved yet"
+// SettingsModelKeyMissing says "No key yet"
 // in the language of msgs.
 //
 // Settings › Model: when nothing is in the keychain for the provider.
@@ -15387,13 +15443,13 @@ func (msgs Messages) SettingsModelKeyMissing() string {
 	return Catalog.Format(msgs.locale, "settingsModelKeyMissing", nil)
 }
 
-// SettingsModelKeyPlaceholder says "Paste your API key"
+// SettingsModelKeyPlaceholder says "sk-…"
 // in the language the app shows.
 //
 // Settings › Model: password field placeholder.
 func SettingsModelKeyPlaceholder() string { return In(i18n.Locale()).SettingsModelKeyPlaceholder() }
 
-// SettingsModelKeyPlaceholder says "Paste your API key"
+// SettingsModelKeyPlaceholder says "sk-…"
 // in the language of msgs.
 //
 // Settings › Model: password field placeholder.
@@ -15431,13 +15487,13 @@ func (msgs Messages) SettingsModelKeyRemovedToast(provider string) string {
 	return Catalog.Format(msgs.locale, "settingsModelKeyRemovedToast", map[string]any{"provider": provider})
 }
 
-// SettingsModelKeySave says "Save key"
+// SettingsModelKeySave says "Save"
 // in the language the app shows.
 //
 // Settings › Model: save button.
 func SettingsModelKeySave() string { return In(i18n.Locale()).SettingsModelKeySave() }
 
-// SettingsModelKeySave says "Save key"
+// SettingsModelKeySave says "Save"
 // in the language of msgs.
 //
 // Settings › Model: save button.
@@ -15445,13 +15501,13 @@ func (msgs Messages) SettingsModelKeySave() string {
 	return Catalog.Format(msgs.locale, "settingsModelKeySave", nil)
 }
 
-// SettingsModelKeySaved says "API key saved"
+// SettingsModelKeySaved says "Key saved"
 // in the language the app shows.
 //
 // Settings › Model: status when a key is in the keychain.
 func SettingsModelKeySaved() string { return In(i18n.Locale()).SettingsModelKeySaved() }
 
-// SettingsModelKeySaved says "API key saved"
+// SettingsModelKeySaved says "Key saved"
 // in the language of msgs.
 //
 // Settings › Model: status when a key is in the keychain.

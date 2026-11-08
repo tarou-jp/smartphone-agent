@@ -706,11 +706,15 @@
   "@chatAllPhones": {
     "description": "In-app chat: chip that targets every connected phone."
   },
-  "chatEmpty": "Ask anything about the selected phone. New chat clears this thread.",
+  "chatEmpty": "Ask about the phone selected on the left. Pinky answers here.",
   "@chatEmpty": {
     "description": "In-app chat: empty state in the thread."
   },
-  "chatErrNoKey": "Save an API key in Settings › Model first.",
+  "chatEmptyTitle": "What should we do?",
+  "@chatEmptyTitle": {
+    "description": "In-app chat: empty-state headline."
+  },
+  "chatErrNoKey": "Add an API key in Settings › Model to chat.",
   "@chatErrNoKey": {
     "description": "In-app chat: send failed because no key is saved."
   },
@@ -724,7 +728,7 @@
       }
     }
   },
-  "chatNeedKeyLink": "Open Model settings",
+  "chatNeedKeyLink": "Add an API key",
   "@chatNeedKeyLink": {
     "description": "In-app chat: link to Settings › Model."
   },
@@ -744,11 +748,29 @@
   "@chatPinky": {
     "description": "In-app chat: assistant bubble label."
   },
-  "chatPlaceholder": "Message Pinky…",
+  "chatPlaceholder": "Ask Pinky…",
   "@chatPlaceholder": {
     "description": "In-app chat: composer placeholder."
   },
-  "chatSection": "Chat",
+  "chatScopeAll": "All phones",
+  "@chatScopeAll": {
+    "description": "In-app chat: header subtitle when All phones is selected."
+  },
+  "chatScopeNone": "No phone selected",
+  "@chatScopeNone": {
+    "description": "In-app chat: header subtitle with no phone selected."
+  },
+  "chatScopeOne": "{name}",
+  "@chatScopeOne": {
+    "description": "In-app chat: header subtitle for one phone.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Pixel 9"
+      }
+    }
+  },
+  "chatSection": "Agent",
   "@chatSection": {
     "description": "In-app chat: section title on the phone page's right column."
   },
@@ -5512,11 +5534,11 @@
   "@settingsLanguageSystem": {
     "description": "Settings › Advanced › Language: the first choice, which follows the computer's preferred languages. The other choices name each language in itself (English, Simplified Chinese)."
   },
-  "settingsModelExperiment": "Fork experiment. Upstream Pinky does not ship a model; keys stay in your keychain.",
+  "settingsModelExperiment": "Experimental on this fork.",
   "@settingsModelExperiment": {
     "description": "Settings › Model: note under the intro."
   },
-  "settingsModelIntro": "Call an LLM from Pinky's chat. The key never goes to agents or into settings.json.",
+  "settingsModelIntro": "Keys for the Agent chat. Stored in your keychain only.",
   "@settingsModelIntro": {
     "description": "Settings › Model: description under the title."
   },
@@ -5548,11 +5570,11 @@
       }
     }
   },
-  "settingsModelKeyMissing": "No API key saved yet",
+  "settingsModelKeyMissing": "No key yet",
   "@settingsModelKeyMissing": {
     "description": "Settings › Model: when nothing is in the keychain for the provider."
   },
-  "settingsModelKeyPlaceholder": "Paste your API key",
+  "settingsModelKeyPlaceholder": "sk-…",
   "@settingsModelKeyPlaceholder": {
     "description": "Settings › Model: password field placeholder."
   },
@@ -5570,11 +5592,11 @@
       }
     }
   },
-  "settingsModelKeySave": "Save key",
+  "settingsModelKeySave": "Save",
   "@settingsModelKeySave": {
     "description": "Settings › Model: save button."
   },
-  "settingsModelKeySaved": "API key saved",
+  "settingsModelKeySaved": "Key saved",
   "@settingsModelKeySaved": {
     "description": "Settings › Model: status when a key is in the keychain."
   },

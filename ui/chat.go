@@ -29,75 +29,131 @@ type chatMsg struct {
 	At   time.Time
 }
 
-// chatState is the far-right chat column (fork experiment). Phone targets
-// follow the sidebar selection (one phone or All phones).
+// chatState is the far-right Agent-style column. Scope follows the sidebar.
 type chatState struct {
 	draft string
 	msgs  []chatMsg
 	busy  bool
 }
 
-// chatColumn is Cursor-like: header with New chat, a clean thread, composer.
 func (a *app) chatColumn(c *mg.Context) {
 	p := pal(c)
 	if !a.model.ready {
 		a.refreshModelKeys()
 	}
-	mg.Column(c).Width(340).Shrink(0).BorderWidth(0, 0, 0, 1).BorderColor(p.line).Background(p.bg).
+	mg.Column(c).Width(380).Shrink(0).BorderWidth(0, 0, 0, 1).BorderColor(p.line).Background(p.bg).
 		MinHeight(0).Label(locales.ChatSection()).Children(func() {
-		// Header
-		mg.Row(c).Height(52).Shrink(0).Padding(0, 14).AlignItems(mg.Center).Gap(10).
-			BorderWidth(0, 0, 1, 0).BorderColor(p.line).Children(func() {
-			mg.Text(c, locales.ChatSection()).FontSize(14).FontWeight(650).Grow(1)
-			newChat := button(c, locales.ChatNew(), btnOpt{small: true}).Disabled(a.chat.busy || (len(a.chat.msgs) == 0 && a.chat.draft == ""))
-			if newChat.Clicked() && !a.chat.busy {
-				a.chatNew()
-			}
-		})
+		a.chatHeader(c)
+		a.chatThread(c)
+		a.chatComposer(c)
+	})
+}
 
-		// Thread
-		mg.Scroll(c).Grow(1).MinHeight(0).Padding(16, 16).Gap(14).Children(func() {
-			if len(a.chat.msgs) == 0 && !a.chat.busy {
-				mg.Column(c).Grow(1).MinHeight(200).Center().Gap(10).Padding(8, 12).Children(func() {
-					mg.Icon(c, icChat).FontSize(28).TextColor(p.ink3)
-					mg.Text(c, locales.ChatEmpty()).FontSize(14).TextColor(p.ink2).TextAlign(mg.Center)
-					prov := inapp.Provider(a.settings.ModelProvider)
-					if !a.model.has[prov] {
-						if linkButton(c, locales.ChatNeedKeyLink()).Clicked() {
-							a.page, a.set.sec = pageSettings, secModel
-						}
-					}
-				})
-				return
-			}
-			for i, m := range a.chat.msgs {
-				a.chatBubble(c.Key(fmt.Sprintf("chat-%s-%d", m.Role, i)), m)
-			}
-			if a.chat.busy {
-				mg.Row(c).Gap(8).AlignItems(mg.Center).Padding(4, 0).Children(func() {
-					spinner(c)
-					mg.Text(c, locales.ChatThinking()).FontSize(13).TextColor(p.ink3)
-				})
-			}
+func (a *app) chatHeader(c *mg.Context) {
+	p := pal(c)
+	mg.Row(c).Height(48).Shrink(0).Padding(0, 12, 0, 16).AlignItems(mg.Center).Gap(8).
+		BorderWidth(0, 0, 1, 0).BorderColor(p.line).Children(func() {
+		mg.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
+			mg.Text(c, locales.ChatSection()).FontSize(13).FontWeight(650).SingleLine()
+			mg.Text(c, a.chatScopeLabel()).FontSize(11.5).TextColor(p.ink3).SingleLine()
 		})
+		empty := len(a.chat.msgs) == 0 && strings.TrimSpace(a.chat.draft) == ""
+		off := a.chat.busy || empty
+		b := mg.ButtonBase(c).Size(30, 30).Radius(8).Center().
+			Label(locales.ChatNew()).Tooltip(locales.ChatNew()).Disabled(off)
+		col := p.ink2
+		if off {
+			col = p.ink3
+		} else if b.Hovered() {
+			b.Background(p.bg3)
+			col = p.ink
+		}
+		if b.Clicked() && !off {
+			a.chatNew()
+		}
+		b.Children(func() {
+			mg.Icon(c, icPlus).FontSize(16).TextColor(col)
+		})
+	})
+}
 
-		// Composer — flat bar, not a nested “attachment” card
-		mg.Column(c).Shrink(0).Padding(12, 14, 14, 14).Gap(8).
-			BorderWidth(1, 0, 0, 0).BorderColor(p.line).Background(p.bg2).Children(func() {
-			st := &a.chat
-			mg.Column(c).Radius(12).Background(p.panel).Border(1, p.line2).Padding(10, 12, 10, 12).Gap(8).Children(func() {
-				in := mg.TextArea(c.Key("chat-draft"), &st.draft).
-					Placeholder(locales.ChatPlaceholder()).Label(locales.ChatPlaceholder()).
-					Lines(2, 6).FillWidth()
-				mg.Row(c).AlignItems(mg.Center).Children(func() {
-					mg.Spacer(c)
-					send := button(c, locales.ChatSend(), btnOpt{kind: btnPrimary, small: true, icon: icSend}).
-						Disabled(st.busy || strings.TrimSpace(st.draft) == "")
-					if (send.Clicked() || in.Submitted()) && !st.busy && strings.TrimSpace(st.draft) != "" {
-						a.chatSend()
-					}
+func (a *app) chatScopeLabel() string {
+	if a.sel == allPhones {
+		return locales.ChatScopeAll()
+	}
+	if d := a.device(a.sel); d != nil {
+		return locales.ChatScopeOne(d.Info.Name)
+	}
+	return locales.ChatScopeNone()
+}
+
+func (a *app) chatThread(c *mg.Context) {
+	p := pal(c)
+	mg.Scroll(c).Grow(1).MinHeight(0).Padding(18, 16).Gap(16).Children(func() {
+		if len(a.chat.msgs) == 0 && !a.chat.busy {
+			a.chatEmpty(c)
+			return
+		}
+		for i, m := range a.chat.msgs {
+			a.chatBubble(c.Key(fmt.Sprintf("chat-%s-%d", m.Role, i)), m)
+		}
+		if a.chat.busy {
+			mg.Row(c).Gap(8).AlignItems(mg.Center).Padding(2, 4).Children(func() {
+				mg.Box(c).Size(22, 22).Radius(11).Background(p.accentTint).Center().Children(func() {
+					mg.Icon(c, icChat).FontSize(12).TextColor(p.accentInk)
 				})
+				mg.Text(c, locales.ChatThinking()).FontSize(13).TextColor(p.ink3)
 			})
+		}
+	})
+}
+
+func (a *app) chatEmpty(c *mg.Context) {
+	p := pal(c)
+	mg.Column(c).Grow(1).MinHeight(240).Center().Gap(14).Padding(12, 8).Children(func() {
+		mg.Box(c).Size(44, 44).Radius(14).Background(p.bg2).Border(1, p.line).Center().Children(func() {
+			mg.Icon(c, icChat).FontSize(20).TextColor(p.ink2)
+		})
+		mg.Column(c).Gap(6).AlignItems(mg.Center).MaxWidth(280).Children(func() {
+			mg.Text(c, locales.ChatEmptyTitle()).FontSize(15).FontWeight(650).TextAlign(mg.Center)
+			mg.Text(c, locales.ChatEmpty()).FontSize(13).TextColor(p.ink2).TextAlign(mg.Center)
+		})
+		prov := inapp.Provider(a.settings.ModelProvider)
+		if !a.model.has[prov] {
+			if linkButton(c, locales.ChatNeedKeyLink()).Clicked() {
+				a.page, a.set.sec = pageSettings, secModel
+			}
+		}
+	})
+}
+
+func (a *app) chatComposer(c *mg.Context) {
+	p := pal(c)
+	st := &a.chat
+	canSend := !st.busy && strings.TrimSpace(st.draft) != ""
+
+	mg.Column(c).Shrink(0).Padding(10, 12, 14, 12).Background(p.bg).Children(func() {
+		// One input shell — Cursor-like, not a nested attachment card.
+		mg.Row(c).Gap(8).Padding(8, 10).Radius(14).AlignItems(mg.End).
+			Background(p.bg2).Border(1, p.line2).Children(func() {
+			in := mg.TextArea(c.Key("chat-draft"), &st.draft).
+				Placeholder(locales.ChatPlaceholder()).Label(locales.ChatPlaceholder()).
+				Lines(1, 5).Grow(1).MinWidth(0)
+			send := mg.ButtonBase(c).Size(32, 32).Radius(10).Center().
+				Label(locales.ChatSend()).Disabled(!canSend)
+			bg, fg := p.bg3, p.ink3
+			if canSend {
+				bg, fg = p.accentBtn, p.white
+			}
+			if send.Hovered() && canSend {
+				bg = bg.Mix(mg.RGB(0, 0, 0), 0.1)
+			}
+			send.Background(bg).Children(func() {
+				mg.Icon(c, icSend).FontSize(15).TextColor(fg)
+			})
+			if (send.Clicked() || in.Submitted()) && canSend {
+				a.chatSend()
+			}
 		})
 	})
 }
@@ -110,29 +166,28 @@ func (a *app) chatNew() {
 
 func (a *app) chatBubble(c *mg.Context, m chatMsg) {
 	p := pal(c)
-	mine := m.Role == chatUser
-	err := m.Role == chatError
-
-	name := locales.ChatPinky()
-	nameCol := p.ink3
-	body := p.ink
-	switch {
-	case mine:
-		name = locales.ChatYou()
-	case err:
-		body = p.red
-	}
-
-	mg.Column(c).Gap(6).FillWidth().Children(func() {
-		mg.Text(c, name).FontSize(12).FontWeight(650).TextColor(nameCol)
-		if mine {
-			mg.Column(c).AlignSelf(mg.Stretch).Padding(10, 12).Radius(10).Background(p.bg3).Children(func() {
-				mg.Text(c, m.Text).FontSize(14).TextColor(body)
+	switch m.Role {
+	case chatUser:
+		mg.Row(c).Justify(mg.End).Children(func() {
+			mg.Column(c).MaxWidth(300).Padding(10, 12).Radius(14).Background(p.sel).Children(func() {
+				mg.Text(c, m.Text).FontSize(13.5).TextColor(p.ink)
 			})
-		} else {
-			mg.Text(c, m.Text).FontSize(14).TextColor(body)
-		}
-	})
+		})
+	case chatError:
+		mg.Row(c).Gap(10).AlignItems(mg.Start).Children(func() {
+			mg.Box(c).Size(22, 22).Radius(11).Background(p.redTint).Border(1, p.redLine).Center().Shrink(0).Children(func() {
+				mg.Icon(c, icAlert).FontSize(12).TextColor(p.red)
+			})
+			mg.Text(c, m.Text).FontSize(13.5).TextColor(p.red).Grow(1).MinWidth(0)
+		})
+	default:
+		mg.Row(c).Gap(10).AlignItems(mg.Start).Children(func() {
+			mg.Box(c).Size(22, 22).Radius(11).Background(p.accentTint).Center().Shrink(0).Children(func() {
+				mg.Icon(c, icChat).FontSize(12).TextColor(p.accentInk)
+			})
+			mg.Text(c, m.Text).FontSize(13.5).TextColor(p.ink).Grow(1).MinWidth(0)
+		})
+	}
 }
 
 func (a *app) chatSend() {
@@ -166,9 +221,9 @@ func (a *app) chatSend() {
 		}
 	}
 	phones := a.chatScopeNames()
-	system := "You are Pinky's in-app chat (a fork experiment). Be concise. The sidebar selection is in scope: " +
+	system := "You are Pinky's in-app assistant. Be concise and practical. The person selected: " +
 		strings.Join(phones, ", ") +
-		". You cannot operate phones yet; say what you would do when asked to act on them."
+		". You cannot control phones yet; if asked to act, briefly say what you would do."
 
 	store := a.secrets()
 	account := inapp.KeyAccount(prov)
@@ -196,7 +251,6 @@ func (a *app) chatSend() {
 	}()
 }
 
-// chatScopeNames follows the left sidebar: All phones, or the one selected.
 func (a *app) chatScopeNames() []string {
 	if a.sel == allPhones {
 		var names []string
