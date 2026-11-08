@@ -2229,16 +2229,16 @@ func (msgs Messages) ChatAllPhones() string {
 	return Catalog.Format(msgs.locale, "chatAllPhones", nil)
 }
 
-// ChatEmpty says "Tell Pinky what to do. With a key in Settings › Model, it answers here. Running the same ask on several phones come…"
+// ChatEmpty says "Ask anything about the selected phone. New chat clears this thread."
 // in the language the app shows.
 //
-// In-app chat: empty state above the composer.
+// In-app chat: empty state in the thread.
 func ChatEmpty() string { return In(i18n.Locale()).ChatEmpty() }
 
-// ChatEmpty says "Tell Pinky what to do. With a key in Settings › Model, it answers here. Running the same ask on several phones come…"
+// ChatEmpty says "Ask anything about the selected phone. New chat clears this thread."
 // in the language of msgs.
 //
-// In-app chat: empty state above the composer.
+// In-app chat: empty state in the thread.
 func (msgs Messages) ChatEmpty() string {
 	return Catalog.Format(msgs.locale, "chatEmpty", nil)
 }
@@ -2283,6 +2283,20 @@ func ChatNeedKeyLink() string { return In(i18n.Locale()).ChatNeedKeyLink() }
 // In-app chat: link to Settings › Model.
 func (msgs Messages) ChatNeedKeyLink() string {
 	return Catalog.Format(msgs.locale, "chatNeedKeyLink", nil)
+}
+
+// ChatNew says "New chat"
+// in the language the app shows.
+//
+// In-app chat: start a fresh thread.
+func ChatNew() string { return In(i18n.Locale()).ChatNew() }
+
+// ChatNew says "New chat"
+// in the language of msgs.
+//
+// In-app chat: start a fresh thread.
+func (msgs Messages) ChatNew() string {
+	return Catalog.Format(msgs.locale, "chatNew", nil)
 }
 
 // ChatNoPhones says "Connect a phone to run tasks from chat."

@@ -26,7 +26,7 @@ Safety stays in the gateway: the in-app loop must use the **agent-facing** path 
 
 1. **Done:** Notes + package skeleton (`internal/inapp`): provider id, keychain accounts, fan-out types, `Complete` HTTP client.
 2. **Done:** Settings › Model — choose Anthropic/OpenAI, save/change/remove the API key in the OS keychain.
-3. **Done:** Phone page right column — Chat (bubbles, phone chips, composer) above Needs you / Tasks. Chat calls the model; it does not drive phones yet.
+3. **Done:** Phone page layout is mirror → Tasks/Needs → Chat. Chat follows the sidebar’s phone selection (no separate chips), with a Cursor-like New chat header and flat composer. Chat calls the model; it does not drive phones yet.
 4. **Next:** Agent loop: tools mapped to gateway agent methods → one task per selected phone with the same prompt.
 5. **Later:** shared step templates, “stop all fan-out”, per-device outcome summary for QA.
 

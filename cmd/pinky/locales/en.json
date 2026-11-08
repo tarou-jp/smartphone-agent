@@ -706,9 +706,9 @@
   "@chatAllPhones": {
     "description": "In-app chat: chip that targets every connected phone."
   },
-  "chatEmpty": "Tell Pinky what to do. With a key in Settings › Model, it answers here. Running the same ask on several phones comes next.",
+  "chatEmpty": "Ask anything about the selected phone. New chat clears this thread.",
   "@chatEmpty": {
-    "description": "In-app chat: empty state above the composer."
+    "description": "In-app chat: empty state in the thread."
   },
   "chatErrNoKey": "Save an API key in Settings › Model first.",
   "@chatErrNoKey": {
@@ -727,6 +727,10 @@
   "chatNeedKeyLink": "Open Model settings",
   "@chatNeedKeyLink": {
     "description": "In-app chat: link to Settings › Model."
+  },
+  "chatNew": "New chat",
+  "@chatNew": {
+    "description": "In-app chat: start a fresh thread."
   },
   "chatNoPhones": "Connect a phone to run tasks from chat.",
   "@chatNoPhones": {
