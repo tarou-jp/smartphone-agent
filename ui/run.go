@@ -109,6 +109,9 @@ type Settings struct {
 	// AutoUpdate installs new versions of Pinky, and of the companion app
 	// on Android phones, by themselves while no one uses them.
 	AutoUpdate bool
+	// ModelProvider is which LLM Settings › Model and the in-app chat use
+	// (anthropic or openai). The API key itself stays in the keychain.
+	ModelProvider string
 }
 
 // DefaultRemoteAddr is where Pinky serves MCP over HTTP: this computer
@@ -139,7 +142,8 @@ func DefaultSettings() Settings {
 		},
 		UnlockFromComputer: true, HideCodes: true, KeepDays: 30, Record: true, RemoteAddr: DefaultRemoteAddr,
 		UsageStats: usageStatsByDefault,
-		AutoUpdate: true,
+		AutoUpdate:    true,
+		ModelProvider: "anthropic",
 	}
 }
 
@@ -248,6 +252,8 @@ type app struct {
 	remote remoteState    // Settings › Agents › Remote agents
 	setup  setupState     // Settings › Agents › Connect an agent, and the sidebar's card
 	upd    updateState    // new versions of Pinky and the companion app
+	model  modelState     // Settings › Model API keys (fork experiment)
+	chat   chatState      // phone page right-column chat (fork experiment)
 
 	awake    func(on bool) // keeps the Mac awake while agent tasks run; tests replace it
 	awakeOn  bool

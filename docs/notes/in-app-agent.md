@@ -24,10 +24,10 @@ Safety stays in the gateway: the in-app loop must use the **agent-facing** path 
 
 ## MVP (this branch)
 
-1. **Notes + package skeleton** (`internal/inapp`): provider id, keychain account names, fan-out request types, tests.
-2. **Next:** Settings UI to choose provider and save/reveal/delete the API key via `internal/secret`.
-3. **Next:** “Run on phones” panel: prompt, multi-select idle phones, Run.
-4. **Next:** Agent loop: reveal key → call provider Messages/Chat API with tools mapped to gateway agent methods → one goroutine (or task) per device with the same prompt and distinct task titles (`… · Pixel 9`, `… · iPhone`).
+1. **Done:** Notes + package skeleton (`internal/inapp`): provider id, keychain accounts, fan-out types, `Complete` HTTP client.
+2. **Done:** Settings › Model — choose Anthropic/OpenAI, save/change/remove the API key in the OS keychain.
+3. **Done:** Phone page right column — Chat (bubbles, phone chips, composer) above Needs you / Tasks. Chat calls the model; it does not drive phones yet.
+4. **Next:** Agent loop: tools mapped to gateway agent methods → one task per selected phone with the same prompt.
 5. **Later:** shared step templates, “stop all fan-out”, per-device outcome summary for QA.
 
 ## Keychain accounts

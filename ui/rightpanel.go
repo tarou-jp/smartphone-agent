@@ -11,30 +11,34 @@ import (
 	"github.com/DIYgod/pinky/internal/gateway"
 )
 
-// rightPanel is the column of Needs you and Tasks.
+// rightPanel is the column of Chat, Needs you and Tasks.
 func (a *app) rightPanel(c *mg.Context) {
 	p := pal(c)
-	mg.Scroll(c).Width(320).Shrink(0).BorderWidth(0, 0, 0, 1).BorderColor(p.line).Background(p.panel).
-		Padding(20, 16).Gap(24).Label(locales.NeedsAndTasksLabel()).Children(func() {
-		if len(a.needs) > 0 {
-			mg.Column(c).Label(locales.NeedsSection()).Children(func() {
-				sectionLabel(c, locales.NeedsSection())
-				mg.Column(c).Gap(10).Children(func() {
-					for _, n := range a.needs {
-						a.needCard(c.Key("need-"+n.ID), n, false)
-					}
+	mg.Column(c).Width(360).Shrink(0).BorderWidth(0, 0, 0, 1).BorderColor(p.line).Background(p.panel).
+		Padding(16, 14).Gap(16).MinHeight(0).Label(locales.NeedsAndTasksLabel()).Children(func() {
+		a.chatPanel(c)
+		mg.Box(c).Height(1).FillWidth().Background(p.line)
+		mg.Scroll(c).Grow(1).MinHeight(0).Gap(20).Children(func() {
+			if len(a.needs) > 0 {
+				mg.Column(c).Label(locales.NeedsSection()).Children(func() {
+					sectionLabel(c, locales.NeedsSection())
+					mg.Column(c).Gap(10).Children(func() {
+						for _, n := range a.needs {
+							a.needCard(c.Key("need-"+n.ID), n, false)
+						}
+					})
 				})
+			}
+			if d := a.device(a.sel); d != nil && a.isLocked(*d) && len(a.needsOf(d.Info.ID)) == 0 {
+				a.lockCard(c, *d)
+			}
+			if d := a.device(a.sel); d != nil && d.Features.Companion {
+				a.companionCard(c, *d)
+			}
+			mg.Column(c).Label(locales.TasksSection()).Children(func() {
+				sectionLabel(c, locales.TasksSection())
+				mg.Column(c).Gap(8).Children(func() { a.taskList(c) })
 			})
-		}
-		if d := a.device(a.sel); d != nil && a.isLocked(*d) && len(a.needsOf(d.Info.ID)) == 0 {
-			a.lockCard(c, *d)
-		}
-		if d := a.device(a.sel); d != nil && d.Features.Companion {
-			a.companionCard(c, *d)
-		}
-		mg.Column(c).Label(locales.TasksSection()).Children(func() {
-			sectionLabel(c, locales.TasksSection())
-			mg.Column(c).Gap(8).Children(func() { a.taskList(c) })
 		})
 	})
 }

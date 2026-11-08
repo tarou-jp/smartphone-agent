@@ -702,6 +702,64 @@
   "@callTakeOver": {
     "description": "Inside toastCouldNot: taking over a phone failed."
   },
+  "chatAllPhones": "All connected",
+  "@chatAllPhones": {
+    "description": "In-app chat: chip that targets every connected phone."
+  },
+  "chatEmpty": "Tell Pinky what to do. With a key in Settings › Model, it answers here. Running the same ask on several phones comes next.",
+  "@chatEmpty": {
+    "description": "In-app chat: empty state above the composer."
+  },
+  "chatErrNoKey": "Save an API key in Settings › Model first.",
+  "@chatErrNoKey": {
+    "description": "In-app chat: send failed because no key is saved."
+  },
+  "chatErrReply": "{detail}",
+  "@chatErrReply": {
+    "description": "In-app chat: model or network error. detail is English from the client.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "example": "401 unauthorized"
+      }
+    }
+  },
+  "chatNeedKeyLink": "Open Model settings",
+  "@chatNeedKeyLink": {
+    "description": "In-app chat: link to Settings › Model."
+  },
+  "chatNoPhones": "Connect a phone to run tasks from chat.",
+  "@chatNoPhones": {
+    "description": "In-app chat: no phones connected yet."
+  },
+  "chatOnPhones": "Phones",
+  "@chatOnPhones": {
+    "description": "In-app chat: label above the phone target chips."
+  },
+  "chatPinky": "Pinky",
+  "@chatPinky": {
+    "description": "In-app chat: assistant bubble label."
+  },
+  "chatPlaceholder": "Message Pinky…",
+  "@chatPlaceholder": {
+    "description": "In-app chat: composer placeholder."
+  },
+  "chatSection": "Chat",
+  "@chatSection": {
+    "description": "In-app chat: section title on the phone page's right column."
+  },
+  "chatSend": "Send",
+  "@chatSend": {
+    "description": "In-app chat: send button."
+  },
+  "chatThinking": "Thinking…",
+  "@chatThinking": {
+    "description": "In-app chat: while waiting for the model."
+  },
+  "chatYou": "You",
+  "@chatYou": {
+    "description": "In-app chat: user bubble label."
+  },
   "checkADBFail": "Pinky can't reach adb, the Android tools it talks to phones through.",
   "@checkADBFail": {
     "description": "The checkup, adb: failed."
@@ -5450,6 +5508,86 @@
   "@settingsLanguageSystem": {
     "description": "Settings › Advanced › Language: the first choice, which follows the computer's preferred languages. The other choices name each language in itself (English, Simplified Chinese)."
   },
+  "settingsModelExperiment": "Fork experiment. Upstream Pinky does not ship a model; keys stay in your keychain.",
+  "@settingsModelExperiment": {
+    "description": "Settings › Model: note under the intro."
+  },
+  "settingsModelIntro": "Call an LLM from Pinky's chat. The key never goes to agents or into settings.json.",
+  "@settingsModelIntro": {
+    "description": "Settings › Model: description under the title."
+  },
+  "settingsModelKey": "API key",
+  "@settingsModelKey": {
+    "description": "Settings › Model: API key field label."
+  },
+  "settingsModelKeyChange": "Change",
+  "@settingsModelKeyChange": {
+    "description": "Settings › Model: change a saved key."
+  },
+  "settingsModelKeyErrRemove": "Could not remove the key: {detail}",
+  "@settingsModelKeyErrRemove": {
+    "description": "Settings › Model: keychain delete failed. detail is English.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "example": "permission denied"
+      }
+    }
+  },
+  "settingsModelKeyErrSave": "Could not save the key: {detail}",
+  "@settingsModelKeyErrSave": {
+    "description": "Settings › Model: keychain save failed. detail is English.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "example": "permission denied"
+      }
+    }
+  },
+  "settingsModelKeyMissing": "No API key saved yet",
+  "@settingsModelKeyMissing": {
+    "description": "Settings › Model: when nothing is in the keychain for the provider."
+  },
+  "settingsModelKeyPlaceholder": "Paste your API key",
+  "@settingsModelKeyPlaceholder": {
+    "description": "Settings › Model: password field placeholder."
+  },
+  "settingsModelKeyRemove": "Remove",
+  "@settingsModelKeyRemove": {
+    "description": "Settings › Model: remove the saved key."
+  },
+  "settingsModelKeyRemovedToast": "Removed the {provider} API key",
+  "@settingsModelKeyRemovedToast": {
+    "description": "Settings › Model: toast after delete. provider is Anthropic or OpenAI.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Anthropic"
+      }
+    }
+  },
+  "settingsModelKeySave": "Save key",
+  "@settingsModelKeySave": {
+    "description": "Settings › Model: save button."
+  },
+  "settingsModelKeySaved": "API key saved",
+  "@settingsModelKeySaved": {
+    "description": "Settings › Model: status when a key is in the keychain."
+  },
+  "settingsModelKeySavedToast": "Saved the {provider} API key",
+  "@settingsModelKeySavedToast": {
+    "description": "Settings › Model: toast after save. provider is Anthropic or OpenAI.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Anthropic"
+      }
+    }
+  },
+  "settingsModelProvider": "Provider",
+  "@settingsModelProvider": {
+    "description": "Settings › Model: which API to use."
+  },
   "settingsNeedsYou": "Needs you",
   "@settingsNeedsYou": {
     "description": "Settings › Agents: the eyebrow of a card that asks the person to allow an agent's first connection, and the accessibility label of the amber dot on the Agents tab while one waits."
@@ -6034,6 +6172,10 @@
   "@settingsSectionAgents": {
     "description": "Settings: the section of the agents that connect to Pinky. Its tab on the left and its page title."
   },
+  "settingsSectionModel": "Model",
+  "@settingsSectionModel": {
+    "description": "Settings sidebar tab for the in-app LLM (fork experiment)."
+  },
   "settingsSectionPhones": "Phones",
   "@settingsSectionPhones": {
     "description": "Settings: the section of the phones this computer can reach. Its tab on the left, its page title and the accessibility label of its list of phones."
@@ -6486,7 +6628,7 @@
   "@telWhatsSharedDesc": {
     "description": "Under telWhatsShared."
   },
-  "timeHours": "{hours}\u00a0h\u00a0{minutes}\u00a0min",
+  "timeHours": "{hours} h {minutes} min",
   "@timeHours": {
     "description": "A duration of an hour or more. minutes has two digits. Joined with no-break spaces.",
     "placeholders": {
@@ -6500,7 +6642,7 @@
       }
     }
   },
-  "timeMinutes": "{minutes}\u00a0min\u00a0{seconds}\u00a0s",
+  "timeMinutes": "{minutes} min {seconds} s",
   "@timeMinutes": {
     "description": "A duration under an hour. seconds has two digits. Joined with no-break spaces.",
     "placeholders": {
@@ -6514,7 +6656,7 @@
       }
     }
   },
-  "timeSeconds": "{seconds}\u00a0s",
+  "timeSeconds": "{seconds} s",
   "@timeSeconds": {
     "description": "A duration under a minute, as task cards and Activity show it. Joined with a no-break space so it never wraps.",
     "placeholders": {

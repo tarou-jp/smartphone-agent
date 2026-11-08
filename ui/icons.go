@@ -49,6 +49,8 @@ var (
 	icEyeOff   = icon(`<path d="M10.7 5.1A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.7 2.7"/><path d="M14.1 14.2a3 3 0 1 1-4.2-4.2"/><path d="M17.5 17.5A10.4 10.4 0 0 1 12 19c-7 0-10-7-10-7a13.2 13.2 0 0 1 4.6-5.3"/><path d="m2 2 20 20"/>`)
 	icCamera   = icon(`<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>`)
 	icPlug     = icon(`<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"/>`)
+	icChat     = icon(`<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>`)
+	icSend     = icon(`<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>`)
 
 	logo = mg.MustParseSVG(assets.Logo)
 )
