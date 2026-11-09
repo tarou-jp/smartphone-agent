@@ -18,15 +18,16 @@ type Provider string
 const (
 	Anthropic Provider = "anthropic"
 	OpenAI    Provider = "openai"
+	Ollama    Provider = "ollama"
 )
 
-// Providers is the order Settings should list them.
+// Providers is the order Settings should list them (API keys in Settings).
 var Providers = []Provider{Anthropic, OpenAI}
 
 // Valid reports whether p is a known provider.
 func Valid(p Provider) bool {
 	switch p {
-	case Anthropic, OpenAI:
+	case Anthropic, OpenAI, Ollama:
 		return true
 	default:
 		return false
@@ -40,14 +41,11 @@ func (p Provider) Label() string {
 		return "Anthropic"
 	case OpenAI:
 		return "OpenAI"
+	case Ollama:
+		return "Ollama"
 	default:
 		return string(p)
 	}
-}
-
-// KeyAccount is the keychain account for p's API key.
-func KeyAccount(p Provider) string {
-	return "llm:" + string(p)
 }
 
 // FanOut is one instruction to run on several phones the same way.

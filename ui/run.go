@@ -26,6 +26,8 @@ import (
 
 // Options configure the client.
 type Options struct {
+	// AgentGateway is the core gateway for the in-app phone agent (nil in tests without a phone stack).
+	AgentGateway *gateway.Gateway
 	// Version shows in Settings › Advanced and the About panel.
 	Version string
 	// Theme forces "light" or "dark"; empty follows the system.
@@ -109,9 +111,28 @@ type Settings struct {
 	// AutoUpdate installs new versions of Pinky, and of the companion app
 	// on Android phones, by themselves while no one uses them.
 	AutoUpdate bool
-	// ModelProvider is which LLM Settings › Model and the in-app chat use
-	// (anthropic or openai). The API key itself stays in the keychain.
-	ModelProvider string
+	// ModelProvider is read from older settings.json; migrated into ModelKeys.
+	ModelProvider string `json:"modelProvider,omitempty"`
+	// ChatModel is the inapp.ChatModels id used for API calls.
+	ChatModel string
+	// ChatAgentModel is the cloud model for phone control when ChatModel is Ollama without tools.
+	ChatAgentModel string `json:"chatAgentModel,omitempty"`
+	// ModelKeyActive is the id of the API key profile the chat uses.
+	ModelKeyActive string
+	// ModelKeys lists saved API key profiles (labels and providers). Secrets
+	// live in the keychain at inapp.KeyAccount(provider, id).
+	ModelKeys []ModelKeyProfile
+	// OllamaBaseURL is the Ollama HTTP root (default inapp.DefaultOllamaBaseURL).
+	OllamaBaseURL string `json:"ollamaBaseURL,omitempty"`
+	// OllamaModels are model names from `ollama list` offered in chat.
+	OllamaModels []string `json:"ollamaModels,omitempty"`
+}
+
+// ModelKeyProfile is one saved API key (per provider).
+type ModelKeyProfile struct {
+	ID       string `json:"id"`
+	Provider string `json:"provider"` // anthropic or openai
+	Label    string `json:"label"`
 }
 
 // DefaultRemoteAddr is where Pinky serves MCP over HTTP: this computer
@@ -142,8 +163,7 @@ func DefaultSettings() Settings {
 		},
 		UnlockFromComputer: true, HideCodes: true, KeepDays: 30, Record: true, RemoteAddr: DefaultRemoteAddr,
 		UsageStats: usageStatsByDefault,
-		AutoUpdate:    true,
-		ModelProvider: "anthropic",
+		AutoUpdate: true,
 	}
 }
 
@@ -252,8 +272,8 @@ type app struct {
 	remote remoteState    // Settings › Agents › Remote agents
 	setup  setupState     // Settings › Agents › Connect an agent, and the sidebar's card
 	upd    updateState    // new versions of Pinky and the companion app
-	model  modelState     // Settings › Model API keys (fork experiment)
-	chat   chatState      // phone page right-column chat (fork experiment)
+	model modelState // Settings › Model API keys
+	chat  chatState  // phone page Agent column
 
 	awake    func(on bool) // keeps the Mac awake while agent tasks run; tests replace it
 	awakeOn  bool

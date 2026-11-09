@@ -3,10 +3,10 @@ package inapp
 import "testing"
 
 func TestKeyAccount(t *testing.T) {
-	if got := KeyAccount(Anthropic); got != "llm:anthropic" {
+	if got := KeyAccount(Anthropic, "default"); got != "llm:anthropic" {
 		t.Fatalf("Anthropic account %q", got)
 	}
-	if got := KeyAccount(OpenAI); got != "llm:openai" {
+	if got := KeyAccount(OpenAI, "work"); got != "llm:openai:work" {
 		t.Fatalf("OpenAI account %q", got)
 	}
 }

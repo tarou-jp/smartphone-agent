@@ -19,7 +19,7 @@ type Message struct {
 
 // Complete asks the provider for one assistant reply. system may be empty.
 // It does not send phone tools; that comes with the agent loop.
-func Complete(ctx context.Context, p Provider, apiKey, system string, history []Message) (string, error) {
+func Complete(ctx context.Context, p Provider, modelID, apiKey, system string, history []Message) (string, error) {
 	if !Valid(p) {
 		return "", fmt.Errorf("inapp: unknown provider %q", p)
 	}
@@ -27,23 +27,27 @@ func Complete(ctx context.Context, p Provider, apiKey, system string, history []
 	if apiKey == "" {
 		return "", fmt.Errorf("inapp: empty API key")
 	}
+	modelID = strings.TrimSpace(modelID)
+	if modelID == "" {
+		modelID = DefaultChatModel().ID
+	}
 	switch p {
 	case Anthropic:
-		return completeAnthropic(ctx, apiKey, system, history)
+		return completeAnthropic(ctx, modelID, apiKey, system, history)
 	case OpenAI:
-		return completeOpenAI(ctx, apiKey, system, history)
+		return completeOpenAI(ctx, modelID, apiKey, system, history)
 	default:
 		return "", fmt.Errorf("inapp: unknown provider %q", p)
 	}
 }
 
-func completeAnthropic(ctx context.Context, apiKey, system string, history []Message) (string, error) {
+func completeAnthropic(ctx context.Context, model, apiKey, system string, history []Message) (string, error) {
 	type msg struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
 	}
 	body := map[string]any{
-		"model":      "claude-sonnet-4-5",
+		"model":      model,
 		"max_tokens": 1024,
 		"messages":   make([]msg, 0, len(history)),
 	}
@@ -94,7 +98,7 @@ func completeAnthropic(ctx context.Context, apiKey, system string, history []Mes
 	return text, nil
 }
 
-func completeOpenAI(ctx context.Context, apiKey, system string, history []Message) (string, error) {
+func completeOpenAI(ctx context.Context, model, apiKey, system string, history []Message) (string, error) {
 	type msg struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
@@ -111,15 +115,48 @@ func completeOpenAI(ctx context.Context, apiKey, system string, history []Messag
 		msgs = append(msgs, msg{Role: role, Content: m.Text})
 	}
 	body := map[string]any{
-		"model":    "gpt-4.1-mini",
+		"model":    model,
 		"messages": msgs,
 	}
-	raw, err := postJSON(ctx, "https://api.openai.com/v1/chat/completions", apiKey, map[string]string{
-		"Authorization": "Bearer " + apiKey,
-	}, body)
+	headers := map[string]string{}
+	if apiKey != "" {
+		headers["Authorization"] = "Bearer " + apiKey
+	}
+	raw, err := postJSON(ctx, "https://api.openai.com/v1/chat/completions", apiKey, headers, body)
 	if err != nil {
 		return "", err
 	}
+	return parseOpenAIChat(raw)
+}
+
+func completeOpenAICompat(ctx context.Context, url string, headers map[string]string, model, system string, history []Message) (string, error) {
+	type msg struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}
+	msgs := make([]msg, 0, len(history)+1)
+	if strings.TrimSpace(system) != "" {
+		msgs = append(msgs, msg{Role: "system", Content: system})
+	}
+	for _, m := range history {
+		role := m.Role
+		if role != "user" && role != "assistant" {
+			continue
+		}
+		msgs = append(msgs, msg{Role: role, Content: m.Text})
+	}
+	body := map[string]any{
+		"model":    model,
+		"messages": msgs,
+	}
+	raw, err := postJSON(ctx, url, "", headers, body)
+	if err != nil {
+		return "", err
+	}
+	return parseOpenAIChat(raw)
+}
+
+func parseOpenAIChat(raw []byte) (string, error) {
 	var out struct {
 		Choices []struct {
 			Message struct {
@@ -140,6 +177,15 @@ func completeOpenAI(ctx context.Context, apiKey, system string, history []Messag
 		return "", fmt.Errorf("inapp: empty OpenAI reply")
 	}
 	return strings.TrimSpace(out.Choices[0].Message.Content), nil
+}
+
+// CompleteOpenAICompat is for tests and custom OpenAI-compatible URLs.
+func CompleteOpenAICompat(ctx context.Context, url, model, apiKey, system string, history []Message) (string, error) {
+	h := map[string]string{}
+	if strings.TrimSpace(apiKey) != "" {
+		h["Authorization"] = "Bearer " + strings.TrimSpace(apiKey)
+	}
+	return completeOpenAICompat(ctx, url, h, model, system, history)
 }
 
 func postJSON(ctx context.Context, url, apiKey string, headers map[string]string, body any) ([]byte, error) {
