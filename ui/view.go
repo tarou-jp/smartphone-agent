@@ -66,7 +66,6 @@ func (a *app) sidebar(c *mg.Context) {
 	bar := c.TitleBar()
 	mg.Column(c).Width(220).Shrink(0).Background(p.bg2).BorderWidth(0, 1, 0, 0).BorderColor(p.line).
 		Padding(0, 8, 12, 8).Gap(2).Children(func() {
-		// The header: the window controls, then the brand.
 		left := float32(6)
 		if bar.Left > 0 {
 			left = bar.Left - 8 + 10

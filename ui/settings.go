@@ -24,6 +24,7 @@ const (
 	secSafety settingsSection = iota
 	secPhones
 	secAgents
+	secModel
 	secPrivacy
 	secAdvanced
 )
@@ -92,6 +93,7 @@ func (a *app) settingsPage(c *mg.Context) {
 				agentsWait = agentsWait || newAgentNeed(n)
 			}
 			tab(secAgents, locales.SettingsSectionAgents(), agentsWait)
+			tab(secModel, locales.SettingsSectionModel(), false)
 			tab(secSafety, locales.SettingsSectionSafety(), len(a.files.list) > 0)
 			tab(secPrivacy, locales.SettingsSectionPrivacy(), false)
 			tab(secAdvanced, locales.SettingsSectionAdvanced(), false)
@@ -106,6 +108,8 @@ func (a *app) settingsPage(c *mg.Context) {
 					a.settingsPhones(c)
 				case secAgents:
 					a.settingsAgents(c)
+				case secModel:
+					a.settingsModel(c)
 				case secPrivacy:
 					a.settingsPrivacy(c)
 				case secAdvanced:

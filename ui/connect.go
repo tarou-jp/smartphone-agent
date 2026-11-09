@@ -489,6 +489,9 @@ func (a *app) agentCard(c *mg.Context) {
 	if a.agentsConnected() {
 		return
 	}
+	if a.modelAnyKey() {
+		return
+	}
 	found := a.foundAgents()
 	sideCard(c, "agent-card", locales.ConnectTitle(), func() {
 		cardHead(c, locales.ConnectTitle())

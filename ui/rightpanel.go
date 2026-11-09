@@ -11,11 +11,11 @@ import (
 	"github.com/DIYgod/pinky/internal/gateway"
 )
 
-// rightPanel is the column of Needs you and Tasks.
-func (a *app) rightPanel(c *mg.Context) {
+// tasksPanel is Needs you and Tasks, left of the chat column.
+func (a *app) tasksPanel(c *mg.Context) {
 	p := pal(c)
-	mg.Scroll(c).Width(320).Shrink(0).BorderWidth(0, 0, 0, 1).BorderColor(p.line).Background(p.panel).
-		Padding(20, 16).Gap(24).Label(locales.NeedsAndTasksLabel()).Children(func() {
+	mg.Scroll(c).Width(300).Shrink(0).BorderWidth(0, 1, 0, 1).BorderColor(p.line).Background(p.panel).
+		Padding(20, 14).Gap(22).Label(locales.NeedsAndTasksLabel()).Children(func() {
 		if len(a.needs) > 0 {
 			mg.Column(c).Label(locales.NeedsSection()).Children(func() {
 				sectionLabel(c, locales.NeedsSection())
@@ -38,6 +38,9 @@ func (a *app) rightPanel(c *mg.Context) {
 		})
 	})
 }
+
+// rightPanel kept as an alias for tests that still call it.
+func (a *app) rightPanel(c *mg.Context) { a.tasksPanel(c) }
 
 func (a *app) taskList(c *mg.Context) {
 	p := pal(c)
@@ -62,16 +65,7 @@ func (a *app) taskList(c *mg.Context) {
 		shown++
 	}
 	if shown == 0 {
-		mg.Column(c).Padding(10, 2).Gap(6).Children(func() {
-			if a.opt.AgentSetup != nil && a.setup.loaded && !a.agentsConnected() {
-				mg.Text(c, locales.TasksNoAgent()).FontSize(14).TextColor(p.ink2)
-				if linkButton(c, locales.ConnectTitle()).AlignSelf(mg.Start).Clicked() {
-					a.page, a.set.sec = pageSettings, secAgents
-				}
-				return
-			}
-			mg.Text(c, locales.TasksNone()).FontSize(14).TextColor(p.ink2)
-		})
+		mg.Text(c, locales.TasksNone()).FontSize(14).TextColor(p.ink2).Padding(10, 2)
 	}
 }
 

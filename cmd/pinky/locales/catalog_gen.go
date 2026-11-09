@@ -2215,6 +2215,412 @@ func (msgs Messages) CallTakeOver() string {
 	return Catalog.Format(msgs.locale, "callTakeOver", nil)
 }
 
+// ChatAgentMode says "Agent"
+// in the language the app shows.
+//
+// In-app chat: mode pill in the composer toolbar (Cursor-like).
+func ChatAgentMode() string { return In(i18n.Locale()).ChatAgentMode() }
+
+// ChatAgentMode says "Agent"
+// in the language of msgs.
+//
+// In-app chat: mode pill in the composer toolbar (Cursor-like).
+func (msgs Messages) ChatAgentMode() string {
+	return Catalog.Format(msgs.locale, "chatAgentMode", nil)
+}
+
+// ChatCloseTab says "Close chat"
+// in the language the app shows.
+//
+// In-app chat: close one session tab in the header.
+func ChatCloseTab() string { return In(i18n.Locale()).ChatCloseTab() }
+
+// ChatCloseTab says "Close chat"
+// in the language of msgs.
+//
+// In-app chat: close one session tab in the header.
+func (msgs Messages) ChatCloseTab() string {
+	return Catalog.Format(msgs.locale, "chatCloseTab", nil)
+}
+
+// ChatCollapse says "Close panel"
+// in the language the app shows.
+//
+// In-app chat: close the Agent panel on the right.
+func ChatCollapse() string { return In(i18n.Locale()).ChatCollapse() }
+
+// ChatCollapse says "Close panel"
+// in the language of msgs.
+//
+// In-app chat: close the Agent panel on the right.
+func (msgs Messages) ChatCollapse() string {
+	return Catalog.Format(msgs.locale, "chatCollapse", nil)
+}
+
+// ChatAllPhones says "All connected"
+// in the language the app shows.
+//
+// In-app chat: chip that targets every connected phone.
+func ChatAllPhones() string { return In(i18n.Locale()).ChatAllPhones() }
+
+// ChatAllPhones says "All connected"
+// in the language of msgs.
+//
+// In-app chat: chip that targets every connected phone.
+func (msgs Messages) ChatAllPhones() string {
+	return Catalog.Format(msgs.locale, "chatAllPhones", nil)
+}
+
+// ChatEmpty says "Ask a question or say what you want done on the phone."
+// in the language the app shows.
+//
+// In-app chat: empty state in the thread.
+func ChatEmpty() string { return In(i18n.Locale()).ChatEmpty() }
+
+// ChatEmpty says "Ask a question or say what you want done on the phone."
+// in the language of msgs.
+//
+// In-app chat: empty state in the thread.
+func (msgs Messages) ChatEmpty() string {
+	return Catalog.Format(msgs.locale, "chatEmpty", nil)
+}
+
+// ChatEmptyTitle says "Agent"
+// in the language the app shows.
+//
+// In-app chat: empty-state headline.
+func ChatEmptyTitle() string { return In(i18n.Locale()).ChatEmptyTitle() }
+
+// ChatEmptyTitle says "Agent"
+// in the language of msgs.
+//
+// In-app chat: empty-state headline.
+func (msgs Messages) ChatEmptyTitle() string {
+	return Catalog.Format(msgs.locale, "chatEmptyTitle", nil)
+}
+
+// ChatErrNoKey says "Add an API key in Settings › Model to chat."
+// in the language the app shows.
+//
+// In-app chat: send failed because no key is saved.
+func ChatErrNoKey() string { return In(i18n.Locale()).ChatErrNoKey() }
+
+// ChatErrNoKey says "Add an API key in Settings › Model to chat."
+// in the language of msgs.
+//
+// In-app chat: send failed because no key is saved.
+func (msgs Messages) ChatErrNoKey() string {
+	return Catalog.Format(msgs.locale, "chatErrNoKey", nil)
+}
+
+// ChatErrReply says "{detail}"
+// in the language the app shows.
+//
+// In-app chat: model or network error. detail is English from the client.
+func ChatErrReply(detail string) string { return In(i18n.Locale()).ChatErrReply(detail) }
+
+// ChatErrReply says "{detail}"
+// in the language of msgs.
+//
+// In-app chat: model or network error. detail is English from the client.
+func (msgs Messages) ChatErrReply(detail string) string {
+	return Catalog.Format(msgs.locale, "chatErrReply", map[string]any{"detail": detail})
+}
+
+// ChatExpand says "Show Agent"
+// in the language the app shows.
+//
+// In-app chat: expand the collapsed column.
+func ChatExpand() string { return In(i18n.Locale()).ChatExpand() }
+
+// ChatExpand says "Show Agent"
+// in the language of msgs.
+//
+// In-app chat: expand the collapsed column.
+func (msgs Messages) ChatExpand() string {
+	return Catalog.Format(msgs.locale, "chatExpand", nil)
+}
+
+// ChatHistory says "Past chats"
+// in the language the app shows.
+//
+// In-app chat: history panel title and clock-button tooltip.
+func ChatHistory() string { return In(i18n.Locale()).ChatHistory() }
+
+// ChatHistory says "Past chats"
+// in the language of msgs.
+//
+// In-app chat: history panel title and clock-button tooltip.
+func (msgs Messages) ChatHistory() string {
+	return Catalog.Format(msgs.locale, "chatHistory", nil)
+}
+
+// ChatHistoryEmpty says "No past chats yet."
+// in the language the app shows.
+//
+// In-app chat: empty history list.
+func ChatHistoryEmpty() string { return In(i18n.Locale()).ChatHistoryEmpty() }
+
+// ChatHistoryEmpty says "No past chats yet."
+// in the language of msgs.
+//
+// In-app chat: empty history list.
+func (msgs Messages) ChatHistoryEmpty() string {
+	return Catalog.Format(msgs.locale, "chatHistoryEmpty", nil)
+}
+
+// ChatModelNone says "No API key"
+// in the language the app shows.
+//
+// In-app chat: composer model menu when nothing is saved.
+func ChatModelNone() string { return In(i18n.Locale()).ChatModelNone() }
+
+// ChatModelNone says "No API key"
+// in the language of msgs.
+//
+// In-app chat: composer model menu when nothing is saved.
+func (msgs Messages) ChatModelNone() string {
+	return Catalog.Format(msgs.locale, "chatModelNone", nil)
+}
+
+// ChatAgentFallback says "The local model cannot control phones; continuing with {model}."
+// in the language the app shows.
+//
+// In-app chat: phone agent retried on the cloud fallback model.
+func ChatAgentFallback(model string) string { return In(i18n.Locale()).ChatAgentFallback(model) }
+
+// ChatAgentFallback says "The local model cannot control phones; continuing with {model}."
+// in the language of msgs.
+//
+// In-app chat: phone agent retried on the cloud fallback model.
+func (msgs Messages) ChatAgentFallback(model string) string {
+	return Catalog.Format(msgs.locale, "chatAgentFallback", map[string]any{"model": model})
+}
+
+// ChatAgentNoFallback says "This local model cannot control phones. In Settings › Model, add a cloud API key and choose a phone-control model, …"
+// in the language the app shows.
+//
+// In-app chat: Ollama without tools and no cloud fallback configured.
+func ChatAgentNoFallback() string { return In(i18n.Locale()).ChatAgentNoFallback() }
+
+// ChatAgentNoFallback says "This local model cannot control phones. In Settings › Model, add a cloud API key and choose a phone-control model, …"
+// in the language of msgs.
+//
+// In-app chat: Ollama without tools and no cloud fallback configured.
+func (msgs Messages) ChatAgentNoFallback() string {
+	return Catalog.Format(msgs.locale, "chatAgentNoFallback", nil)
+}
+
+// ChatNeedKeyLink says "Add an API key"
+// in the language the app shows.
+//
+// In-app chat: link to Settings › Model.
+func ChatNeedKeyLink() string { return In(i18n.Locale()).ChatNeedKeyLink() }
+
+// ChatNeedKeyLink says "Add an API key"
+// in the language of msgs.
+//
+// In-app chat: link to Settings › Model.
+func (msgs Messages) ChatNeedKeyLink() string {
+	return Catalog.Format(msgs.locale, "chatNeedKeyLink", nil)
+}
+
+// ChatNew says "New chat"
+// in the language the app shows.
+//
+// In-app chat: start a fresh thread.
+func ChatNew() string { return In(i18n.Locale()).ChatNew() }
+
+// ChatNew says "New chat"
+// in the language of msgs.
+//
+// In-app chat: start a fresh thread.
+func (msgs Messages) ChatNew() string {
+	return Catalog.Format(msgs.locale, "chatNew", nil)
+}
+
+// ChatNoPhones says "Connect a phone to run tasks from chat."
+// in the language the app shows.
+//
+// In-app chat: no phones connected yet.
+func ChatNoPhones() string { return In(i18n.Locale()).ChatNoPhones() }
+
+// ChatNoPhones says "Connect a phone to run tasks from chat."
+// in the language of msgs.
+//
+// In-app chat: no phones connected yet.
+func (msgs Messages) ChatNoPhones() string {
+	return Catalog.Format(msgs.locale, "chatNoPhones", nil)
+}
+
+// ChatOnPhones says "Phones"
+// in the language the app shows.
+//
+// In-app chat: label above the phone target chips.
+func ChatOnPhones() string { return In(i18n.Locale()).ChatOnPhones() }
+
+// ChatOnPhones says "Phones"
+// in the language of msgs.
+//
+// In-app chat: label above the phone target chips.
+func (msgs Messages) ChatOnPhones() string {
+	return Catalog.Format(msgs.locale, "chatOnPhones", nil)
+}
+
+// ChatPinky says "Pinky"
+// in the language the app shows.
+//
+// In-app chat: assistant bubble label.
+func ChatPinky() string { return In(i18n.Locale()).ChatPinky() }
+
+// ChatPinky says "Pinky"
+// in the language of msgs.
+//
+// In-app chat: assistant bubble label.
+func (msgs Messages) ChatPinky() string {
+	return Catalog.Format(msgs.locale, "chatPinky", nil)
+}
+
+// ChatPlaceholder says "Ask a question or say what you want done on the phone…"
+// in the language the app shows.
+//
+// In-app chat: composer placeholder.
+func ChatPlaceholder() string { return In(i18n.Locale()).ChatPlaceholder() }
+
+// ChatPlaceholder says "Ask a question or say what you want done on the phone…"
+// in the language of msgs.
+//
+// In-app chat: composer placeholder.
+func (msgs Messages) ChatPlaceholder() string {
+	return Catalog.Format(msgs.locale, "chatPlaceholder", nil)
+}
+
+// ChatScopeAll says "All phones"
+// in the language the app shows.
+//
+// In-app chat: header subtitle when All phones is selected.
+func ChatScopeAll() string { return In(i18n.Locale()).ChatScopeAll() }
+
+// ChatScopeAll says "All phones"
+// in the language of msgs.
+//
+// In-app chat: header subtitle when All phones is selected.
+func (msgs Messages) ChatScopeAll() string {
+	return Catalog.Format(msgs.locale, "chatScopeAll", nil)
+}
+
+// ChatScopeNone says "No phone selected"
+// in the language the app shows.
+//
+// In-app chat: header subtitle with no phone selected.
+func ChatScopeNone() string { return In(i18n.Locale()).ChatScopeNone() }
+
+// ChatScopeNone says "No phone selected"
+// in the language of msgs.
+//
+// In-app chat: header subtitle with no phone selected.
+func (msgs Messages) ChatScopeNone() string {
+	return Catalog.Format(msgs.locale, "chatScopeNone", nil)
+}
+
+// ChatScopeOne says "{name}"
+// in the language the app shows.
+//
+// In-app chat: header subtitle for one phone.
+func ChatScopeOne(name string) string { return In(i18n.Locale()).ChatScopeOne(name) }
+
+// ChatScopeOne says "{name}"
+// in the language of msgs.
+//
+// In-app chat: header subtitle for one phone.
+func (msgs Messages) ChatScopeOne(name string) string {
+	return Catalog.Format(msgs.locale, "chatScopeOne", map[string]any{"name": name})
+}
+
+// ChatSection says "Chat"
+// in the language the app shows.
+//
+// In-app chat: section title on the phone page's right column.
+func ChatSection() string { return In(i18n.Locale()).ChatSection() }
+
+// ChatSection says "Chat"
+// in the language of msgs.
+//
+// In-app chat: section title on the phone page's right column.
+func (msgs Messages) ChatSection() string {
+	return Catalog.Format(msgs.locale, "chatSection", nil)
+}
+
+// ChatSend says "Send"
+// in the language the app shows.
+//
+// In-app chat: send button.
+func ChatSend() string { return In(i18n.Locale()).ChatSend() }
+
+// ChatSend says "Send"
+// in the language of msgs.
+//
+// In-app chat: send button.
+func (msgs Messages) ChatSend() string {
+	return Catalog.Format(msgs.locale, "chatSend", nil)
+}
+
+// ChatStop says "Stop"
+// in the language the app shows.
+//
+// In-app chat: stop the model while it is replying.
+func ChatStop() string { return In(i18n.Locale()).ChatStop() }
+
+// ChatStop says "Stop"
+// in the language of msgs.
+//
+// In-app chat: stop the model while it is replying.
+func (msgs Messages) ChatStop() string {
+	return Catalog.Format(msgs.locale, "chatStop", nil)
+}
+
+// ChatThinking says "Thinking…"
+// in the language the app shows.
+//
+// In-app chat: while waiting for the model.
+func ChatThinking() string { return In(i18n.Locale()).ChatThinking() }
+
+// ChatThinking says "Thinking…"
+// in the language of msgs.
+//
+// In-app chat: while waiting for the model.
+func (msgs Messages) ChatThinking() string {
+	return Catalog.Format(msgs.locale, "chatThinking", nil)
+}
+
+// ChatUntitled says "New chat"
+// in the language the app shows.
+//
+// In-app chat: title of a fresh session before the first message.
+func ChatUntitled() string { return In(i18n.Locale()).ChatUntitled() }
+
+// ChatUntitled says "New chat"
+// in the language of msgs.
+//
+// In-app chat: title of a fresh session before the first message.
+func (msgs Messages) ChatUntitled() string {
+	return Catalog.Format(msgs.locale, "chatUntitled", nil)
+}
+
+// ChatYou says "You"
+// in the language the app shows.
+//
+// In-app chat: user bubble label.
+func ChatYou() string { return In(i18n.Locale()).ChatYou() }
+
+// ChatYou says "You"
+// in the language of msgs.
+//
+// In-app chat: user bubble label.
+func (msgs Messages) ChatYou() string {
+	return Catalog.Format(msgs.locale, "chatYou", nil)
+}
+
 // CheckADBFail says "Pinky can't reach adb, the Android tools it talks to phones through."
 // in the language the app shows.
 //
@@ -15089,6 +15495,456 @@ func (msgs Messages) SettingsLanguageSystem() string {
 	return Catalog.Format(msgs.locale, "settingsLanguageSystem", nil)
 }
 
+// SettingsModelExperiment says "Experimental on this fork."
+// in the language the app shows.
+//
+// Settings › Model: note under the intro.
+func SettingsModelExperiment() string { return In(i18n.Locale()).SettingsModelExperiment() }
+
+// SettingsModelExperiment says "Experimental on this fork."
+// in the language of msgs.
+//
+// Settings › Model: note under the intro.
+func (msgs Messages) SettingsModelExperiment() string {
+	return Catalog.Format(msgs.locale, "settingsModelExperiment", nil)
+}
+
+// SettingsModelIntro says "API keys for the Agent chat. Stored in your keychain only."
+// in the language the app shows.
+//
+// Settings › Model: description under the title.
+func SettingsModelIntro() string { return In(i18n.Locale()).SettingsModelIntro() }
+
+// SettingsModelIntro says "API keys for the Agent chat. Stored in your keychain only."
+// in the language of msgs.
+//
+// Settings › Model: description under the title.
+func (msgs Messages) SettingsModelIntro() string {
+	return Catalog.Format(msgs.locale, "settingsModelIntro", nil)
+}
+
+// SettingsOllamaTitle says "Local (Ollama)"
+// in the language the app shows.
+//
+// Settings › Model: Ollama section title.
+func SettingsOllamaTitle() string { return In(i18n.Locale()).SettingsOllamaTitle() }
+
+// SettingsOllamaTitle says "Local (Ollama)"
+// in the language of msgs.
+//
+// Settings › Model: Ollama section title.
+func (msgs Messages) SettingsOllamaTitle() string {
+	return Catalog.Format(msgs.locale, "settingsOllamaTitle", nil)
+}
+
+// SettingsOllamaIntro says "Talk to models on your Mac through Ollama. No API key. Run ollama pull … before you add a model name."
+// in the language the app shows.
+//
+// Settings › Model: Ollama section help.
+func SettingsOllamaIntro() string { return In(i18n.Locale()).SettingsOllamaIntro() }
+
+// SettingsOllamaIntro says "Talk to models on your Mac through Ollama. No API key. Run ollama pull … before you add a model name."
+// in the language of msgs.
+//
+// Settings › Model: Ollama section help.
+func (msgs Messages) SettingsOllamaIntro() string {
+	return Catalog.Format(msgs.locale, "settingsOllamaIntro", nil)
+}
+
+// SettingsOllamaURL says "Server URL"
+// in the language the app shows.
+//
+// Settings › Model: Ollama base URL field.
+func SettingsOllamaURL() string { return In(i18n.Locale()).SettingsOllamaURL() }
+
+// SettingsOllamaURL says "Server URL"
+// in the language of msgs.
+//
+// Settings › Model: Ollama base URL field.
+func (msgs Messages) SettingsOllamaURL() string {
+	return Catalog.Format(msgs.locale, "settingsOllamaURL", nil)
+}
+
+// SettingsOllamaURLPlaceholder says "http://127.0.0.1:11434"
+// in the language the app shows.
+//
+// Settings › Model: Ollama URL placeholder.
+func SettingsOllamaURLPlaceholder() string { return In(i18n.Locale()).SettingsOllamaURLPlaceholder() }
+
+// SettingsOllamaURLPlaceholder says "http://127.0.0.1:11434"
+// in the language of msgs.
+//
+// Settings › Model: Ollama URL placeholder.
+func (msgs Messages) SettingsOllamaURLPlaceholder() string {
+	return Catalog.Format(msgs.locale, "settingsOllamaURLPlaceholder", nil)
+}
+
+// SettingsOllamaModels says "Models"
+// in the language the app shows.
+//
+// Settings › Model: list heading for Ollama model names.
+func SettingsOllamaModels() string { return In(i18n.Locale()).SettingsOllamaModels() }
+
+// SettingsOllamaModels says "Models"
+// in the language of msgs.
+//
+// Settings › Model: list heading for Ollama model names.
+func (msgs Messages) SettingsOllamaModels() string {
+	return Catalog.Format(msgs.locale, "settingsOllamaModels", nil)
+}
+
+// SettingsOllamaModelPlaceholder says "llama3.2"
+// in the language the app shows.
+//
+// Settings › Model: placeholder for a model name to add.
+func SettingsOllamaModelPlaceholder() string {
+	return In(i18n.Locale()).SettingsOllamaModelPlaceholder()
+}
+
+// SettingsOllamaModelPlaceholder says "llama3.2"
+// in the language of msgs.
+//
+// Settings › Model: placeholder for a model name to add.
+func (msgs Messages) SettingsOllamaModelPlaceholder() string {
+	return Catalog.Format(msgs.locale, "settingsOllamaModelPlaceholder", nil)
+}
+
+// SettingsOllamaModelAdd says "Add model"
+// in the language the app shows.
+//
+// Settings › Model: add an Ollama model by name.
+func SettingsOllamaModelAdd() string { return In(i18n.Locale()).SettingsOllamaModelAdd() }
+
+// SettingsOllamaModelAdd says "Add model"
+// in the language of msgs.
+//
+// Settings › Model: add an Ollama model by name.
+func (msgs Messages) SettingsOllamaModelAdd() string {
+	return Catalog.Format(msgs.locale, "settingsOllamaModelAdd", nil)
+}
+
+// SettingsOllamaModelRemove says "Remove"
+// in the language the app shows.
+//
+// Settings › Model: remove one Ollama model from the list.
+func SettingsOllamaModelRemove() string { return In(i18n.Locale()).SettingsOllamaModelRemove() }
+
+// SettingsOllamaModelRemove says "Remove"
+// in the language of msgs.
+//
+// Settings › Model: remove one Ollama model from the list.
+func (msgs Messages) SettingsOllamaModelRemove() string {
+	return Catalog.Format(msgs.locale, "settingsOllamaModelRemove", nil)
+}
+
+// SettingsOllamaRefresh says "Refresh from Ollama"
+// in the language the app shows.
+//
+// Settings › Model: fetch /api/tags and merge model names.
+func SettingsOllamaRefresh() string { return In(i18n.Locale()).SettingsOllamaRefresh() }
+
+// SettingsOllamaRefresh says "Refresh from Ollama"
+// in the language of msgs.
+//
+// Settings › Model: fetch /api/tags and merge model names.
+func (msgs Messages) SettingsOllamaRefresh() string {
+	return Catalog.Format(msgs.locale, "settingsOllamaRefresh", nil)
+}
+
+// SettingsOllamaRefreshFail says "Could not reach Ollama: {detail}"
+// in the language the app shows.
+//
+// Settings › Model: error when listing Ollama models fails.
+func SettingsOllamaRefreshFail(detail string) string {
+	return In(i18n.Locale()).SettingsOllamaRefreshFail(detail)
+}
+
+// SettingsOllamaRefreshFail says "Could not reach Ollama: {detail}"
+// in the language of msgs.
+//
+// Settings › Model: error when listing Ollama models fails.
+func (msgs Messages) SettingsOllamaRefreshFail(detail string) string {
+	return Catalog.Format(msgs.locale, "settingsOllamaRefreshFail", map[string]any{"detail": detail})
+}
+
+// SettingsChatAgentTitle says "Phone control (cloud)"
+// in the language the app shows.
+//
+// Settings › Model: fallback model for in-app phone agent when local LLM
+// has no tools.
+func SettingsChatAgentTitle() string { return In(i18n.Locale()).SettingsChatAgentTitle() }
+
+// SettingsChatAgentTitle says "Phone control (cloud)"
+// in the language of msgs.
+//
+// Settings › Model: fallback model for in-app phone agent when local LLM
+// has no tools.
+func (msgs Messages) SettingsChatAgentTitle() string {
+	return Catalog.Format(msgs.locale, "settingsChatAgentTitle", nil)
+}
+
+// SettingsChatAgentIntro says "When chat uses a local model that cannot call phone tools, Pinky runs the agent with this cloud model. Add its API ke…"
+// in the language the app shows.
+//
+// Settings › Model: explains ChatAgentModel.
+func SettingsChatAgentIntro() string { return In(i18n.Locale()).SettingsChatAgentIntro() }
+
+// SettingsChatAgentIntro says "When chat uses a local model that cannot call phone tools, Pinky runs the agent with this cloud model. Add its API ke…"
+// in the language of msgs.
+//
+// Settings › Model: explains ChatAgentModel.
+func (msgs Messages) SettingsChatAgentIntro() string {
+	return Catalog.Format(msgs.locale, "settingsChatAgentIntro", nil)
+}
+
+// SettingsModelKey says "API key"
+// in the language the app shows.
+//
+// Settings › Model: API key field label.
+func SettingsModelKey() string { return In(i18n.Locale()).SettingsModelKey() }
+
+// SettingsModelKey says "API key"
+// in the language of msgs.
+//
+// Settings › Model: API key field label.
+func (msgs Messages) SettingsModelKey() string {
+	return Catalog.Format(msgs.locale, "settingsModelKey", nil)
+}
+
+// SettingsModelKeyAdd says "Add API key"
+// in the language the app shows.
+//
+// Settings › Model: add another saved key.
+func SettingsModelKeyAdd() string { return In(i18n.Locale()).SettingsModelKeyAdd() }
+
+// SettingsModelKeyAdd says "Add API key"
+// in the language of msgs.
+//
+// Settings › Model: add another saved key.
+func (msgs Messages) SettingsModelKeyAdd() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyAdd", nil)
+}
+
+// SettingsModelKeyChange says "Change"
+// in the language the app shows.
+//
+// Settings › Model: change a saved key.
+func SettingsModelKeyChange() string { return In(i18n.Locale()).SettingsModelKeyChange() }
+
+// SettingsModelKeyChange says "Change"
+// in the language of msgs.
+//
+// Settings › Model: change a saved key.
+func (msgs Messages) SettingsModelKeyChange() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyChange", nil)
+}
+
+// SettingsModelKeyInUse says "In chat"
+// in the language the app shows.
+//
+// Settings › Model: badge on the key the composer uses.
+func SettingsModelKeyInUse() string { return In(i18n.Locale()).SettingsModelKeyInUse() }
+
+// SettingsModelKeyInUse says "In chat"
+// in the language of msgs.
+//
+// Settings › Model: badge on the key the composer uses.
+func (msgs Messages) SettingsModelKeyInUse() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyInUse", nil)
+}
+
+// SettingsModelKeyErrRemove says "Could not remove the key: {detail}"
+// in the language the app shows.
+//
+// Settings › Model: keychain delete failed. detail is English.
+func SettingsModelKeyErrRemove(detail string) string {
+	return In(i18n.Locale()).SettingsModelKeyErrRemove(detail)
+}
+
+// SettingsModelKeyErrRemove says "Could not remove the key: {detail}"
+// in the language of msgs.
+//
+// Settings › Model: keychain delete failed. detail is English.
+func (msgs Messages) SettingsModelKeyErrRemove(detail string) string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyErrRemove", map[string]any{"detail": detail})
+}
+
+// SettingsModelKeyErrSave says "Could not save the key: {detail}"
+// in the language the app shows.
+//
+// Settings › Model: keychain save failed. detail is English.
+func SettingsModelKeyErrSave(detail string) string {
+	return In(i18n.Locale()).SettingsModelKeyErrSave(detail)
+}
+
+// SettingsModelKeyErrSave says "Could not save the key: {detail}"
+// in the language of msgs.
+//
+// Settings › Model: keychain save failed. detail is English.
+func (msgs Messages) SettingsModelKeyErrSave(detail string) string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyErrSave", map[string]any{"detail": detail})
+}
+
+// SettingsModelKeyLabel says "Name"
+// in the language the app shows.
+//
+// Settings › Model: label for the profile name.
+func SettingsModelKeyLabel() string { return In(i18n.Locale()).SettingsModelKeyLabel() }
+
+// SettingsModelKeyLabel says "Name"
+// in the language of msgs.
+//
+// Settings › Model: label for the profile name.
+func (msgs Messages) SettingsModelKeyLabel() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyLabel", nil)
+}
+
+// SettingsModelKeyLabelPlaceholder says "Work"
+// in the language the app shows.
+//
+// Settings › Model: placeholder for the profile name.
+func SettingsModelKeyLabelPlaceholder() string {
+	return In(i18n.Locale()).SettingsModelKeyLabelPlaceholder()
+}
+
+// SettingsModelKeyLabelPlaceholder says "Work"
+// in the language of msgs.
+//
+// Settings › Model: placeholder for the profile name.
+func (msgs Messages) SettingsModelKeyLabelPlaceholder() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyLabelPlaceholder", nil)
+}
+
+// SettingsModelKeyMissing says "No key yet"
+// in the language the app shows.
+//
+// Settings › Model: when nothing is in the keychain for the provider.
+func SettingsModelKeyMissing() string { return In(i18n.Locale()).SettingsModelKeyMissing() }
+
+// SettingsModelKeyMissing says "No key yet"
+// in the language of msgs.
+//
+// Settings › Model: when nothing is in the keychain for the provider.
+func (msgs Messages) SettingsModelKeyMissing() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyMissing", nil)
+}
+
+// SettingsModelKeyPlaceholder says "sk-…"
+// in the language the app shows.
+//
+// Settings › Model: password field placeholder.
+func SettingsModelKeyPlaceholder() string { return In(i18n.Locale()).SettingsModelKeyPlaceholder() }
+
+// SettingsModelKeyPlaceholder says "sk-…"
+// in the language of msgs.
+//
+// Settings › Model: password field placeholder.
+func (msgs Messages) SettingsModelKeyPlaceholder() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyPlaceholder", nil)
+}
+
+// SettingsModelKeyRemove says "Remove"
+// in the language the app shows.
+//
+// Settings › Model: remove the saved key.
+func SettingsModelKeyRemove() string { return In(i18n.Locale()).SettingsModelKeyRemove() }
+
+// SettingsModelKeyRemove says "Remove"
+// in the language of msgs.
+//
+// Settings › Model: remove the saved key.
+func (msgs Messages) SettingsModelKeyRemove() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyRemove", nil)
+}
+
+// SettingsModelKeyRemovedToast says "Removed the {provider} API key"
+// in the language the app shows.
+//
+// Settings › Model: toast after delete. provider is Anthropic or OpenAI.
+func SettingsModelKeyRemovedToast(provider string) string {
+	return In(i18n.Locale()).SettingsModelKeyRemovedToast(provider)
+}
+
+// SettingsModelKeyRemovedToast says "Removed the {provider} API key"
+// in the language of msgs.
+//
+// Settings › Model: toast after delete. provider is Anthropic or OpenAI.
+func (msgs Messages) SettingsModelKeyRemovedToast(provider string) string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyRemovedToast", map[string]any{"provider": provider})
+}
+
+// SettingsModelKeySave says "Save"
+// in the language the app shows.
+//
+// Settings › Model: save button.
+func SettingsModelKeySave() string { return In(i18n.Locale()).SettingsModelKeySave() }
+
+// SettingsModelKeySave says "Save"
+// in the language of msgs.
+//
+// Settings › Model: save button.
+func (msgs Messages) SettingsModelKeySave() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeySave", nil)
+}
+
+// SettingsModelKeySaved says "Key saved"
+// in the language the app shows.
+//
+// Settings › Model: status when a key is in the keychain.
+func SettingsModelKeySaved() string { return In(i18n.Locale()).SettingsModelKeySaved() }
+
+// SettingsModelKeySaved says "Key saved"
+// in the language of msgs.
+//
+// Settings › Model: status when a key is in the keychain.
+func (msgs Messages) SettingsModelKeySaved() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeySaved", nil)
+}
+
+// SettingsModelKeySavedToast says "Saved the {provider} API key"
+// in the language the app shows.
+//
+// Settings › Model: toast after save. provider is Anthropic or OpenAI.
+func SettingsModelKeySavedToast(provider string) string {
+	return In(i18n.Locale()).SettingsModelKeySavedToast(provider)
+}
+
+// SettingsModelKeySavedToast says "Saved the {provider} API key"
+// in the language of msgs.
+//
+// Settings › Model: toast after save. provider is Anthropic or OpenAI.
+func (msgs Messages) SettingsModelKeySavedToast(provider string) string {
+	return Catalog.Format(msgs.locale, "settingsModelKeySavedToast", map[string]any{"provider": provider})
+}
+
+// SettingsModelKeyUse says "Use in chat"
+// in the language the app shows.
+//
+// Settings › Model: make this profile active in the composer.
+func SettingsModelKeyUse() string { return In(i18n.Locale()).SettingsModelKeyUse() }
+
+// SettingsModelKeyUse says "Use in chat"
+// in the language of msgs.
+//
+// Settings › Model: make this profile active in the composer.
+func (msgs Messages) SettingsModelKeyUse() string {
+	return Catalog.Format(msgs.locale, "settingsModelKeyUse", nil)
+}
+
+// SettingsModelProvider says "Provider"
+// in the language the app shows.
+//
+// Settings › Model: which API to use.
+func SettingsModelProvider() string { return In(i18n.Locale()).SettingsModelProvider() }
+
+// SettingsModelProvider says "Provider"
+// in the language of msgs.
+//
+// Settings › Model: which API to use.
+func (msgs Messages) SettingsModelProvider() string {
+	return Catalog.Format(msgs.locale, "settingsModelProvider", nil)
+}
+
 // SettingsNeedsYou says "Needs you"
 // in the language the app shows.
 //
@@ -17067,6 +17923,20 @@ func (msgs Messages) SettingsSectionAgents() string {
 	return Catalog.Format(msgs.locale, "settingsSectionAgents", nil)
 }
 
+// SettingsSectionModel says "Model"
+// in the language the app shows.
+//
+// Settings sidebar tab for the in-app LLM (fork experiment).
+func SettingsSectionModel() string { return In(i18n.Locale()).SettingsSectionModel() }
+
+// SettingsSectionModel says "Model"
+// in the language of msgs.
+//
+// Settings sidebar tab for the in-app LLM (fork experiment).
+func (msgs Messages) SettingsSectionModel() string {
+	return Catalog.Format(msgs.locale, "settingsSectionModel", nil)
+}
+
 // SettingsSectionPhones says "Phones"
 // in the language the app shows.
 //
@@ -17359,6 +18229,20 @@ func SidebarSettings() string { return In(i18n.Locale()).SidebarSettings() }
 // The sidebar row that opens Settings.
 func (msgs Messages) SidebarSettings() string {
 	return Catalog.Format(msgs.locale, "sidebarSettings", nil)
+}
+
+// SidebarToggle says "Toggle sidebar"
+// in the language the app shows.
+//
+// Collapse the left sidebar to icons only.
+func SidebarToggle() string { return In(i18n.Locale()).SidebarToggle() }
+
+// SidebarToggle says "Toggle sidebar"
+// in the language of msgs.
+//
+// Collapse the left sidebar to icons only.
+func (msgs Messages) SidebarToggle() string {
+	return Catalog.Format(msgs.locale, "sidebarToggle", nil)
 }
 
 // SidebarStopAll says "Stop all"
@@ -17803,13 +18687,13 @@ func (msgs Messages) TasksNoToolCalls() string {
 	return Catalog.Format(msgs.locale, "tasksNoToolCalls", nil)
 }
 
-// TasksNone says "No tasks running. Ask your agent to use a phone."
+// TasksNone says "No tasks running."
 // in the language the app shows.
 //
 // In place of the Tasks list when no agent is working on any phone.
 func TasksNone() string { return In(i18n.Locale()).TasksNone() }
 
-// TasksNone says "No tasks running. Ask your agent to use a phone."
+// TasksNone says "No tasks running."
 // in the language of msgs.
 //
 // In place of the Tasks list when no agent is working on any phone.

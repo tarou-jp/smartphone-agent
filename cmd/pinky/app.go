@@ -92,10 +92,11 @@ func runApp(args []string) error {
 
 	gatewaySettings(&settings, rg)
 	return ui.Run(clientAPI(rg, tel, c.Fake), ui.Options{
-		Version:  version,
-		Theme:    *theme,
-		Hidden:   *background,
-		Settings: &settings,
+		AgentGateway: rg.G,
+		Version:      version,
+		Theme:        *theme,
+		Hidden:       *background,
+		Settings:     &settings,
 		OnSettings: func(old, s ui.Settings) {
 			applySettings(rg, old, s, c.Log)
 			applyTelemetry(tel, s)

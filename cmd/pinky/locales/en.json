@@ -702,6 +702,139 @@
   "@callTakeOver": {
     "description": "Inside toastCouldNot: taking over a phone failed."
   },
+  "chatAgentMode": "Agent",
+  "@chatAgentMode": {
+    "description": "In-app chat: mode pill in the composer toolbar (Cursor-like)."
+  },
+  "chatCloseTab": "Close chat",
+  "@chatCloseTab": {
+    "description": "In-app chat: close one session tab in the header."
+  },
+  "chatCollapse": "Close panel",
+  "@chatCollapse": {
+    "description": "In-app chat: close the Agent panel on the right."
+  },
+  "chatAllPhones": "All connected",
+  "@chatAllPhones": {
+    "description": "In-app chat: chip that targets every connected phone."
+  },
+  "chatEmpty": "Ask a question or say what you want done on the phone.",
+  "@chatEmpty": {
+    "description": "In-app chat: empty state in the thread."
+  },
+  "chatEmptyTitle": "Agent",
+  "@chatEmptyTitle": {
+    "description": "In-app chat: empty-state headline."
+  },
+  "chatErrNoKey": "Add an API key in Settings › Model to chat.",
+  "@chatErrNoKey": {
+    "description": "In-app chat: send failed because no key is saved."
+  },
+  "chatErrReply": "{detail}",
+  "@chatErrReply": {
+    "description": "In-app chat: model or network error. detail is English from the client.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "example": "401 unauthorized"
+      }
+    }
+  },
+  "chatExpand": "Show Agent",
+  "@chatExpand": {
+    "description": "In-app chat: expand the collapsed column."
+  },
+  "chatHistory": "Past chats",
+  "@chatHistory": {
+    "description": "In-app chat: history panel title and clock-button tooltip."
+  },
+  "chatHistoryEmpty": "No past chats yet.",
+  "@chatHistoryEmpty": {
+    "description": "In-app chat: empty history list."
+  },
+  "chatModelNone": "No API key",
+  "@chatModelNone": {
+    "description": "In-app chat: composer model menu when nothing is saved."
+  },
+  "chatAgentFallback": "The local model cannot control phones; continuing with {model}.",
+  "@chatAgentFallback": {
+    "description": "In-app chat: phone agent retried on the cloud fallback model.",
+    "placeholders": {
+      "model": {
+        "description": "Fallback model label"
+      }
+    }
+  },
+  "chatAgentNoFallback": "This local model cannot control phones. In Settings › Model, add a cloud API key and choose a phone-control model, or switch to a tool-capable Ollama model (for example llama3.1).",
+  "@chatAgentNoFallback": {
+    "description": "In-app chat: Ollama without tools and no cloud fallback configured."
+  },
+  "chatNeedKeyLink": "Add an API key",
+  "@chatNeedKeyLink": {
+    "description": "In-app chat: link to Settings › Model."
+  },
+  "chatNew": "New chat",
+  "@chatNew": {
+    "description": "In-app chat: start a fresh thread."
+  },
+  "chatNoPhones": "Connect a phone to run tasks from chat.",
+  "@chatNoPhones": {
+    "description": "In-app chat: no phones connected yet."
+  },
+  "chatOnPhones": "Phones",
+  "@chatOnPhones": {
+    "description": "In-app chat: label above the phone target chips."
+  },
+  "chatPinky": "Pinky",
+  "@chatPinky": {
+    "description": "In-app chat: assistant bubble label."
+  },
+  "chatPlaceholder": "Ask a question or say what you want done on the phone…",
+  "@chatPlaceholder": {
+    "description": "In-app chat: composer placeholder."
+  },
+  "chatScopeAll": "All phones",
+  "@chatScopeAll": {
+    "description": "In-app chat: header subtitle when All phones is selected."
+  },
+  "chatScopeNone": "No phone selected",
+  "@chatScopeNone": {
+    "description": "In-app chat: header subtitle with no phone selected."
+  },
+  "chatScopeOne": "{name}",
+  "@chatScopeOne": {
+    "description": "In-app chat: header subtitle for one phone.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Pixel 9"
+      }
+    }
+  },
+  "chatSection": "Chat",
+  "@chatSection": {
+    "description": "In-app chat: section title on the phone page's right column."
+  },
+  "chatSend": "Send",
+  "@chatSend": {
+    "description": "In-app chat: send button."
+  },
+  "chatStop": "Stop",
+  "@chatStop": {
+    "description": "In-app chat: stop the model while it is replying."
+  },
+  "chatThinking": "Thinking…",
+  "@chatThinking": {
+    "description": "In-app chat: while waiting for the model."
+  },
+  "chatUntitled": "New chat",
+  "@chatUntitled": {
+    "description": "In-app chat: title of a fresh session before the first message."
+  },
+  "chatYou": "You",
+  "@chatYou": {
+    "description": "In-app chat: user bubble label."
+  },
   "checkADBFail": "Pinky can't reach adb, the Android tools it talks to phones through.",
   "@checkADBFail": {
     "description": "The checkup, adb: failed."
@@ -5450,6 +5583,159 @@
   "@settingsLanguageSystem": {
     "description": "Settings › Advanced › Language: the first choice, which follows the computer's preferred languages. The other choices name each language in itself (English, Simplified Chinese)."
   },
+  "settingsModelExperiment": "Experimental on this fork.",
+  "@settingsModelExperiment": {
+    "description": "Settings › Model: note under the intro."
+  },
+  "settingsModelIntro": "API keys for the Agent chat. Stored in your keychain only.",
+  "@settingsModelIntro": {
+    "description": "Settings › Model: description under the title."
+  },
+  "settingsOllamaTitle": "Local (Ollama)",
+  "@settingsOllamaTitle": {
+    "description": "Settings › Model: Ollama section title."
+  },
+  "settingsOllamaIntro": "Talk to models on your Mac through Ollama. No API key. Run ollama pull … before you add a model name.",
+  "@settingsOllamaIntro": {
+    "description": "Settings › Model: Ollama section help."
+  },
+  "settingsOllamaURL": "Server URL",
+  "@settingsOllamaURL": {
+    "description": "Settings › Model: Ollama base URL field."
+  },
+  "settingsOllamaURLPlaceholder": "http://127.0.0.1:11434",
+  "@settingsOllamaURLPlaceholder": {
+    "description": "Settings › Model: Ollama URL placeholder."
+  },
+  "settingsOllamaModels": "Models",
+  "@settingsOllamaModels": {
+    "description": "Settings › Model: list heading for Ollama model names."
+  },
+  "settingsOllamaModelPlaceholder": "llama3.2",
+  "@settingsOllamaModelPlaceholder": {
+    "description": "Settings › Model: placeholder for a model name to add."
+  },
+  "settingsOllamaModelAdd": "Add model",
+  "@settingsOllamaModelAdd": {
+    "description": "Settings › Model: add an Ollama model by name."
+  },
+  "settingsOllamaModelRemove": "Remove",
+  "@settingsOllamaModelRemove": {
+    "description": "Settings › Model: remove one Ollama model from the list."
+  },
+  "settingsOllamaRefresh": "Refresh from Ollama",
+  "@settingsOllamaRefresh": {
+    "description": "Settings › Model: fetch /api/tags and merge model names."
+  },
+  "settingsOllamaRefreshFail": "Could not reach Ollama: {detail}",
+  "@settingsOllamaRefreshFail": {
+    "description": "Settings › Model: error when listing Ollama models fails.",
+    "placeholders": {
+      "detail": {
+        "description": "Error message"
+      }
+    }
+  },
+  "settingsChatAgentTitle": "Phone control (cloud)",
+  "@settingsChatAgentTitle": {
+    "description": "Settings › Model: fallback model for in-app phone agent when local LLM has no tools."
+  },
+  "settingsChatAgentIntro": "When chat uses a local model that cannot call phone tools, Pinky runs the agent with this cloud model. Add its API key above.",
+  "@settingsChatAgentIntro": {
+    "description": "Settings › Model: explains ChatAgentModel."
+  },
+  "settingsModelKey": "API key",
+  "@settingsModelKey": {
+    "description": "Settings › Model: API key field label."
+  },
+  "settingsModelKeyAdd": "Add API key",
+  "@settingsModelKeyAdd": {
+    "description": "Settings › Model: add another saved key."
+  },
+  "settingsModelKeyChange": "Change",
+  "@settingsModelKeyChange": {
+    "description": "Settings › Model: change a saved key."
+  },
+  "settingsModelKeyInUse": "In chat",
+  "@settingsModelKeyInUse": {
+    "description": "Settings › Model: badge on the key the composer uses."
+  },
+  "settingsModelKeyErrRemove": "Could not remove the key: {detail}",
+  "@settingsModelKeyErrRemove": {
+    "description": "Settings › Model: keychain delete failed. detail is English.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "example": "permission denied"
+      }
+    }
+  },
+  "settingsModelKeyErrSave": "Could not save the key: {detail}",
+  "@settingsModelKeyErrSave": {
+    "description": "Settings › Model: keychain save failed. detail is English.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "example": "permission denied"
+      }
+    }
+  },
+  "settingsModelKeyLabel": "Name",
+  "@settingsModelKeyLabel": {
+    "description": "Settings › Model: label for the profile name."
+  },
+  "settingsModelKeyLabelPlaceholder": "Work",
+  "@settingsModelKeyLabelPlaceholder": {
+    "description": "Settings › Model: placeholder for the profile name."
+  },
+  "settingsModelKeyMissing": "No key yet",
+  "@settingsModelKeyMissing": {
+    "description": "Settings › Model: when nothing is in the keychain for the provider."
+  },
+  "settingsModelKeyPlaceholder": "sk-…",
+  "@settingsModelKeyPlaceholder": {
+    "description": "Settings › Model: password field placeholder."
+  },
+  "settingsModelKeyRemove": "Remove",
+  "@settingsModelKeyRemove": {
+    "description": "Settings › Model: remove the saved key."
+  },
+  "settingsModelKeyRemovedToast": "Removed the {provider} API key",
+  "@settingsModelKeyRemovedToast": {
+    "description": "Settings › Model: toast after delete. provider is Anthropic or OpenAI.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Anthropic"
+      }
+    }
+  },
+  "settingsModelKeySave": "Save",
+  "@settingsModelKeySave": {
+    "description": "Settings › Model: save button."
+  },
+  "settingsModelKeySaved": "Key saved",
+  "@settingsModelKeySaved": {
+    "description": "Settings › Model: status when a key is in the keychain."
+  },
+  "settingsModelKeySavedToast": "Saved the {provider} API key",
+  "@settingsModelKeySavedToast": {
+    "description": "Settings › Model: toast after save. provider is Anthropic or OpenAI.",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Anthropic"
+      }
+    }
+  },
+  "settingsModelKeyUse": "Use in chat",
+  "@settingsModelKeyUse": {
+    "description": "Settings › Model: make this profile active in the composer."
+  },
+  "settingsModelProvider": "Provider",
+  "@settingsModelProvider": {
+    "description": "Settings › Model: which API to use."
+  },
   "settingsNeedsYou": "Needs you",
   "@settingsNeedsYou": {
     "description": "Settings › Agents: the eyebrow of a card that asks the person to allow an agent's first connection, and the accessibility label of the amber dot on the Agents tab while one waits."
@@ -6034,6 +6320,10 @@
   "@settingsSectionAgents": {
     "description": "Settings: the section of the agents that connect to Pinky. Its tab on the left and its page title."
   },
+  "settingsSectionModel": "Model",
+  "@settingsSectionModel": {
+    "description": "Settings sidebar tab for the in-app LLM (fork experiment)."
+  },
   "settingsSectionPhones": "Phones",
   "@settingsSectionPhones": {
     "description": "Settings: the section of the phones this computer can reach. Its tab on the left, its page title and the accessibility label of its list of phones."
@@ -6137,6 +6427,10 @@
   "sidebarSettings": "Settings",
   "@sidebarSettings": {
     "description": "The sidebar row that opens Settings."
+  },
+  "sidebarToggle": "Toggle sidebar",
+  "@sidebarToggle": {
+    "description": "Collapse the left sidebar to icons only."
   },
   "sidebarStopAll": "Stop all",
   "@sidebarStopAll": {
@@ -6306,7 +6600,7 @@
   "@tasksNoToolCalls": {
     "description": "Developer mode: in place of a task's tool calls before the agent made any."
   },
-  "tasksNone": "No tasks running. Ask your agent to use a phone.",
+  "tasksNone": "No tasks running.",
   "@tasksNone": {
     "description": "In place of the Tasks list when no agent is working on any phone."
   },
@@ -6486,7 +6780,7 @@
   "@telWhatsSharedDesc": {
     "description": "Under telWhatsShared."
   },
-  "timeHours": "{hours}\u00a0h\u00a0{minutes}\u00a0min",
+  "timeHours": "{hours} h {minutes} min",
   "@timeHours": {
     "description": "A duration of an hour or more. minutes has two digits. Joined with no-break spaces.",
     "placeholders": {
@@ -6500,7 +6794,7 @@
       }
     }
   },
-  "timeMinutes": "{minutes}\u00a0min\u00a0{seconds}\u00a0s",
+  "timeMinutes": "{minutes} min {seconds} s",
   "@timeMinutes": {
     "description": "A duration under an hour. seconds has two digits. Joined with no-break spaces.",
     "placeholders": {
@@ -6514,7 +6808,7 @@
       }
     }
   },
-  "timeSeconds": "{seconds}\u00a0s",
+  "timeSeconds": "{seconds} s",
   "@timeSeconds": {
     "description": "A duration under a minute, as task cards and Activity show it. Joined with a no-break space so it never wraps.",
     "placeholders": {

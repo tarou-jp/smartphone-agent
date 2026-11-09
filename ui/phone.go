@@ -15,22 +15,24 @@ import (
 	"github.com/DIYgod/pinky/internal/gateway"
 )
 
-// phonesPage shows the selected phone, or all of them, with the Needs you
-// and Tasks panel on the right.
+// phonesPage shows the selected phone (or all), then Tasks, then Chat.
 func (a *app) phonesPage(c *mg.Context) {
 	p := pal(c)
 	if len(a.devices) == 0 {
 		pageHeader(c, func() { mg.Text(c, locales.PhonePageTitle()).FontSize(17).FontWeight(650) })
-		mg.Column(c).Grow(1).Center().Gap(10).Children(func() {
-			if !a.loaded {
-				spinner(c)
-				return
-			}
-			mg.Text(c, locales.PhoneNoPhones()).FontSize(16).FontWeight(600)
-			if b := button(c, locales.PhoneAddPhone(), btnOpt{kind: btnPrimary}); b.Clicked() {
-				a.page = pageAddPhone
-				a.add.reset(a)
-			}
+		mg.Row(c).Grow(1).MinHeight(0).AlignItems(mg.Stretch).Children(func() {
+			mg.Column(c).Grow(1).Center().Gap(10).Children(func() {
+				if !a.loaded {
+					spinner(c)
+					return
+				}
+				mg.Text(c, locales.PhoneNoPhones()).FontSize(16).FontWeight(600)
+				if b := button(c, locales.PhoneAddPhone(), btnOpt{kind: btnPrimary}); b.Clicked() {
+					a.page = pageAddPhone
+					a.add.reset(a)
+				}
+			})
+			a.chatColumn(c)
 		})
 		return
 	}
@@ -69,7 +71,8 @@ func (a *app) phonesPage(c *mg.Context) {
 				a.phoneCenter(c, *d)
 			}
 		})
-		a.rightPanel(c)
+		a.tasksPanel(c)
+		a.chatColumn(c)
 	})
 }
 
