@@ -23,7 +23,7 @@ export function PhoneTile({ device }: { device: Device }) {
         aria-label={t('sidebarPhoneRow', { name: device.name, status: gw.statusLine(device) })}
         sx={{ p: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}
       >
-        <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: p.ink3 }}>
+        <Box sx={{ height: 300, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: p.ink3 }}>
           {live ? (
             <Mirror
               deviceId={device.id}

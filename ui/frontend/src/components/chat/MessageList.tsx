@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Box, Fab, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Fab, Stack, useTheme } from '@mui/material';
 import ArrowDownIcon from '@mui/icons-material/ArrowDownwardRounded';
 import { useT } from '@/i18n';
-import { MessageBubble } from './MessageBubble';
-import type { ChatSession } from './useChat';
+import { TurnView } from './TurnView';
+import type { ChatSession } from './model';
 
 /**
  * The thread. It follows new messages while the person is at the bottom,
@@ -38,24 +38,16 @@ export function MessageList({ session }: { session: ChatSession }) {
   // Follow what arrives, when following.
   useLayoutEffect(() => {
     if (stuckRef.current) toBottom(false);
-  }, [session.msgs]);
+  }, [session.turns]);
 
-  if (session.msgs.length === 0) {
-    return (
-      <Stack sx={{ flex: 1, p: 3, justifyContent: 'center', textAlign: 'center' }} spacing={1}>
-        <Typography variant="h3">{t('chatEmptyTitle')}</Typography>
-        <Typography variant="body2" sx={{ color: p.ink3 }}>
-          {t('chatEmpty')}
-        </Typography>
-      </Stack>
-    );
-  }
+  // A new chat is empty, as Cursor's: only the composer below.
+  if (session.turns.length === 0) return <Box sx={{ flex: 1 }} />;
   return (
     <Box sx={{ flex: 1, minHeight: 0, position: 'relative' }}>
-      <Box ref={box} onScroll={onScroll} sx={{ height: '100%', overflowY: 'auto', px: 1.5, py: 2 }}>
-        <Stack spacing={1.5}>
-          {session.msgs.map((m, i) => (
-            <MessageBubble key={i} m={m} />
+      <Box ref={box} onScroll={onScroll} sx={{ height: '100%', overflowY: 'auto', px: 1.5, pb: 2 }}>
+        <Stack spacing={2}>
+          {session.turns.map((turn) => (
+            <TurnView key={turn.id} turn={turn} />
           ))}
         </Stack>
       </Box>

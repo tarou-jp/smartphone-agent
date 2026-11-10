@@ -24,10 +24,12 @@ export function CompanionCard({ device }: { device: Device }) {
       () => setState(null),
     );
   }, [device.id]);
+  // Asked again whenever the phone changes (an install, a reconnect), not
+  // only when another phone is shown.
   useEffect(() => {
-    setState(null);
     if (device.status !== 'offline') load();
-  }, [load, device.status]);
+    else setState(null);
+  }, [load, device.status, device.state]);
 
   if (hidden || !state || state === 'on' || state === 'ready' || state === 'no_apk') return null;
   let title: string, action: string, body: string;

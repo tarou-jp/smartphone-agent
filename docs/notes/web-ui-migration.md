@@ -261,6 +261,16 @@ The web client exists and covers the main screens; the MyGo client stays, behind
 - **`-ui` flag** on `pinky`: `auto` (default) picks the web client when the build has the Wails window and the built front end (`make web-app`), else MyGo — so `go tool mygo build` and the release pipeline still ship the MyGo client, unchanged. `-ui web` and `-ui mygo` force one.
 - **Front end:** `ui/frontend` (the plan said `frontend/`): React 19, TypeScript, Vite 6, **MUI 6** (not Tailwind). Words come from the MyGo catalogs (`cmd/pinky/locales/*.json`, read by a small ICU formatter, `src/i18n/icu.ts`), so both clients say the same; words only the web client has are in `src/i18n/web/*.ts`. `src/lib/gwtext.ts` ports `ui/gwtext.go` (the gateway's English steps, approvals and status lines in the app's language).
 
+### Agent panel (in-app chat)
+
+The chat is the window's, not a phone page's: `components/chat/AgentPanel.tsx` at the right edge of every page, after Cursor's agent panel. `ChatProvider` (`components/chat/store.tsx`) holds the chats, so a run goes on while the person moves between pages. Wide windows (≥ 1240 px) give it a column that its left edge resizes (320–640 px); narrower ones lay it over the page. ⌘L shows it and focuses the composer; a hidden panel leaves a button in every title bar.
+
+- **Phones as context.** In Agent mode the composer's pills are the phones the message goes to: the phone on screen is offered (dashed) as Cursor offers the open file, and @ adds phones (or all connected). Ask mode only talks.
+- **Several phones.** One `POST /api/chat` with `devices`: the server runs one agent per phone side by side in that one stream (a stream per phone would take the connections the MJPEG mirrors need), tagging each event with `deviceId`; `run_end` ends a phone's run and `done` the last. The thread shows a tab per phone above their runs.
+- **Steps.** `inapp.AgentEvent` now says what each tool call does (`tool_start`/`tool_end` with the tool, the agent's intent, its arguments and the result's status, and `text` for what the model says between calls); the server sends them as `step` events beside the plain `progress` lines. The thread draws each as a Cursor-style row.
+- **Follow-ups.** The agent gets the chat so far (`AgentConfig.History`), not only the last prompt.
+- Chats are kept in this browser's storage (`pinky-chat-v2`; the first format is migrated).
+
 ### Layout of `ui/frontend/src`
 
 ```text

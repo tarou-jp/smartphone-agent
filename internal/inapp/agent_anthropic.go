@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func runAnthropicAgent(ctx context.Context, cfg AgentConfig, system string, tools []agentTool, phone *PhoneTools, device string, emit func(string)) AgentOutcome {
+func runAnthropicAgent(ctx context.Context, cfg AgentConfig, system string, tools []agentTool, phone *PhoneTools, device string, ev *events) AgentOutcome {
 	anthTools := make([]map[string]any, 0, len(tools))
 	for _, t := range tools {
 		anthTools = append(anthTools, map[string]any{
@@ -17,9 +17,11 @@ func runAnthropicAgent(ctx context.Context, cfg AgentConfig, system string, tool
 		})
 	}
 	type block map[string]any
-	msgs := []map[string]any{
-		{"role": "user", "content": cfg.Prompt},
+	msgs := make([]map[string]any, 0, len(cfg.History)+1)
+	for _, h := range historyTurns(cfg.History) {
+		msgs = append(msgs, map[string]any{"role": h.Role, "content": h.Text})
 	}
+	msgs = append(msgs, map[string]any{"role": "user", "content": cfg.Prompt})
 	for turn := 0; turn < agentMaxTurns; turn++ {
 		if ctx.Err() != nil {
 			return AgentOutcome{Err: ctx.Err()}
@@ -60,11 +62,20 @@ func runAnthropicAgent(ctx context.Context, cfg AgentConfig, system string, tool
 		var textParts []string
 		var toolResults []block
 		assistantContent := make([]block, 0, len(out.Content))
+		withTools := false
+		for _, c := range out.Content {
+			withTools = withTools || c.Type == "tool_use"
+		}
 		for _, c := range out.Content {
 			switch c.Type {
 			case "text":
 				if strings.TrimSpace(c.Text) != "" {
 					textParts = append(textParts, c.Text)
+				}
+				// Said alongside tool calls, it is the agent thinking aloud;
+				// said alone, it is the reply, which the outcome carries.
+				if withTools {
+					ev.text(c.Text)
 				}
 				assistantContent = append(assistantContent, block{"type": "text", "text": c.Text})
 			case "tool_use":
@@ -83,9 +94,9 @@ func runAnthropicAgent(ctx context.Context, cfg AgentConfig, system string, tool
 				if strings.TrimSpace(str(args, "device")) == "" {
 					args["device"] = device
 				}
-				emit(toolCallLabel(c.Name))
+				id := ev.start(c.ID, c.Name, args)
 				result := phone.Call(ctx, c.Name, args)
-				emit(shortStatus(result))
+				ev.end(id, c.Name, result)
 				if c.Name == "phone_release" {
 					summary := str(args, "summary")
 					if summary == "" {

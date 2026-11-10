@@ -177,7 +177,7 @@ export function IPhoneSteps() {
           {host.missing === 'usbmuxd_stopped' && waited > 8000 && <GuideProblem title={t('addPhoneIPhoneUsbmuxdStopped')} />}
         </GuideStep>
         {cur > Step.Plug && d && (
-          <Typography variant="body2" sx={{ color: p.ink2, mt: '-12px !important', pl: 4.5 }}>
+          <Typography variant="body2" sx={{ color: p.ink2, mt: '0px !important', pl: 4.5 }}>
             {t('addPhoneFoundIOS', { name: d.name, version: d.osVersion }).trim()}
           </Typography>
         )}

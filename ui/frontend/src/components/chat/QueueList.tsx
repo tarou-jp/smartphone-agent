@@ -3,6 +3,7 @@ import { Box, Button, ButtonBase, Collapse, IconButton, Stack, Tooltip, Typograp
 import ChevronRightIcon from '@mui/icons-material/ChevronRightRounded';
 import CloseIcon from '@mui/icons-material/CloseRounded';
 import { useT } from '@/i18n';
+import type { Queued } from './model';
 
 /** "Queued message" preview: one line. */
 const preview = (s: string) => s.split(/\s+/).join(' ');
@@ -13,7 +14,7 @@ export function QueueList({
   onSteer,
   onRemove,
 }: {
-  queued: string[];
+  queued: Queued[];
   onSteer: (i: number) => void;
   onRemove: (i: number) => void;
 }) {
@@ -22,7 +23,7 @@ export function QueueList({
   const [open, setOpen] = useState(true);
   if (queued.length === 0) return null;
   return (
-    <Box sx={{ border: 1, borderBottom: 0, borderColor: p.line2, borderRadius: '10px 10px 0 0', bgcolor: p.bg2, mx: 0.5 }}>
+    <Box sx={{ border: 1, borderColor: p.line2, borderRadius: 2, bgcolor: 'background.paper', mb: 0.75, overflow: 'hidden' }}>
       <ButtonBase
         onClick={() => setOpen((o) => !o)}
         aria-label={t('chatQueueToggle')}
@@ -40,12 +41,14 @@ export function QueueList({
             <Stack key={i} direction="row" alignItems="center" spacing={0.5} sx={{ px: 1, py: 0.25, '&:hover .q-actions': { opacity: 1 } }}>
               <Box sx={{ width: 10, height: 10, borderRadius: '50%', border: 1.5, borderColor: p.ink3, flexShrink: 0, mx: 0.5 }} />
               <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
-                {preview(q)}
+                {preview(q.text)}
               </Typography>
               <Stack direction="row" className="q-actions" sx={{ opacity: 0.7 }}>
-                <Button size="small" onClick={() => onSteer(i)} sx={{ minHeight: 22, py: 0, px: 1, fontSize: 11.5 }}>
-                  {t('chatQueueSteer')}
-                </Button>
+                <Tooltip title={t('webChatSteerHint')}>
+                  <Button size="small" onClick={() => onSteer(i)} sx={{ minHeight: 22, py: 0, px: 1, fontSize: 11.5 }}>
+                    {t('chatQueueSteer')}
+                  </Button>
+                </Tooltip>
                 <Tooltip title={t('chatQueueRemove')}>
                   <IconButton size="small" aria-label={t('chatQueueRemove')} onClick={() => onRemove(i)} sx={{ p: 0.25 }}>
                     <CloseIcon sx={{ fontSize: 14 }} />

@@ -26,10 +26,12 @@ export function AllPhones() {
         <Box
           sx={{
             flex: 1,
+            minWidth: 0,
             overflowY: 'auto',
             p: 2.5,
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+            gridAutoRows: 'max-content',
             gap: 2,
             alignContent: 'start',
           }}
@@ -39,7 +41,7 @@ export function AllPhones() {
           ))}
         </Box>
         {live.needs.length > 0 && (
-          <Stack component="aside" sx={{ width: 360, flexShrink: 0, borderLeft: 1, borderColor: 'divider', overflowY: 'auto', p: 2 }}>
+          <Stack component="aside" sx={{ width: 'clamp(280px, 34%, 360px)', flexShrink: 0, borderLeft: 1, borderColor: 'divider', overflowY: 'auto', p: 2 }}>
             <NeedsList needs={live.needs} />
           </Stack>
         )}

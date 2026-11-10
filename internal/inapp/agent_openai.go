@@ -12,11 +12,11 @@ type openAIAgentCfg struct {
 }
 
 type oaiMsg struct {
-	Role       string     `json:"role"`
-	Content    any        `json:"content,omitempty"`
-	ToolCalls  []oaiTool  `json:"tool_calls,omitempty"`
-	ToolCallID string     `json:"tool_call_id,omitempty"`
-	Name       string     `json:"name,omitempty"`
+	Role       string    `json:"role"`
+	Content    any       `json:"content,omitempty"`
+	ToolCalls  []oaiTool `json:"tool_calls,omitempty"`
+	ToolCallID string    `json:"tool_call_id,omitempty"`
+	Name       string    `json:"name,omitempty"`
 }
 
 type oaiTool struct {
@@ -30,7 +30,7 @@ type oaiToolFunction struct {
 	Arguments string `json:"arguments"`
 }
 
-func runOpenAIAgent(ctx context.Context, cfg openAIAgentCfg, system string, tools []agentTool, phone *PhoneTools, device string, userPrompt string, emit func(string)) AgentOutcome {
+func runOpenAIAgent(ctx context.Context, cfg openAIAgentCfg, system string, tools []agentTool, phone *PhoneTools, device string, history []Message, userPrompt string, ev *events) AgentOutcome {
 	oaiTools := make([]map[string]any, 0, len(tools))
 	for _, t := range tools {
 		oaiTools = append(oaiTools, map[string]any{
@@ -42,10 +42,11 @@ func runOpenAIAgent(ctx context.Context, cfg openAIAgentCfg, system string, tool
 			},
 		})
 	}
-	msgs := []oaiMsg{
-		{Role: "system", Content: system},
-		{Role: "user", Content: userPrompt},
+	msgs := []oaiMsg{{Role: "system", Content: system}}
+	for _, h := range historyTurns(history) {
+		msgs = append(msgs, oaiMsg{Role: h.Role, Content: h.Text})
 	}
+	msgs = append(msgs, oaiMsg{Role: "user", Content: userPrompt})
 	for turn := 0; turn < agentMaxTurns; turn++ {
 		if ctx.Err() != nil {
 			return AgentOutcome{Err: ctx.Err()}
@@ -100,6 +101,7 @@ func runOpenAIAgent(ctx context.Context, cfg openAIAgentCfg, system string, tool
 			assist.Content = c
 		}
 		msgs = append(msgs, assist)
+		ev.text(msg.Content)
 		for _, tc := range msg.ToolCalls {
 			if tc.Type != "" && tc.Type != "function" {
 				continue
@@ -115,9 +117,9 @@ func runOpenAIAgent(ctx context.Context, cfg openAIAgentCfg, system string, tool
 			if strings.TrimSpace(str(args, "device")) == "" {
 				args["device"] = device
 			}
-			emit(toolCallLabel(name))
+			id := ev.start(tc.ID, name, args)
 			result := phone.Call(ctx, name, args)
-			emit(shortStatus(result))
+			ev.end(id, name, result)
 			if name == "phone_release" {
 				summary := str(args, "summary")
 				if summary == "" {

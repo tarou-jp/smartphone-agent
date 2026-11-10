@@ -39,7 +39,7 @@ export function SettingsPage({ section }: { section?: string }) {
             ))}
           </List>
         </Box>
-        <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+        <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', scrollbarGutter: 'stable' }}>
           <Box sx={{ maxWidth: 760, mx: 'auto', px: 4, py: 3 }}>
             <View key={cur.id} />
           </Box>

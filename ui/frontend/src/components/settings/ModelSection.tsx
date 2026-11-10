@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Typography } from '@mui/material';
+import { Alert, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import { RowCard, Section } from '@/components/common';
 import { api } from '@/api/client';
 import { useApp } from '@/state/AppState';
@@ -14,10 +14,44 @@ export function ModelSection() {
   const { patchSettings } = useApp();
   const [m, setM] = useState<ModelView | null>(null);
   const [err, setErr] = useState('');
+  const [slow, setSlow] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    api.model().then(setM, (e) => setErr(errorText(e)));
-  }, []);
-  if (!m) return err ? <Alert severity="error">{err}</Alert> : null;
+    let live = true;
+    setErr('');
+    setSlow(false);
+    // Never a blank page: a spinner, and after a while a way to try again.
+    const id = window.setTimeout(() => live && setSlow(true), 6000);
+    api.model().then(
+      (v) => live && setM(v),
+      (e) => live && setErr(errorText(e)),
+    ).finally(() => window.clearTimeout(id));
+    return () => {
+      live = false;
+      window.clearTimeout(id);
+    };
+  }, [attempt]);
+  if (!m) {
+    if (err || slow) {
+      return (
+        <Alert
+          severity={err ? 'error' : 'warning'}
+          action={
+            <Button color="inherit" onClick={() => setAttempt((a) => a + 1)}>
+              {t('webRetry')}
+            </Button>
+          }
+        >
+          {err || t('webModelSlow')}
+        </Alert>
+      );
+    }
+    return (
+      <Stack alignItems="center" sx={{ py: 6 }}>
+        <CircularProgress size={22} />
+      </Stack>
+    );
+  }
   const label = (id: string) => {
     const x = m.models.find((y) => y.id === id);
     return x ? x.label : id;
@@ -58,7 +92,7 @@ export function ModelSection() {
             value={m.chatAgentModel || ''}
             minWidth={220}
             options={[
-              ...(m.chatAgentModel ? [] : [{ value: '', label: t('chatModelNone'), disabled: true }]),
+              ...(m.chatAgentModel ? [] : [{ value: '', label: cloud.length ? t('webChatAgentNone') : t('chatModelNone'), disabled: true }]),
               ...cloud.map((x) => ({
                 value: x.id,
                 label: x.ready ? label(x.id) : `${x.label} · ${t('chatModelNone')}`,

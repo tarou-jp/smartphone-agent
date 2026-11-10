@@ -145,7 +145,7 @@ export function makeTheme(mode: 'light' | 'dark'): Theme {
       MuiButtonBase: { defaultProps: { disableRipple: true } },
       MuiButton: {
         defaultProps: { disableElevation: true, size: 'small' },
-        styleOverrides: { root: { borderRadius: 7, paddingInline: 12, minHeight: 30 } },
+        styleOverrides: { root: { borderRadius: 7, paddingInline: 12, minHeight: 30, whiteSpace: 'nowrap' } },
       },
       MuiIconButton: { defaultProps: { size: 'small' }, styleOverrides: { root: { borderRadius: 7 } } },
       MuiTooltip: { defaultProps: { arrow: false, enterDelay: 400 } },

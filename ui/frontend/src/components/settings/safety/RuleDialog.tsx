@@ -82,15 +82,16 @@ export function RuleDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('settingsRulesHowItMatches')}
         </Typography>
-        <TextField
-          fullWidth
-          autoFocus
-          label={t('settingsRulesName')}
-          placeholder={t('settingsRulesNamePlaceholder')}
-          value={r.name}
-          onChange={(e) => setR({ ...r, name: e.target.value })}
-          sx={{ mb: 2 }}
-        />
+        {field(
+          t('settingsRulesName'),
+          <TextField
+            fullWidth
+            autoFocus
+            placeholder={t('settingsRulesNamePlaceholder')}
+            value={r.name}
+            onChange={(e) => setR({ ...r, name: e.target.value })}
+          />,
+        )}
         {field(
           t('settingsRulesApps'),
           <TextField fullWidth placeholder={t('settingsRulesAppsPlaceholder')} value={apps} onChange={(e) => setApps(e.target.value)} />,

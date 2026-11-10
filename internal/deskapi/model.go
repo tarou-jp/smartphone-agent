@@ -499,7 +499,21 @@ type chatRequest struct {
 	DeviceID   string        `json:"deviceId"`   // the phone the agent works on; "" only talks
 	DeviceName string        `json:"deviceName"` // for the agent's instructions
 	Phones     []string      `json:"phones"`     // the phones in scope, by name, for talk
-	Locale     string        `json:"locale"`
+	// Devices are the phones the agent works on, each with its own run of
+	// the same prompt, side by side; they take over DeviceID.
+	Devices []chatDevice `json:"devices"`
+	Locale  string       `json:"locale"`
+}
+
+type chatDevice struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// chatStep is an agent event of one phone's run.
+type chatStep struct {
+	inapp.AgentEvent
+	DeviceID string `json:"deviceId,omitempty"`
 }
 
 type chatMessage struct {
@@ -556,19 +570,92 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 		_ = writeSSE(w, name, data)
 	}
 
-	reply, err := s.runChat(ctx, req, func(line string) { send("progress", map[string]string{"text": line}) })
-	switch {
-	case errors.Is(err, context.Canceled), errors.Is(err, secret.ErrCancelled), ctx.Err() != nil && err != nil:
-		send("error", map[string]string{"code": "cancelled", "message": "stopped"})
-	case errors.Is(err, errNoKey), errors.Is(err, secret.ErrNotFound):
-		send("error", map[string]string{"code": "no_key", "message": "no API key"})
-	case errors.Is(err, errNoFallback):
-		send("error", map[string]string{"code": "no_fallback", "message": err.Error()})
-	case err != nil:
-		send("error", map[string]string{"code": "failed", "message": err.Error()})
-	default:
-		send("done", map[string]string{"reply": reply})
+	events := func(device string) func(inapp.AgentEvent) {
+		return func(ev inapp.AgentEvent) {
+			send("progress", map[string]string{"text": ev.Text, "deviceId": device})
+			switch ev.Kind {
+			case "tool_start", "tool_end", "text":
+				send("step", chatStep{AgentEvent: ev, DeviceID: device})
+			}
+		}
 	}
+
+	// Several phones: one run each, side by side, in this one stream (a
+	// stream per phone would use up the connections the mirrors need).
+	// Each ends with "run_end"; "done" follows the last.
+	if len(req.Devices) > 0 && s.opt.Agent != nil {
+		if err := s.warmKey(ctx); err != nil {
+			code, msg := chatError(ctx, err)
+			send("error", map[string]string{"code": code, "message": msg})
+			return
+		}
+		var wg sync.WaitGroup
+		for _, d := range req.Devices {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				one := req
+				one.DeviceID, one.DeviceName, one.Devices = d.ID, d.Name, nil
+				reply, err := s.runChat(ctx, one, events(d.ID))
+				end := map[string]string{"deviceId": d.ID, "reply": reply}
+				if err != nil {
+					end["code"], end["message"] = chatError(ctx, err)
+				}
+				send("run_end", end)
+			}()
+		}
+		wg.Wait()
+		send("done", map[string]string{"reply": ""})
+		return
+	}
+
+	reply, err := s.runChat(ctx, req, events(req.DeviceID))
+	if err != nil {
+		code, msg := chatError(ctx, err)
+		send("error", map[string]string{"code": code, "message": msg})
+		return
+	}
+	send("done", map[string]string{"reply": reply})
+}
+
+// chatError is the code and message the client gets for a run's error:
+// cancelled, no_key, no_fallback or failed.
+func chatError(ctx context.Context, err error) (code, message string) {
+	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, secret.ErrCancelled), ctx.Err() != nil:
+		return "cancelled", "stopped"
+	case errors.Is(err, errNoKey), errors.Is(err, secret.ErrNotFound):
+		return "no_key", "no API key"
+	case errors.Is(err, errNoFallback):
+		return "no_fallback", err.Error()
+	default:
+		return "failed", err.Error()
+	}
+}
+
+// warmKey reveals the key the runs will use once, before several runs
+// start, so the person is asked (Touch ID) once rather than once a phone.
+// No key is no error here: each run says so.
+func (s *Server) warmKey(ctx context.Context) error {
+	st := s.currentSettings()
+	has := s.keyStatus(st)
+	m := resolveChatModel(st, has)
+	if m != nil && m.Provider == inapp.Ollama {
+		// A local model may hand over to the cloud model for tools.
+		m = resolveAgentModel(st, has)
+	}
+	if m == nil {
+		return nil
+	}
+	prof := keyProfileFor(st, has, m.Provider)
+	if prof == nil {
+		return nil
+	}
+	_, err := s.revealKey(ctx, s.keyAccount(st, *prof))
+	if errors.Is(err, secret.ErrNotFound) {
+		return nil
+	}
+	return err
 }
 
 var (
@@ -576,7 +663,7 @@ var (
 	errNoFallback = errors.New("this Ollama model cannot use tools, and no cloud model has a key to drive the phone")
 )
 
-func (s *Server) runChat(ctx context.Context, req chatRequest, emit func(string)) (string, error) {
+func (s *Server) runChat(ctx context.Context, req chatRequest, emit func(inapp.AgentEvent)) (string, error) {
 	s.migrateProfiles()
 	st := s.currentSettings()
 	has := s.keyStatus(st)
@@ -591,6 +678,12 @@ func (s *Server) runChat(ctx context.Context, req chatRequest, emit func(string)
 		}
 	}
 	ollamaBase := inapp.NormalizeOllamaBaseURL(st.OllamaBaseURL)
+	history := make([]inapp.Message, 0, len(req.History)+1)
+	for _, h := range req.History {
+		if h.Role == "user" || h.Role == "assistant" {
+			history = append(history, inapp.Message{Role: h.Role, Text: h.Text})
+		}
+	}
 
 	if s.opt.Agent != nil && req.DeviceID != "" {
 		run := func(model *inapp.ChatModel, profile *ModelKeyProfile) inapp.AgentOutcome {
@@ -604,8 +697,8 @@ func (s *Server) runChat(ctx context.Context, req chatRequest, emit func(string)
 			return inapp.RunAgent(ctx, inapp.AgentConfig{
 				Gateway: s.opt.Agent, Provider: model.Provider, ModelID: model.ID, APIKey: apiKey,
 				OllamaBase: ollamaBase, DeviceID: req.DeviceID, DeviceName: req.DeviceName,
-				TaskTitle: req.Title, Prompt: req.Prompt, LocaleIsJA: strings.HasPrefix(req.Locale, "ja"),
-			}, func(ev inapp.AgentEvent) { emit(ev.Text) })
+				TaskTitle: req.Title, Prompt: req.Prompt, History: history, LocaleIsJA: strings.HasPrefix(req.Locale, "ja"),
+			}, emit)
 		}
 		out := run(m, prof)
 		if out.Err == nil || m.Provider != inapp.Ollama || !inapp.ErrToolsNotSupported(out.Err) {
@@ -619,17 +712,11 @@ func (s *Server) runChat(ctx context.Context, req chatRequest, emit func(string)
 		if fprof == nil {
 			return "", errNoFallback
 		}
-		emit(fmt.Sprintf("→ %s", fb.Label))
+		emit(inapp.AgentEvent{Kind: "text", Text: fmt.Sprintf("→ %s", fb.Label)})
 		out = run(fb, fprof)
 		return out.Reply, out.Err
 	}
 
-	history := make([]inapp.Message, 0, len(req.History)+1)
-	for _, h := range req.History {
-		if h.Role == "user" || h.Role == "assistant" {
-			history = append(history, inapp.Message{Role: h.Role, Text: h.Text})
-		}
-	}
 	history = append(history, inapp.Message{Role: "user", Text: req.Prompt})
 	phones := req.Phones
 	if len(phones) == 0 {

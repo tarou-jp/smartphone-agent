@@ -1,11 +1,20 @@
+// The Agent panel's title bar, as Cursor's: the open chats as tabs (a
+// chat icon, the title, a cross), then a running mark, New chat, Past
+// chats, More, and the panel button that hides the panel.
+
 import { useState } from 'react';
-import { Box, IconButton, ListItemText, Menu, MenuItem, Stack, Tab, Tabs, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, ButtonBase, CircularProgress, IconButton, ListItemText, Menu, MenuItem, Stack, Tooltip, Typography, useTheme } from '@mui/material';
 import AddIcon from '@mui/icons-material/AddRounded';
 import HistoryIcon from '@mui/icons-material/HistoryRounded';
+import MoreIcon from '@mui/icons-material/MoreHorizRounded';
 import CloseIcon from '@mui/icons-material/CloseRounded';
-import CollapseIcon from '@mui/icons-material/KeyboardDoubleArrowRightRounded';
+import ChatIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
+import PanelIcon from '@mui/icons-material/ViewSidebarOutlined';
 import { useI18n } from '@/i18n';
-import type { Chat } from './useChat';
+import type { Chat } from './store';
+import { isBusy } from './model';
+
+const mod = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl+';
 
 /** When a past chat was last used: the time today, else the day. */
 function when(locale: string, at: number): string {
@@ -18,68 +27,97 @@ function when(locale: string, at: number): string {
 export function ChatHeader({ chat, onCollapse }: { chat: Chat; onCollapse?: () => void }) {
   const { t, locale } = useI18n();
   const p = useTheme().pinky;
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [history, setHistory] = useState<HTMLElement | null>(null);
+  const [more, setMore] = useState<HTMLElement | null>(null);
   const open = chat.sessions.filter((s) => s.open);
-  const past = [...chat.sessions].filter((s) => s.msgs.length > 0).sort((a, b) => b.updated - a.updated);
+  const past = [...chat.sessions].filter((s) => s.turns.length > 0).sort((a, b) => b.updated - a.updated);
   const title = (s: { title: string }) => s.title || t('chatUntitled');
+  const icon = { width: 26, height: 26, color: p.ink3, '&:hover': { color: 'text.primary', bgcolor: 'action.hover' } };
 
   return (
-    <Stack direction="row" alignItems="center" sx={{ height: 52, px: 0.5, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-      <Tabs
-        value={open.some((s) => s.id === chat.active.id) ? chat.active.id : false}
-        onChange={(_, id: string) => chat.select(id)}
-        variant="scrollable"
-        scrollButtons={false}
-        sx={{ flex: 1, minWidth: 0, '& .MuiTabs-indicator': { height: 2 } }}
+    <Stack
+      direction="row"
+      alignItems="stretch"
+      sx={{ height: 52, pr: 0.75, flexShrink: 0, borderBottom: 1, borderColor: 'divider', '& > .MuiIconButton-root, & > .MuiCircularProgress-root': { alignSelf: 'center' } }}
+    >
+      <Stack
+        direction="row"
+        alignItems="stretch"
+        role="tablist"
+        sx={{ flex: 1, minWidth: 0, overflowX: 'auto', scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } }}
       >
-        {open.map((s) => (
-          <Tab
-            key={s.id}
-            value={s.id}
-            sx={{ px: 1, minWidth: 0, maxWidth: 170, fontSize: 12.5, '&:hover .tab-close': { opacity: 1 } }}
-            label={
-              <Stack direction="row" alignItems="center" spacing={0.25} sx={{ maxWidth: '100%' }}>
-                <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600 }}>
-                  {title(s)}
-                </Typography>
-                {open.length > 1 && (
-                  <Box
-                    component="span"
-                    role="button"
-                    aria-label={t('chatCloseTab')}
-                    className="tab-close"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      chat.close(s.id);
-                    }}
-                    sx={{ display: 'inline-flex', opacity: s.id === chat.active.id ? 0.7 : 0, borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
-                  >
-                    <CloseIcon sx={{ fontSize: 13 }} />
-                  </Box>
-                )}
-              </Stack>
-            }
-          />
-        ))}
-      </Tabs>
+        {open.map((s) => {
+          const on = s.id === chat.active.id;
+          return (
+            <ButtonBase
+              key={s.id}
+              role="tab"
+              aria-selected={on}
+              onClick={() => chat.select(s.id)}
+              // An editor tab: the open one sits on the panel's own colour,
+              // over the bar's bottom line.
+              sx={{
+                flexShrink: on ? 0 : 1,
+                minWidth: 0,
+                maxWidth: 200,
+                pl: 1.5,
+                pr: 0.75,
+                gap: 0.75,
+                mb: '-1px',
+                borderRight: 1,
+                borderColor: 'divider',
+                color: on ? 'text.primary' : p.ink3,
+                bgcolor: on ? p.bg2 : 'transparent',
+                '&:hover': { color: 'text.primary', '& .tab-x': { opacity: 1 } },
+              }}
+            >
+              {isBusy(s) ? (
+                <CircularProgress size={12} thickness={5} sx={{ color: p.ink3, flexShrink: 0 }} />
+              ) : (
+                <ChatIcon sx={{ fontSize: 14, flexShrink: 0 }} />
+              )}
+              <Typography noWrap sx={{ fontSize: 13, fontWeight: 500 }}>
+                {title(s)}
+              </Typography>
+              <Box
+                component="span"
+                role="button"
+                aria-label={t('chatCloseTab')}
+                className="tab-x"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  chat.close(s.id);
+                }}
+                sx={{ display: 'inline-flex', p: 0.25, borderRadius: 0.75, opacity: on ? 1 : 0, '&:hover': { bgcolor: 'action.hover' } }}
+              >
+                <CloseIcon sx={{ fontSize: 14 }} />
+              </Box>
+            </ButtonBase>
+          );
+        })}
+      </Stack>
       <Tooltip title={t('chatNew')}>
-        <IconButton aria-label={t('chatNew')} onClick={chat.newChat}>
-          <AddIcon fontSize="small" />
+        <IconButton aria-label={t('chatNew')} onClick={chat.newChat} sx={icon}>
+          <AddIcon sx={{ fontSize: 18 }} />
         </IconButton>
       </Tooltip>
       <Tooltip title={t('chatHistory')}>
-        <IconButton aria-label={t('chatHistory')} onClick={(e) => setAnchor(e.currentTarget)}>
-          <HistoryIcon fontSize="small" />
+        <IconButton aria-label={t('chatHistory')} onClick={(e) => setHistory(e.currentTarget)} sx={icon}>
+          <HistoryIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Tooltip>
+      <IconButton aria-label={t('webChatMore')} onClick={(e) => setMore(e.currentTarget)} sx={icon}>
+        <MoreIcon sx={{ fontSize: 18 }} />
+      </IconButton>
       {onCollapse && (
-        <Tooltip title={t('chatCollapse')}>
-          <IconButton aria-label={t('chatCollapse')} onClick={onCollapse}>
-            <CollapseIcon fontSize="small" />
+        <Tooltip title={`${t('chatCollapse')}  ${mod}L`}>
+          <IconButton aria-label={t('chatCollapse')} onClick={onCollapse} sx={icon}>
+            <PanelIcon sx={{ fontSize: 16 }} />
           </IconButton>
         </Tooltip>
       )}
-      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} slotProps={{ paper: { sx: { width: 300, maxHeight: 420 } } }}>
+
+      <Menu anchorEl={history} open={!!history} onClose={() => setHistory(null)} slotProps={{ paper: { sx: { width: 300, maxHeight: 420 } } }}>
         {past.length === 0 && (
           <MenuItem disabled dense>
             {t('chatHistoryEmpty')}
@@ -91,7 +129,7 @@ export function ChatHeader({ chat, onCollapse }: { chat: Chat; onCollapse?: () =
             dense
             selected={s.id === chat.active.id}
             onClick={() => {
-              setAnchor(null);
+              setHistory(null);
               chat.select(s.id);
             }}
           >
@@ -101,6 +139,34 @@ export function ChatHeader({ chat, onCollapse }: { chat: Chat; onCollapse?: () =
             </Typography>
           </MenuItem>
         ))}
+      </Menu>
+      <Menu
+        anchorEl={more}
+        open={!!more}
+        onClose={() => setMore(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { minWidth: 220 } } }}
+      >
+        <MenuItem
+          dense
+          onClick={() => {
+            setMore(null);
+            chat.close(chat.active.id);
+          }}
+        >
+          <ListItemText primary={t('chatCloseTab')} primaryTypographyProps={{ fontSize: 13 }} />
+        </MenuItem>
+        <MenuItem
+          dense
+          disabled={open.length < 2}
+          onClick={() => {
+            setMore(null);
+            open.filter((s) => s.id !== chat.active.id).forEach((s) => chat.close(s.id));
+          }}
+        >
+          <ListItemText primary={t('webChatCloseOthers')} primaryTypographyProps={{ fontSize: 13 }} />
+        </MenuItem>
       </Menu>
     </Stack>
   );

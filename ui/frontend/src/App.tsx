@@ -12,6 +12,9 @@ import { ActivityPage } from '@/pages/ActivityPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { AddPhonePage } from '@/pages/AddPhonePage';
 import { isRunning } from '@/lib/format';
+import { ChatProvider } from '@/components/chat/store';
+import { AgentPanel } from '@/components/chat/AgentPanel';
+import { PageBoundary } from '@/components/common/PageBoundary';
 
 function Shell() {
   const route = useRoute();
@@ -66,7 +69,7 @@ function Shell() {
       page = <PhonesPage deviceId={route.deviceId} />;
   }
   return (
-    <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
+    <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default', color: 'text.primary', position: 'relative', overflow: 'hidden' }}>
       <Sidebar route={route} />
       <Box component="main" sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {!loaded && <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2 }} />}
@@ -75,8 +78,11 @@ function Shell() {
             {t('webDisconnected')}
           </Alert>
         )}
-        {page}
+        <PageBoundary label={t('webPageFailed')} retry={t('webRetry')} resetKey={window.location.hash}>
+          {page}
+        </PageBoundary>
       </Box>
+      <AgentPanel route={route} />
       <Toasts />
     </Box>
   );
@@ -90,7 +96,9 @@ function Themed() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AppStateProvider>
-        <Shell />
+        <ChatProvider>
+          <Shell />
+        </ChatProvider>
       </AppStateProvider>
     </ThemeProvider>
   );

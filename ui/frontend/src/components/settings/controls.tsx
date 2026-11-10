@@ -59,6 +59,12 @@ export function SettingSelectRow<V extends string | number>({
       control={
         <Select
           value={value}
+          // An empty value shows its own option's label rather than a blank box.
+          displayEmpty
+          renderValue={(v) => {
+            const o = options.find((x) => String(x.value) === String(v));
+            return o ? o.label : String(v);
+          }}
           onChange={(e) => {
             const raw = e.target.value;
             const opt = options.find((o) => String(o.value) === String(raw));

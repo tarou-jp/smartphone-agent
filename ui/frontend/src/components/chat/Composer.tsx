@@ -1,28 +1,72 @@
+// Cursor's composer: a context pill above the text (here, the phones the
+// message goes to: the one chosen in the sidebar, or every connected one
+// on All phones), the mode and model below it, and one round button that
+// sends, or stops while a run goes.
+//
+// Enter sends, or queues while the chat runs; Shift+Enter breaks the line;
+// Ctrl+C with nothing selected stops; ⌘. switches Agent and Ask; Escape
+// leaves the box.
+
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { Box, Chip, IconButton, InputBase, Stack, Tooltip, useTheme } from '@mui/material';
+import {
+  Box,
+  ButtonBase,
+  IconButton,
+  InputBase,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Stack,
+  Tooltip,
+  useTheme,
+} from '@mui/material';
 import ArrowUpIcon from '@mui/icons-material/ArrowUpwardRounded';
 import StopIcon from '@mui/icons-material/StopRounded';
 import PhoneIcon from '@mui/icons-material/SmartphoneRounded';
+import PhonesIcon from '@mui/icons-material/DevicesOtherRounded';
+import InfinityIcon from '@mui/icons-material/AllInclusiveRounded';
+import AskIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
+import ExpandIcon from '@mui/icons-material/ExpandMoreRounded';
+import CheckIcon from '@mui/icons-material/CheckRounded';
 import { useT } from '@/i18n';
 import { ModelPicker } from './ModelPicker';
 import { QueueList } from './QueueList';
-import type { Chat } from './useChat';
+import { useChat, usePanel } from './store';
+import type { Mode, PhoneRef } from './model';
 
-/**
- * Cursor's composer: Enter sends, or queues while a run goes; Shift+Enter
- * breaks the line; Ctrl+C with nothing selected stops the run.
- */
-export function Composer({ chat, scope }: { chat: Chat; scope: string | null }) {
+const mac = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac');
+
+export function Composer({
+  targets,
+  all,
+  agentAvailable,
+  tall,
+}: {
+  targets: PhoneRef[];
+  all: boolean;
+  agentAvailable: boolean;
+  /** A new chat's composer, at the top: room for a longer first message. */
+  tall?: boolean;
+}) {
   const t = useT();
   const p = useTheme().pinky;
-  const [draft, setDraft] = useState('');
-  const input = useRef<HTMLTextAreaElement>(null);
+  const chat = useChat();
+  const panel = usePanel();
   const s = chat.active;
+  const [draft, setDraft] = useState('');
+  const [modeAnchor, setModeAnchor] = useState<HTMLElement | null>(null);
+  const input = useRef<HTMLTextAreaElement | null>(null);
+
+  const agentMode = s.mode === 'agent' && agentAvailable;
 
   const submit = () => {
     if (!draft.trim()) return;
-    chat.send(draft);
+    chat.send(draft, agentMode ? targets : [], agentMode ? 'agent' : 'ask');
     setDraft('');
+    // A new chat's first message moves the composer from the top to the
+    // bottom, a new box: keep typing in it.
+    window.setTimeout(() => panel.inputRef.current?.focus(), 0);
   };
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -35,14 +79,34 @@ export function Composer({ chat, scope }: { chat: Chat; scope: string | null }) 
         e.preventDefault();
         chat.stop();
       }
+    } else if (e.key === '.' && (mac ? e.metaKey : e.ctrlKey) && !e.altKey) {
+      e.preventDefault();
+      chat.setMode(s.mode === 'agent' ? 'ask' : 'agent');
     } else if (e.key === 'Escape') {
       e.currentTarget.blur();
     }
   };
 
   const canSend = draft.trim() !== '';
+  const modes: { mode: Mode; label: string; desc: string; Icon: typeof InfinityIcon }[] = [
+    { mode: 'agent', label: t('webChatModeAgent'), desc: t('webChatModeAgentDesc'), Icon: InfinityIcon },
+    { mode: 'ask', label: t('webChatModeAsk'), desc: t('webChatModeAskDesc'), Icon: AskIcon },
+  ];
+  const modeNow = modes.find((m) => m.mode === (agentMode ? 'agent' : 'ask'))!;
+
+  const scope = all && targets.length > 1 ? t('webChatAllPhonesCount', { count: targets.length }) : targets[0]?.name;
+  const round = {
+    width: 24,
+    height: 24,
+    borderRadius: '50%',
+    bgcolor: 'text.primary',
+    color: 'background.paper',
+    '&:hover': { bgcolor: p.ink2 },
+    '&.Mui-disabled': { bgcolor: p.bg3, color: p.ink3 },
+  } as const;
+
   return (
-    <Box sx={{ p: 1.25, pt: 0.5 }}>
+    <Box sx={{ px: 1.5, pb: 1.5, pt: 0.5 }}>
       <QueueList queued={s.queued} onSteer={chat.steer} onRemove={chat.removeQueued} />
       <Box
         onClick={() => input.current?.focus()}
@@ -50,35 +114,86 @@ export function Composer({ chat, scope }: { chat: Chat; scope: string | null }) 
           border: 1,
           borderColor: p.line2,
           borderRadius: 2.5,
-          bgcolor: 'background.paper',
+          bgcolor: p.bg2,
           px: 1.25,
           pt: 1,
-          pb: 0.5,
+          pb: 1,
           cursor: 'text',
-          '&:focus-within': { borderColor: 'primary.main' },
+          transition: 'border-color .1s',
+          '&:focus-within': { borderColor: p.ink3 },
         }}
       >
+        {agentMode && (
+          <Tooltip title={t('webChatScopeHint')} placement="top-start">
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.5,
+                height: 22,
+                px: 0.75,
+                mb: 0.5,
+                maxWidth: '100%',
+                borderRadius: 1,
+                border: 1,
+                borderColor: p.line2,
+                color: scope ? p.ink2 : p.ink3,
+                fontSize: 11.5,
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {all ? <PhonesIcon sx={{ fontSize: 13, flexShrink: 0 }} /> : <PhoneIcon sx={{ fontSize: 13, flexShrink: 0 }} />}
+              <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {scope ?? t('chatScopeNone')}
+              </Box>
+            </Box>
+          </Tooltip>
+        )}
         <InputBase
-          inputRef={input}
+          inputRef={(el: HTMLTextAreaElement | null) => {
+            input.current = el;
+            panel.inputRef.current = el;
+          }}
           multiline
-          minRows={2}
-          maxRows={12}
+          minRows={tall ? 4 : 2}
+          maxRows={14}
           fullWidth
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKey}
-          placeholder={s.msgs.length ? t('chatPlaceholderFollowUp') : t('chatPlaceholder')}
+          placeholder={
+            s.turns.length ? t('chatPlaceholderFollowUp') : agentMode ? t('webChatPlaceholderAgent') : t('webChatPlaceholderAsk')
+          }
           inputProps={{ 'aria-label': t('chatSection') }}
-          sx={{ fontSize: 13, lineHeight: 1.5 }}
+          sx={{ display: 'block', fontSize: 13, lineHeight: 1.5, px: 0.25, py: 0 }}
         />
-        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.5 }}>
+        <Stack direction="row" alignItems="center" spacing={0.25} sx={{ mt: 0.75, height: 24 }}>
+          <Tooltip title={`${t('webChatModeSwitch')}  ${mac ? '⌘.' : 'Ctrl+.'}`}>
+          <ButtonBase
+            onClick={(e) => {
+              e.stopPropagation();
+              setModeAnchor(e.currentTarget);
+            }}
+            sx={{
+              height: 24,
+              px: 0.75,
+              gap: 0.5,
+              borderRadius: 1.5,
+              bgcolor: p.bg3,
+              color: p.ink3,
+              fontSize: 12,
+              fontWeight: 500,
+              '&:hover': { bgcolor: p.sel },
+            }}
+          >
+            <modeNow.Icon sx={{ fontSize: 14 }} />
+            {modeNow.label}
+            <ExpandIcon sx={{ fontSize: 14, ml: -0.25 }} />
+          </ButtonBase>
+          </Tooltip>
           <ModelPicker />
-          <Chip
-            icon={<PhoneIcon sx={{ fontSize: '14px !important' }} />}
-            label={scope ? t('chatScopeOne', { name: scope }) : t('chatScopeNone')}
-            variant="outlined"
-            sx={{ height: 22, fontSize: 11.5, fontWeight: 500, maxWidth: 130, borderColor: p.line2, color: p.ink2 }}
-          />
           <Box sx={{ flex: 1 }} />
           {chat.busy && !canSend ? (
             <Tooltip title={`${t('chatStop')}  ${t('chatStopKeyHint')}`}>
@@ -88,14 +203,15 @@ export function Composer({ chat, scope }: { chat: Chat; scope: string | null }) 
                   e.stopPropagation();
                   chat.stop();
                 }}
-                sx={{ width: 28, height: 28, bgcolor: p.ink2, color: 'background.paper', '&:hover': { bgcolor: p.ink3 } }}
+                sx={round}
               >
-                <StopIcon sx={{ fontSize: 16 }} />
+                <StopIcon sx={{ fontSize: 14 }} />
               </IconButton>
             </Tooltip>
           ) : (
             <Tooltip title={t('chatSend')}>
-              <span>
+              {/* A disabled button gets no tooltip events; the box keeps them, and must not add a line's height. */}
+              <Box component="span" sx={{ display: 'inline-flex' }}>
                 <IconButton
                   aria-label={t('chatSend')}
                   disabled={!canSend}
@@ -103,22 +219,49 @@ export function Composer({ chat, scope }: { chat: Chat; scope: string | null }) 
                     e.stopPropagation();
                     submit();
                   }}
-                  sx={{
-                    width: 28,
-                    height: 28,
-                    bgcolor: canSend ? 'primary.main' : p.bg3,
-                    color: canSend ? 'primary.contrastText' : p.ink3,
-                    '&:hover': { bgcolor: 'primary.dark' },
-                    '&.Mui-disabled': { bgcolor: p.bg3, color: p.ink3 },
-                  }}
+                  sx={round}
                 >
-                  <ArrowUpIcon sx={{ fontSize: 16 }} />
+                  <ArrowUpIcon sx={{ fontSize: 15 }} />
                 </IconButton>
-              </span>
+              </Box>
             </Tooltip>
           )}
         </Stack>
       </Box>
+
+      <Menu
+        anchorEl={modeAnchor}
+        open={!!modeAnchor}
+        onClose={() => setModeAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        slotProps={{ paper: { sx: { minWidth: 240 } } }}
+      >
+        {modes.map((m) => (
+          <MenuItem
+            key={m.mode}
+            dense
+            disabled={m.mode === 'agent' && !agentAvailable}
+            selected={m.mode === modeNow.mode}
+            onClick={() => {
+              setModeAnchor(null);
+              chat.setMode(m.mode);
+              requestAnimationFrame(() => input.current?.focus());
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 28 }}>
+              <m.Icon sx={{ fontSize: 16 }} />
+            </ListItemIcon>
+            <ListItemText
+              primary={m.label}
+              secondary={m.desc}
+              primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
+              secondaryTypographyProps={{ fontSize: 11.5 }}
+            />
+            {m.mode === modeNow.mode && <CheckIcon sx={{ fontSize: 16, ml: 1 }} />}
+          </MenuItem>
+        ))}
+      </Menu>
     </Box>
   );
 }

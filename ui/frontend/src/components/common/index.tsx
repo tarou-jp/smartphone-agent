@@ -10,9 +10,11 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  IconButton,
   Paper,
   Snackbar,
   Stack,
+  Tooltip,
   Typography,
   useTheme,
   type SxProps,
@@ -20,12 +22,42 @@ import {
 } from '@mui/material';
 import AndroidIcon from '@mui/icons-material/Android';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import AgentIcon from '@mui/icons-material/ViewSidebarOutlined';
 import { useApp } from '@/state/AppState';
+import { useT } from '@/i18n';
+import { usePanel } from '@/components/chat/store';
 
 export { StatusDot } from './StatusDot';
 
+const mac = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac');
+
+/** Shows the Agent panel when it is hidden, at the end of every title bar. */
+function AgentToggle() {
+  const t = useT();
+  const panel = usePanel();
+  if (panel.open) return null;
+  return (
+    <Tooltip title={`${t('chatExpand')}  ${mac ? '⌘' : 'Ctrl+'}L`}>
+      <IconButton aria-label={t('chatExpand')} onClick={panel.focus}>
+        <AgentIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  );
+}
+
 /** A page's title bar: title on the left, actions on the right. */
-export function PageHeader({ title, actions, children }: { title: ReactNode; actions?: ReactNode; children?: ReactNode }) {
+export function PageHeader({
+  title,
+  actions,
+  children,
+  leading,
+}: {
+  title: ReactNode;
+  actions?: ReactNode;
+  children?: ReactNode;
+  /** Before the title, such as a back button. */
+  leading?: ReactNode;
+}) {
   return (
     <Box
       sx={{
@@ -40,13 +72,15 @@ export function PageHeader({ title, actions, children }: { title: ReactNode; act
         WebkitAppRegion: 'drag',
       }}
     >
-      <Typography variant="h2" noWrap sx={{ flexShrink: 1, minWidth: 0 }}>
+      {leading && <Box sx={{ display: 'flex', ml: -1, mr: -0.5, WebkitAppRegion: 'no-drag' }}>{leading}</Box>}
+      <Typography variant="h2" noWrap sx={{ flexShrink: 0, maxWidth: '45%', minWidth: 0 }}>
         {title}
       </Typography>
-      {children}
-      <Box sx={{ flex: 1 }} />
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ WebkitAppRegion: 'no-drag' }}>
+      {/* The status line gives way first: it ellipsizes, the title and the buttons never wrap. */}
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>{children}</Box>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0, WebkitAppRegion: 'no-drag' }}>
         {actions}
+        <AgentToggle />
       </Stack>
     </Box>
   );

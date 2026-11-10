@@ -108,7 +108,7 @@ export function PhoneActions({
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary={t('settingsSectionPhones')} />
+          <ListItemText primary={t('webPhoneSettings')} />
         </MenuItem>
       </Menu>
       <PinDialog device={device} open={pinOpen} onClose={() => setPinOpen(false)} />

@@ -209,8 +209,25 @@ export function subscribe(onEvent: (e: ServerEvent) => void, onOpen?: () => void
   return () => es.close();
 }
 
+/** One event of an agent's run: a tool call starting or ending, or what the model said between calls. */
+export interface ChatStep {
+  kind: 'tool_start' | 'tool_end' | 'text';
+  text: string;
+  id?: string;
+  tool?: string;
+  intent?: string;
+  args?: Record<string, unknown>;
+  status?: string;
+  detail?: string;
+  deviceId?: string;
+}
+
 export interface ChatStreamHandlers {
-  onProgress: (line: string) => void;
+  onProgress?: (line: string, deviceId?: string) => void;
+  /** Servers that say what each tool call does; older ones send progress lines only. */
+  onStep?: (step: ChatStep) => void;
+  /** With several phones: one phone's run ended. code is set when it failed. */
+  onRunEnd?: (deviceId: string, reply: string, code?: string, message?: string) => void;
   onDone: (reply: string) => void;
   onError: (code: string, message: string) => void;
 }
@@ -224,6 +241,7 @@ export async function streamChat(
     title: string;
     deviceId?: string;
     deviceName?: string;
+    devices?: { id: string; name: string }[];
     phones?: string[];
     locale: string;
   },
@@ -275,7 +293,9 @@ export async function streamChat(
         }
         if (!data) continue;
         const d = JSON.parse(data);
-        if (name === 'progress') h.onProgress(d.text);
+        if (name === 'progress') h.onProgress?.(d.text, d.deviceId || undefined);
+        else if (name === 'step') h.onStep?.(d as ChatStep);
+        else if (name === 'run_end') h.onRunEnd?.(d.deviceId, d.reply ?? '', d.code || undefined, d.message || undefined);
         else if (name === 'done') {
           ended = true;
           h.onDone(d.reply);

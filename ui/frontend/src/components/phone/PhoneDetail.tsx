@@ -1,15 +1,13 @@
-// One phone's page: header, the mirror with its keys, Needs you and the
-// task on the right, and the chat column at the far right.
+// One phone's page: header, the mirror with its keys, and Needs you and
+// the task on the right. The Agent panel is the window's, beside it.
 
 import { useEffect, useState } from 'react';
-import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
-import ChatIcon from '@mui/icons-material/ForumOutlined';
+import { Box, Stack, Typography } from '@mui/material';
 import { api } from '@/api/client';
 import { useApp, useHas } from '@/state/AppState';
 import { useT } from '@/i18n';
 import { PageHeader, PlatformIcon, StatusDot } from '@/components/common';
 import { NeedsList } from '@/components/needs/NeedsList';
-import { ChatPanel } from '@/components/chat/ChatPanel';
 import { Mirror } from './Mirror';
 import { ControlBar } from './ControlBar';
 import { StatusBanner } from './StatusBanner';
@@ -19,27 +17,12 @@ import { PhoneStatePanel } from './PhoneStatePanel';
 import { PhoneActions } from './PhoneActions';
 import { markedStep, usePhone } from './usePhone';
 import { useGw } from '@/lib/gwtext';
+import { useWidth } from '@/hooks/useWidth';
 
-const chatKey = 'pinky-chat-collapsed';
-
-function useChatCollapsed(): [boolean, (v: boolean) => void] {
-  const [v, setV] = useState(() => {
-    try {
-      return localStorage.getItem(chatKey) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const set = (x: boolean) => {
-    setV(x);
-    try {
-      localStorage.setItem(chatKey, x ? '1' : '0');
-    } catch {
-      // Remembered until the window closes.
-    }
-  };
-  return [v, set];
-}
+// Needs you narrows when the page is narrow, so the mirror keeps room.
+const asideWidth = 360;
+const asideNarrow = 300;
+const mirrorMin = 280;
 
 /** Whether agents work on the phone's background display, when it can. */
 function useBackground(id: string, can: boolean): [boolean | null, (on: boolean) => void] {
@@ -72,7 +55,7 @@ export function PhoneDetail({ id }: { id: string }) {
   const hasAgentStream = useHas('agentStream');
   const [background, setBackground] = useBackground(id, !!device?.features.background && hasBackground);
   const [agentScreen, setAgentScreen] = useState(false);
-  const [chatCollapsed, setChatCollapsed] = useChatCollapsed();
+  const [rootRef, width] = useWidth<HTMLDivElement>();
   useEffect(() => setAgentScreen(false), [id]);
 
   if (!device) return null;
@@ -81,15 +64,9 @@ export function PhoneDetail({ id }: { id: string }) {
   const showingAgent = offerAgentScreen && agentScreen;
   const step = markedStep(task);
   const noMirror = device.status === 'offline' || device.status === 'needs_setup' || device.status === 'locked';
-  const chatToggle = (
-    <Tooltip title={chatCollapsed ? t('chatExpand') : t('chatCollapse')}>
-      <IconButton aria-label={chatCollapsed ? t('chatExpand') : t('chatCollapse')} onClick={() => setChatCollapsed(!chatCollapsed)}>
-        <ChatIcon fontSize="small" />
-      </IconButton>
-    </Tooltip>
-  );
+  const aside = width === 0 || width >= asideWidth + mirrorMin ? asideWidth : asideNarrow;
   return (
-    <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
+    <Box ref={rootRef} sx={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <PageHeader
           title={
@@ -101,7 +78,6 @@ export function PhoneDetail({ id }: { id: string }) {
           actions={
             <>
               <PhoneActions device={device} task={task} running={running} background={background} onBackground={setBackground} />
-              {chatToggle}
             </>
           }
         >
@@ -113,7 +89,7 @@ export function PhoneDetail({ id }: { id: string }) {
           </Stack>
         </PageHeader>
         <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', p: 2, pb: 0 }}>
+          <Box sx={{ flex: 1, minWidth: 220, display: 'flex', flexDirection: 'column', p: 2, pb: 0 }}>
             <StatusBanner device={device} task={task} needs={needs} />
             {noMirror ? (
               <PhoneStatePanel device={device} />
@@ -146,7 +122,7 @@ export function PhoneDetail({ id }: { id: string }) {
           <Box
             component="aside"
             aria-label={t('needsAndTasksLabel')}
-            sx={{ width: 360, flexShrink: 0, borderLeft: 1, borderColor: 'divider', overflowY: 'auto', p: 2 }}
+            sx={{ width: aside, flexShrink: 0, borderLeft: 1, borderColor: 'divider', overflowY: 'auto', p: 2 }}
           >
             <Stack spacing={2}>
               <NeedsList needs={needs} shotFor={(n) => n.deviceId !== id || noMirror} />
@@ -167,11 +143,6 @@ export function PhoneDetail({ id }: { id: string }) {
           </Box>
         </Box>
       </Box>
-      {!chatCollapsed && (
-        <Box sx={{ width: 380, flexShrink: 0, borderLeft: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <ChatPanel deviceId={id} onCollapse={() => setChatCollapsed(true)} />
-        </Box>
-      )}
     </Box>
   );
 }
