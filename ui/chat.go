@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"runtime"
 	"strings"
 	"time"
 
@@ -37,6 +39,7 @@ type chatSession struct {
 	Title   string
 	Msgs    []chatMsg
 	Updated time.Time
+	queued  []string
 }
 
 // chatState is the Agent column on the phone page (Cursor-style sidebar).
@@ -50,6 +53,9 @@ type chatState struct {
 	seq       int
 	scrollTab bool // one frame: ScrollIntoView on the active tab
 	genCancel context.CancelFunc
+	interruptNext string // Enter while busy: stop and run this message next
+	queueOpen     bool   // composer queue list expanded
+	threadScroll  mg.ScrollState
 }
 
 func (a *app) chatEnsure() *chatSession {
@@ -289,7 +295,10 @@ func chatWhen(t time.Time) string {
 func (a *app) chatThread(c *mg.Context) {
 	p := pal(c)
 	s := a.chatEnsure()
-	mg.Scroll(c).Grow(1).MinHeight(0).Padding(16, 14).Gap(14).Children(func() {
+	scroll := &a.chat.threadScroll
+	a.chatFollowThread(scroll)
+	mg.Scroll(c.Key("chat-thread")).Grow(1).MinHeight(0).TrackScroll(scroll).
+		Padding(16, 14).Gap(14).Children(func() {
 		if len(s.Msgs) == 0 && !a.chat.busy {
 			a.chatEmpty(c)
 			return
@@ -297,10 +306,73 @@ func (a *app) chatThread(c *mg.Context) {
 		for i, m := range s.Msgs {
 			a.chatBubble(c.Key(fmt.Sprintf("%s-%s-%d", s.ID, m.Role, i)), m)
 		}
-		if a.chat.busy {
-			mg.Text(c, locales.ChatThinking()).FontSize(13).TextColor(p.ink3).Padding(4, 2)
+		if a.chat.busy && !chatHasStreamingTail(s) {
+			mg.Text(c.Key("chat-thinking"), locales.ChatThinking()).FontSize(13).TextColor(p.ink3).Padding(4, 2)
 		}
 	})
+}
+
+// chatFollowThread keeps the thread pinned to the bottom while the person is
+// already at the bottom (Cursor-style), so streaming does not fight manual scroll-up.
+func (a *app) chatFollowThread(scroll *mg.ScrollState) {
+	const slack float32 = 28
+	atBottom := scroll.MaxY == 0 || scroll.Y >= scroll.MaxY-slack
+	if atBottom {
+		scroll.Y = math.MaxFloat32
+	}
+}
+
+func chatHasStreamingTail(s *chatSession) bool {
+	if s == nil || len(s.Msgs) == 0 {
+		return false
+	}
+	return s.Msgs[len(s.Msgs)-1].Role == chatAssistant
+}
+
+func (a *app) chatAppendStream(sessionID, line string) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return
+	}
+	sess := a.chatSession(sessionID)
+	if sess == nil {
+		return
+	}
+	if n := len(sess.Msgs); n > 0 && sess.Msgs[n-1].Role == chatAssistant {
+		prev := strings.TrimSpace(sess.Msgs[n-1].Text)
+		if prev == "" {
+			sess.Msgs[n-1].Text = line
+		} else {
+			sess.Msgs[n-1].Text = prev + "\n" + line
+		}
+	} else {
+		sess.Msgs = append(sess.Msgs, chatMsg{Role: chatAssistant, Text: line, At: time.Now()})
+	}
+	sess.Updated = time.Now()
+}
+
+func (a *app) chatFinishStream(sessionID, reply string) {
+	sess := a.chatSession(sessionID)
+	if sess == nil {
+		return
+	}
+	reply = strings.TrimSpace(reply)
+	if reply == "" {
+		return
+	}
+	if n := len(sess.Msgs); n > 0 && sess.Msgs[n-1].Role == chatAssistant {
+		body := strings.TrimSpace(sess.Msgs[n-1].Text)
+		if body == "" {
+			sess.Msgs[n-1].Text = reply
+			return
+		}
+		if body == reply || strings.Contains(body, reply) {
+			return
+		}
+		sess.Msgs[n-1].Text = body + "\n\n" + reply
+		return
+	}
+	sess.Msgs = append(sess.Msgs, chatMsg{Role: chatAssistant, Text: reply, At: time.Now()})
 }
 
 func (a *app) chatEmpty(c *mg.Context) {
@@ -319,55 +391,91 @@ func (a *app) chatComposer(c *mg.Context) {
 	p := pal(c)
 	st := &a.chat
 	a.ensureChatModel()
-	canSend := !st.busy && strings.TrimSpace(st.draft) != "" && a.chatModelReady()
+	draftOK := strings.TrimSpace(st.draft) != "" && a.chatModelReady()
+	canSend := !st.busy && draftOK
+	canQueue := st.busy && draftOK
 	fill := p.bg2
 	if p.dark {
 		fill = hex("#252528")
 	}
 
 	mg.Column(c).Shrink(0).Padding(10, 12, 14, 12).Children(func() {
-		// One bordered region (TextAreaBase = no inner field chrome).
-		box := mg.Column(c).Radius(12).Border(1, p.line2).Background(fill).Padding(14, 14, 10, 14).Gap(4)
+		s := a.chatEnsure()
+		hasToolbar := len(s.queued) > 0 || st.busy
+		ph := locales.ChatPlaceholder()
+		if st.busy {
+			ph = locales.ChatPlaceholderFollowUp()
+		}
+		// One bordered region; composer toolbar (queue + Stop) like Cursor, then the input.
+		box := mg.Column(c).Radius(12).Border(1, p.line2).Background(fill).Gap(0)
 		box.Children(func() {
-			in := mg.TextAreaBase(c.Key("chat-draft"), &st.draft).
-				Placeholder(locales.ChatPlaceholder()).Label(locales.ChatPlaceholder()).
-				Lines(2, 12).FillWidth().Background(fill).MinHeight(44)
+			if hasToolbar {
+				a.chatComposerToolbar(c, p)
+				mg.Box(c).Height(1).FillWidth().Background(p.line2)
+			}
+			mg.Column(c).Padding(14, 14, 10, 14).Gap(4).Children(func() {
+			_ = mg.TextAreaBase(c.Key("chat-draft"), &st.draft).
+				Placeholder(ph).Label(ph).
+				Lines(2, 12).FillWidth().Background(fill).MinHeight(44).
+				OnTextKey(func(k mg.TextKey) bool {
+					if k.Key != mg.KeyEnter {
+						return false
+					}
+					if k.Mods&mg.Shift != 0 {
+						return false // Shift+Enter: newline.
+					}
+					text := strings.TrimSpace(k.Text())
+					if text == "" || !a.chatModelReady() {
+						return false
+					}
+					k.SetText("")
+					st.draft = ""
+					a.chatComposerEnter(text, chatEnterQueues(k.Mods))
+					return true
+				})
 			mg.Row(c).AlignItems(mg.Center).Gap(6).Children(func() {
 				a.chatModelPicker(c, fill)
 				mg.Spacer(c)
-				if st.busy {
+				// One FAB slot: stop while generating, send otherwise (queue when busy + draft).
+				showStop := st.busy && !canQueue
+				fabActive := showStop || canSend || canQueue
+				bg, fg := chatComposerFabColors(p, fabActive)
+				if showStop {
 					stop := mg.ButtonBase(c.Key("chat-stop")).Size(26, 26).Radius(13).Center().
-						Label(locales.ChatStop())
-					bg, sq := p.white, hex("#1c1c1f")
-					if !p.dark {
-						bg, sq = p.ink, p.white
-					}
-					stop.Background(bg).Children(func() {
-						mg.Icon(c, icStopSq).FontSize(10).TextColor(sq)
+						Label(locales.ChatStop()).Background(bg)
+					stop.Children(func() {
+						mg.Icon(c, icStopSq).FontSize(16).TextColor(fg)
 					})
 					if stop.Clicked() {
 						a.chatStop()
 					}
 				} else {
-					send := mg.ButtonBase(c).Size(26, 26).Radius(13).Center().
-						Label(locales.ChatSend()).Disabled(!canSend)
-					bg, fg := p.line2, p.ink3
-					if canSend {
-						bg, fg = p.white, hex("#1c1c1f")
-						if !p.dark {
-							bg, fg = p.ink, p.white
-						}
-					}
-					send.Background(bg).Children(func() {
+					send := mg.ButtonBase(c.Key("chat-send")).Size(26, 26).Radius(13).Center().
+						Label(locales.ChatSend()).Background(bg).Disabled(!canSend && !canQueue)
+					send.Children(func() {
 						mg.Icon(c, icArrowUp).FontSize(14).TextColor(fg)
 					})
-					if (send.Clicked() || in.Submitted()) && canSend {
-						a.chatSend()
+					if send.Clicked() && (canSend || canQueue) {
+						text := strings.TrimSpace(st.draft)
+						st.draft = ""
+						a.chatComposerEnter(text, false)
 					}
 				}
 			})
+			})
 		})
 	})
+}
+
+// chatComposerFabColors styles the round send/stop FAB like Cursor's composer.
+func chatComposerFabColors(p *palette, active bool) (bg, fg mg.Color) {
+	if !active {
+		return p.line2, p.ink3
+	}
+	if p.dark {
+		return p.white, hex("#1c1c1f")
+	}
+	return p.ink, p.white
 }
 
 // chatModelPicker is a text + ▾ menu of LLM models (keys missing → item disabled).
@@ -452,11 +560,212 @@ func (a *app) chatStop() {
 	st.genCancel()
 }
 
-func (a *app) chatSend() {
+// chatEnterQueues is Cmd/Ctrl+Enter (queue); plain Enter interrupts when busy.
+func chatEnterQueues(mods mg.Modifiers) bool {
+	return mods&(mg.Cmd|mg.Ctrl) != 0
+}
+
+func (a *app) chatComposerEnter(text string, queue bool) {
+	text = strings.TrimSpace(text)
+	if text == "" || !a.chatModelReady() {
+		return
+	}
+	st := &a.chat
+	if st.busy {
+		if queue {
+			a.chatEnqueue(text)
+		} else {
+			a.chatInterruptWith(text)
+		}
+		return
+	}
+	a.chatSendNow(text, true)
+}
+
+func (a *app) chatEnqueue(text string) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	s := a.chatEnsure()
+	s.queued = append(s.queued, text)
+	s.Updated = time.Now()
+	a.chat.queueOpen = true
+}
+
+func (a *app) chatInterruptWith(text string) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	st := &a.chat
+	st.interruptNext = text
+	if st.busy && st.genCancel != nil {
+		st.genCancel()
+		return
+	}
+	st.interruptNext = ""
+	a.chatSendNow(text, true)
+}
+
+func (a *app) chatComposerToolbar(c *mg.Context, p *palette) {
 	st := &a.chat
 	s := a.chatEnsure()
-	text := strings.TrimSpace(st.draft)
-	if text == "" || st.busy {
+	labelCol := p.ink2
+	if p.dark {
+		labelCol = hex("#9d9da6")
+	}
+	previewCol := p.ink2
+	indBorder := p.ink.Alpha(0.4)
+	mg.Column(c).Gap(1).Padding(6, 4, 4, 4).Children(func() {
+		if len(s.queued) > 0 {
+			if !st.queueOpen {
+				st.queueOpen = true
+			}
+			head := mg.ButtonBase(c.Key("chat-queue-toggle")).FillWidth().Gap(4).AlignItems(mg.Center).
+				Padding(2, 4).Label(locales.ChatQueueToggle())
+			if head.Clicked() {
+				st.queueOpen = !st.queueOpen
+			}
+			head.Children(func() {
+				chev := icChevR
+				if st.queueOpen {
+					chev = icChevD
+				}
+				mg.Icon(c, chev).FontSize(12).TextColor(labelCol)
+				mg.Text(c, locales.ChatQueueHeading(len(s.queued))).FontSize(12).TextColor(labelCol)
+			})
+			if st.queueOpen {
+				mg.Column(c).Gap(1).Padding(0, 4).Children(func() {
+					for i, line := range s.queued {
+						a.chatQueueRow(c.Key(fmt.Sprintf("chat-q-%d", i)), p, i, line, indBorder, previewCol, labelCol)
+					}
+				})
+			}
+		}
+		if st.busy {
+			mg.Row(c).AlignItems(mg.Center).Padding(4, 8, 2, 8).Children(func() {
+				mg.Spacer(c)
+				stop := mg.ButtonBase(c.Key("chat-toolbar-stop")).Gap(6).AlignItems(mg.Center).
+					Padding(4, 8).Radius(6).Label(locales.ChatStop())
+				if stop.Hovered() {
+					stop.Background(p.bg3)
+				}
+				if stop.Clicked() {
+					a.chatStop()
+				}
+				stop.Children(func() {
+					mg.Text(c, locales.ChatStop()).FontSize(12).TextColor(labelCol)
+					mg.Text(c, locales.ChatStopKeyHint()).FontSize(12).TextColor(p.ink3)
+				})
+			})
+		}
+	})
+}
+
+func (a *app) chatQueueRow(c *mg.Context, p *palette, i int, line string, indBorder, previewCol, actionCol mg.Color) {
+	row := mg.Row(c).Gap(8).AlignItems(mg.Start).Padding(2, 4, 2, 8).Radius(4).Grow(1)
+	if row.Hovered() {
+		row.Background(p.bg3)
+	}
+	row.Children(func() {
+		mg.Box(c).Size(10, 10).Radius(5).Border(1, indBorder).Margin(4, 0, 0, 0).Shrink(0)
+		mg.Text(c, chatQueuePreview(line)).FontSize(12).TextColor(previewCol).
+			SingleLine().Grow(1).MinWidth(0)
+		mg.Row(c).Gap(4).AlignItems(mg.Center).Shrink(0).Children(func() {
+			steer := mg.ButtonBase(c.Key(fmt.Sprintf("chat-q-steer-%d", i))).
+				Padding(2, 6).Radius(4).Label(locales.ChatQueueSteer())
+			if steer.Hovered() {
+				steer.Background(p.line2)
+			}
+			if steer.Clicked() {
+				a.chatQueueSteer(i)
+			}
+			steer.Children(func() {
+				mg.Text(c, locales.ChatQueueSteer()).FontSize(12).TextColor(actionCol)
+				mg.Text(c, chatQueueSteerKeys()).FontSize(11).TextColor(p.ink3)
+			})
+			rm := mg.ButtonBase(c.Key(fmt.Sprintf("chat-q-rm-%d", i))).Size(24, 24).Center().
+				Label(locales.ChatQueueRemove())
+			if rm.Hovered() {
+				rm.Background(p.line2)
+			}
+			if rm.Clicked() {
+				a.chatQueueRemove(i)
+			}
+			rm.Children(func() {
+				mg.Icon(c, icX).FontSize(12).TextColor(p.ink3)
+			})
+		})
+	})
+}
+
+func chatQueueSteerKeys() string {
+	if runtime.GOOS == "darwin" {
+		return "⌘↩"
+	}
+	return "Ctrl+↩"
+}
+
+func (a *app) chatQueueSteer(i int) {
+	s := a.chatEnsure()
+	if i < 0 || i >= len(s.queued) {
+		return
+	}
+	text := s.queued[i]
+	s.queued = append(s.queued[:i], s.queued[i+1:]...)
+	a.chatInterruptWith(text)
+}
+
+func (a *app) chatQueueRemove(i int) {
+	s := a.chatEnsure()
+	if i < 0 || i >= len(s.queued) {
+		return
+	}
+	s.queued = append(s.queued[:i], s.queued[i+1:]...)
+}
+
+func chatQueuePreview(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	r := []rune(s)
+	if len(r) > 120 {
+		return string(r[:119]) + "…"
+	}
+	return s
+}
+
+func (a *app) chatFlushQueue() {
+	st := &a.chat
+	if strings.TrimSpace(st.interruptNext) != "" {
+		return
+	}
+	s := a.chatSession(st.active)
+	if st.busy || s == nil || len(s.queued) == 0 {
+		return
+	}
+	next := s.queued[0]
+	s.queued = s.queued[1:]
+	a.chatSendNow(next, true)
+}
+
+func (a *app) chatAfterGeneration() {
+	st := &a.chat
+	if next := strings.TrimSpace(st.interruptNext); next != "" {
+		st.interruptNext = ""
+		a.chatSendNow(next, true)
+		return
+	}
+	a.chatFlushQueue()
+}
+
+func (a *app) chatSendNow(text string, showUser bool) {
+	st := &a.chat
+	s := a.chatEnsure()
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	if st.busy {
 		return
 	}
 	if !a.chatModelReady() {
@@ -479,7 +788,10 @@ func (a *app) chatSend() {
 		}
 	}
 	st.draft = ""
-	s.Msgs = append(s.Msgs, chatMsg{Role: chatUser, Text: text, At: time.Now()})
+	if showUser {
+		s.Msgs = append(s.Msgs, chatMsg{Role: chatUser, Text: text, At: time.Now()})
+		a.chatFollowThread(&st.threadScroll)
+	}
 	if s.Title == locales.ChatUntitled() || s.Title == "" {
 		s.Title = chatTitleFrom(text)
 	}
@@ -497,16 +809,7 @@ func (a *app) chatSend() {
 		var err error
 		if useAgent {
 			emit := func(line string) {
-				line = strings.TrimSpace(line)
-				if line == "" {
-					return
-				}
-				a.post(func() {
-					if sess := a.chatSession(sessionID); sess != nil {
-						sess.Msgs = append(sess.Msgs, chatMsg{Role: chatAssistant, Text: line, At: time.Now()})
-						sess.Updated = time.Now()
-					}
-				})
+				a.post(func() { a.chatAppendStream(sessionID, line) })
 			}
 			reply, err = a.chatRunAgent(ctx, m, prof, devID, devName, s.Title, text, emit)
 		} else {
@@ -531,10 +834,9 @@ func (a *app) chatSend() {
 					reply, err = inapp.CompleteOllama(ctx, a.ollamaBaseURL(), name, system, history)
 				}
 			default:
-				store := a.secrets()
 				account := a.keyAccountFor(prof)
 				var key string
-				key, err = store.Reveal(ctx, account, locales.SettingsSectionModel())
+				key, err = a.revealModelAPIKey(ctx, account)
 				if err == nil {
 					reply, err = inapp.Complete(ctx, prov, m.ID, key, system, history)
 				}
@@ -556,11 +858,10 @@ func (a *app) chatSend() {
 			case err != nil:
 				sess.Msgs = append(sess.Msgs, chatMsg{Role: chatError, Text: locales.ChatErrReply(err.Error()), At: time.Now()})
 			default:
-				if strings.TrimSpace(reply) != "" {
-					sess.Msgs = append(sess.Msgs, chatMsg{Role: chatAssistant, Text: reply, At: time.Now()})
-				}
+				a.chatFinishStream(sessionID, reply)
 			}
 			sess.Updated = time.Now()
+			a.chatAfterGeneration()
 		})
 	}()
 }
@@ -612,9 +913,8 @@ func (a *app) chatRunAgent(ctx context.Context, m *inapp.ChatModel, prof *ModelK
 		var apiKey string
 		var err error
 		if model.Provider != inapp.Ollama {
-			store := a.secrets()
 			account := a.keyAccountFor(profile)
-			apiKey, err = store.Reveal(ctx, account, locales.SettingsSectionModel())
+			apiKey, err = a.revealModelAPIKey(ctx, account)
 			if err != nil {
 				return inapp.AgentOutcome{Err: err}
 			}

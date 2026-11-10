@@ -9,8 +9,10 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"sync/atomic"
 	"time"
 
@@ -84,6 +86,12 @@ func runApp(args []string) error {
 	defer tel.Close()
 	// `pinky quit` quits the app as its menu would.
 	rg.srv.Quit = func() { mygo.App.Quit() }
+	go func() {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		<-ctx.Done()
+		mygo.App.Quit()
+	}()
 	go func() {
 		if err := rg.Serve(ctx); err != nil && ctx.Err() == nil {
 			c.Log.Error("agent socket stopped", "err", err)

@@ -52,7 +52,7 @@ var (
 	icChat     = icon(`<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>`)
 	icSend     = icon(`<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>`)
 	icArrowUp  = icon(`<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>`)
-	icStopSq   = filledIcon(`<rect x="8" y="8" width="8" height="8" rx="1.5"/>`)
+	icStopSq   = filledIcon(`<rect x="6" y="6" width="12" height="12" rx="2"/>`)
 	icPanel      = icon(`<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>`)
 	icPanelRight = icon(`<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/>`)
 

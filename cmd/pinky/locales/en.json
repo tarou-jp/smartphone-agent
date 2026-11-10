@@ -793,6 +793,33 @@
   "@chatPlaceholder": {
     "description": "In-app chat: composer placeholder."
   },
+  "chatPlaceholderFollowUp": "Add a follow-up",
+  "@chatPlaceholderFollowUp": {
+    "description": "In-app chat: composer placeholder while the agent is working."
+  },
+  "chatQueueHeading": "{count, plural, one {1 Queued Message} other {# Queued Messages}}",
+  "@chatQueueHeading": {
+    "description": "In-app chat: heading above the composer when messages wait in the queue.",
+    "placeholders": {
+      "count": { "type": "int", "example": "2" }
+    }
+  },
+  "chatQueueToggle": "Show or hide queued messages",
+  "@chatQueueToggle": {
+    "description": "In-app chat: toggle queue list accessibility label."
+  },
+  "chatQueueSteer": "Steer",
+  "@chatQueueSteer": {
+    "description": "In-app chat: send a queued message now and interrupt the running turn."
+  },
+  "chatQueueRemove": "Remove from queue",
+  "@chatQueueRemove": {
+    "description": "In-app chat: remove one queued message."
+  },
+  "chatStopKeyHint": "^C",
+  "@chatStopKeyHint": {
+    "description": "In-app chat: keyboard hint beside Stop in the composer toolbar."
+  },
   "chatScopeAll": "All phones",
   "@chatScopeAll": {
     "description": "In-app chat: header subtitle when All phones is selected."

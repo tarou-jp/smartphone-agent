@@ -50,14 +50,19 @@ func runOpenAIAgent(ctx context.Context, cfg openAIAgentCfg, system string, tool
 		if ctx.Err() != nil {
 			return AgentOutcome{Err: ctx.Err()}
 		}
+		body := map[string]any{
+			"model":       cfg.model,
+			"messages":    msgs,
+			"tools":       oaiTools,
+			"tool_choice": "auto",
+		}
+		// Reasoning models (e.g. gpt-6-luna) reject tools unless effort is none on chat/completions.
+		if strings.Contains(cfg.url, "api.openai.com") {
+			body["reasoning_effort"] = "none"
+		}
 		raw, err := postJSON(ctx, cfg.url, cfg.apiKey, map[string]string{
 			"Authorization": "Bearer " + cfg.apiKey,
-		}, map[string]any{
-			"model":    cfg.model,
-			"messages": msgs,
-			"tools":    oaiTools,
-			"tool_choice": "auto",
-		})
+		}, body)
 		if err != nil {
 			return AgentOutcome{Err: err}
 		}

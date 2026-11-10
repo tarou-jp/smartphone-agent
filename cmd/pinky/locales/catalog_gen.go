@@ -2495,6 +2495,90 @@ func (msgs Messages) ChatPlaceholder() string {
 	return Catalog.Format(msgs.locale, "chatPlaceholder", nil)
 }
 
+// ChatPlaceholderFollowUp says "Add a follow-up"
+// in the language the app shows.
+//
+// In-app chat: composer placeholder while the agent is working.
+func ChatPlaceholderFollowUp() string { return In(i18n.Locale()).ChatPlaceholderFollowUp() }
+
+// ChatPlaceholderFollowUp says "Add a follow-up"
+// in the language of msgs.
+//
+// In-app chat: composer placeholder while the agent is working.
+func (msgs Messages) ChatPlaceholderFollowUp() string {
+	return Catalog.Format(msgs.locale, "chatPlaceholderFollowUp", nil)
+}
+
+// ChatQueueHeading says "{count, plural, one {1 Queued Message} other {# Queued Messages}}"
+// in the language the app shows.
+//
+// In-app chat: heading above the composer when messages wait in the queue.
+func ChatQueueHeading(count int) string { return In(i18n.Locale()).ChatQueueHeading(count) }
+
+// ChatQueueHeading says "{count, plural, one {1 Queued Message} other {# Queued Messages}}"
+// in the language of msgs.
+//
+// In-app chat: heading above the composer when messages wait in the queue.
+func (msgs Messages) ChatQueueHeading(count int) string {
+	return Catalog.Format(msgs.locale, "chatQueueHeading", map[string]any{"count": count})
+}
+
+// ChatQueueToggle says "Show or hide queued messages"
+// in the language the app shows.
+//
+// In-app chat: toggle queue list accessibility label.
+func ChatQueueToggle() string { return In(i18n.Locale()).ChatQueueToggle() }
+
+// ChatQueueToggle says "Show or hide queued messages"
+// in the language of msgs.
+//
+// In-app chat: toggle queue list accessibility label.
+func (msgs Messages) ChatQueueToggle() string {
+	return Catalog.Format(msgs.locale, "chatQueueToggle", nil)
+}
+
+// ChatQueueSteer says "Steer"
+// in the language the app shows.
+//
+// In-app chat: send a queued message now and interrupt the running turn.
+func ChatQueueSteer() string { return In(i18n.Locale()).ChatQueueSteer() }
+
+// ChatQueueSteer says "Steer"
+// in the language of msgs.
+//
+// In-app chat: send a queued message now and interrupt the running turn.
+func (msgs Messages) ChatQueueSteer() string {
+	return Catalog.Format(msgs.locale, "chatQueueSteer", nil)
+}
+
+// ChatQueueRemove says "Remove from queue"
+// in the language the app shows.
+//
+// In-app chat: remove one queued message.
+func ChatQueueRemove() string { return In(i18n.Locale()).ChatQueueRemove() }
+
+// ChatQueueRemove says "Remove from queue"
+// in the language of msgs.
+//
+// In-app chat: remove one queued message.
+func (msgs Messages) ChatQueueRemove() string {
+	return Catalog.Format(msgs.locale, "chatQueueRemove", nil)
+}
+
+// ChatStopKeyHint says "^C"
+// in the language the app shows.
+//
+// In-app chat: keyboard hint beside Stop in the composer toolbar.
+func ChatStopKeyHint() string { return In(i18n.Locale()).ChatStopKeyHint() }
+
+// ChatStopKeyHint says "^C"
+// in the language of msgs.
+//
+// In-app chat: keyboard hint beside Stop in the composer toolbar.
+func (msgs Messages) ChatStopKeyHint() string {
+	return Catalog.Format(msgs.locale, "chatStopKeyHint", nil)
+}
+
 // ChatScopeAll says "All phones"
 // in the language the app shows.
 //

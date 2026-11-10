@@ -31,6 +31,7 @@ type modelState struct {
 	ollamaDraft string
 	ollamaBusy  bool
 	ollamaErr   string
+	cachedKeys  map[string]string // keychain account → API key after one macOS prompt
 }
 
 func newModelKeyID() string {
@@ -304,6 +305,31 @@ func (a *app) isLegacyProfile(p *ModelKeyProfile) bool {
 		}
 	}
 	return false
+}
+
+// revealModelAPIKey returns a provider API key, asking the keychain once per
+// account per Pinky run (go run is ad hoc signed, so macOS prompts each Reveal).
+func (a *app) revealModelAPIKey(ctx context.Context, account string) (string, error) {
+	st := &a.model
+	if k, ok := st.cachedKeys[account]; ok {
+		return k, nil
+	}
+	key, err := a.secrets().Reveal(ctx, account, locales.SettingsSectionModel())
+	if err != nil {
+		return "", err
+	}
+	if st.cachedKeys == nil {
+		st.cachedKeys = map[string]string{}
+	}
+	st.cachedKeys[account] = key
+	return key, nil
+}
+
+func (a *app) forgetModelAPIKeyCache(accounts ...string) {
+	st := &a.model
+	for _, acct := range accounts {
+		delete(st.cachedKeys, acct)
+	}
 }
 
 func (a *app) keyAccountFor(p *ModelKeyProfile) string {
@@ -638,6 +664,10 @@ func (a *app) saveModelKey(prof *ModelKeyProfile, key string) {
 				}
 				st.has[prof.ID] = true
 				st.editing = ""
+				if st.cachedKeys == nil {
+					st.cachedKeys = map[string]string{}
+				}
+				st.cachedKeys[acct] = key
 				a.changed()
 				a.toasts = append(a.toasts, locales.SettingsModelKeySavedToast(prov.Label()))
 			}
@@ -667,6 +697,10 @@ func (a *app) removeModelKey(prof *ModelKeyProfile) {
 				delete(a.model.has, prof.ID)
 			}
 			a.model.editing = ""
+			a.forgetModelAPIKeyCache(acct)
+			if store.Has(inapp.LegacyKeyAccount(prov)) {
+				a.forgetModelAPIKeyCache(inapp.LegacyKeyAccount(prov))
+			}
 			a.changed()
 			a.refreshModelKeys()
 			a.toasts = append(a.toasts, locales.SettingsModelKeyRemovedToast(prov.Label()))

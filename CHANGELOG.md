@@ -2,6 +2,13 @@
 
 What changed for people in each release of Pinky, newest first. A version is the release's date in Asia/Shanghai and that day's count: 2026.1107.2 is the second release of 7 November 2026. Notes wait under "Unreleased" until the next release takes them; see [docs/RELEASING.md](docs/RELEASING.md).
 
+## Unreleased
+
+- In-app chat follows new messages while you stay at the bottom of the thread, streams agent progress in one place, and queues follow-ups closer to Cursor (toolbar, Steer, Stop).
+- Ctrl+C in the terminal now quits the desktop app when you run Pinky from the command line.
+- OpenAI tool calls with reasoning models no longer fail on Luna-class models.
+- Model API keys are cached for the session so macOS does not ask for the keychain on every chat message.
+
 ## 2026.1108.13 (2026-11-08)
 
 - On Windows, a task's screen recording no longer takes in a moment of your own use of the phone from just before the task started or just after it ended.
