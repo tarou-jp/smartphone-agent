@@ -56,7 +56,7 @@ export function describeTool(t: T, s: ToolStep) {
   };
 }
 
-export function ToolRow({ step }: { step: ToolStep }) {
+export function ToolRow({ step, phone }: { step: ToolStep; phone?: string }) {
   const t = useT();
   const p = useTheme().pinky;
   const [open, setOpen] = useState(false);
@@ -94,6 +94,11 @@ export function ToolRow({ step }: { step: ToolStep }) {
             </Box>
           )}
         </Typography>
+        {phone && (
+          <Box component="span" sx={{ flexShrink: 0, fontSize: 11, px: 0.5, borderRadius: 0.75, bgcolor: p.bg3, color: p.ink2 }}>
+            {phone}
+          </Box>
+        )}
         {step.running && <CircularProgress size={10} thickness={6} sx={{ color: p.ink3, flexShrink: 0 }} />}
         {failed && (
           <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', color: p.red, fontSize: 11.5, flexShrink: 0 }}>
@@ -109,6 +114,11 @@ export function ToolRow({ step }: { step: ToolStep }) {
           />
         )}
       </ButtonBase>
+      {step.running && step.progress && (
+        <Typography noWrap sx={{ pl: 3.25, pr: 0.75, fontSize: 11.5, color: p.amber }}>
+          {/^(Waiting for the person|Still waiting for the person)/.test(step.progress) ? t('webChatWaitingYou') : step.progress}
+        </Typography>
+      )}
       <Collapse in={open} unmountOnExit>
         <Box
           sx={{

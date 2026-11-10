@@ -930,7 +930,11 @@ func (a *app) chatRunAgent(ctx context.Context, m *inapp.ChatModel, prof *ModelK
 			TaskTitle:  title,
 			Prompt:     prompt,
 			LocaleIsJA: strings.HasPrefix(i18n.Locale(), "ja"),
-		}, func(ev inapp.AgentEvent) { emit(ev.Text) })
+		}, func(ev inapp.AgentEvent) {
+			if ev.Text != "" && ev.Kind != "text_delta" {
+				emit(ev.Text)
+			}
+		})
 	}
 	out := run(m, prof)
 	if out.Err == nil || m.Provider != inapp.Ollama || !inapp.ErrToolsNotSupported(out.Err) {

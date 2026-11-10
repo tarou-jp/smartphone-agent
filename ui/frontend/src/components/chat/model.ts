@@ -18,9 +18,21 @@ export interface ToolStep {
   status?: string;
   detail?: string;
   running: boolean;
+  /** What a running call waits for, such as the person's approval. */
+  progress?: string;
+  /** The phone, when one agent works on several. */
+  device?: string;
 }
 
-export type RunItem = { kind: 'tool'; step: ToolStep } | { kind: 'text'; text: string };
+export type RunItem =
+  | { kind: 'tool'; step: ToolStep }
+  | { kind: 'text'; text: string; streaming?: boolean }
+  | { kind: 'note'; text: string };
+
+export interface PlanStep {
+  step: string;
+  status: 'pending' | 'in_progress' | 'completed';
+}
 
 export type RunState = 'running' | 'done' | 'error' | 'stopped';
 
@@ -34,6 +46,11 @@ export interface Run {
   error?: string;
   started: number;
   ended?: number;
+  /** The agent's plan, as update_plan last left it. */
+  plan?: PlanStep[];
+  /** A model call failed and is tried again: what the person sees meanwhile. */
+  retry?: string;
+  usage?: { input: number; output: number; cacheRead: number; cacheWrite: number };
 }
 
 export interface Turn {
@@ -42,12 +59,17 @@ export interface Turn {
   at: number;
   mode: Mode;
   runs: Run[];
+  /** The phones the message went to. */
+  phones?: PhoneRef[];
+  /** One agent worked on all of them. */
+  together?: boolean;
 }
 
 export interface Queued {
   text: string;
   phones: PhoneRef[];
   mode: Mode;
+  together?: boolean;
 }
 
 export interface ChatSession {
@@ -63,6 +85,8 @@ export interface ChatSession {
   /** Whether the person removed the phone on screen from the pills, so it is not offered again. */
   noCurrent?: boolean;
   mode: Mode;
+  /** Several phones go to one agent that works on them together. */
+  together?: boolean;
 }
 
 const storeKey = 'pinky-chat-v2';
@@ -145,7 +169,13 @@ export function load(): ChatSession[] {
             ? {
                 ...r,
                 state: 'stopped' as const,
-                items: r.items.map((i) => (i.kind === 'tool' && i.step.running ? { ...i, step: { ...i.step, running: false } } : i)),
+                items: r.items.map((i) =>
+                  i.kind === 'tool' && i.step.running
+                    ? { ...i, step: { ...i.step, running: false, progress: undefined } }
+                    : i.kind === 'text' && i.streaming
+                      ? { ...i, streaming: false }
+                      : i,
+                ),
               }
             : r,
         ),

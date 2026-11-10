@@ -502,7 +502,10 @@ type chatRequest struct {
 	// Devices are the phones the agent works on, each with its own run of
 	// the same prompt, side by side; they take over DeviceID.
 	Devices []chatDevice `json:"devices"`
-	Locale  string       `json:"locale"`
+	// Together gives Devices to one agent that works on them all at once,
+	// in one run, instead of a run each.
+	Together bool   `json:"together"`
+	Locale   string `json:"locale"`
 }
 
 type chatDevice struct {
@@ -572,10 +575,15 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 
 	events := func(device string) func(inapp.AgentEvent) {
 		return func(ev inapp.AgentEvent) {
-			send("progress", map[string]string{"text": ev.Text, "deviceId": device})
-			switch ev.Kind {
-			case "tool_start", "tool_end", "text":
-				send("step", chatStep{AgentEvent: ev, DeviceID: device})
+			if ev.Text != "" && ev.Kind != "text_delta" {
+				send("progress", map[string]string{"text": ev.Text, "deviceId": device})
+			}
+			if ev.Kind != "" {
+				d := device
+				if ev.Device != "" {
+					d = ev.Device
+				}
+				send("step", chatStep{AgentEvent: ev, DeviceID: d})
 			}
 		}
 	}
@@ -583,7 +591,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	// Several phones: one run each, side by side, in this one stream (a
 	// stream per phone would use up the connections the mirrors need).
 	// Each ends with "run_end"; "done" follows the last.
-	if len(req.Devices) > 0 && s.opt.Agent != nil {
+	if len(req.Devices) > 0 && s.opt.Agent != nil && !req.Together {
 		if err := s.warmKey(ctx); err != nil {
 			code, msg := chatError(ctx, err)
 			send("error", map[string]string{"code": code, "message": msg})
@@ -685,7 +693,14 @@ func (s *Server) runChat(ctx context.Context, req chatRequest, emit func(inapp.A
 		}
 	}
 
-	if s.opt.Agent != nil && req.DeviceID != "" {
+	// One agent: on one phone (DeviceID), or on several together.
+	var devices []inapp.Device
+	if req.Together {
+		for _, d := range req.Devices {
+			devices = append(devices, inapp.Device{ID: d.ID, Name: d.Name})
+		}
+	}
+	if s.opt.Agent != nil && (req.DeviceID != "" || len(devices) > 0) {
 		run := func(model *inapp.ChatModel, profile *ModelKeyProfile) inapp.AgentOutcome {
 			var apiKey string
 			if model.Provider != inapp.Ollama {
@@ -696,7 +711,7 @@ func (s *Server) runChat(ctx context.Context, req chatRequest, emit func(inapp.A
 			}
 			return inapp.RunAgent(ctx, inapp.AgentConfig{
 				Gateway: s.opt.Agent, Provider: model.Provider, ModelID: model.ID, APIKey: apiKey,
-				OllamaBase: ollamaBase, DeviceID: req.DeviceID, DeviceName: req.DeviceName,
+				OllamaBase: ollamaBase, DeviceID: req.DeviceID, DeviceName: req.DeviceName, Devices: devices,
 				TaskTitle: req.Title, Prompt: req.Prompt, History: history, LocaleIsJA: strings.HasPrefix(req.Locale, "ja"),
 			}, emit)
 		}
@@ -717,22 +732,23 @@ func (s *Server) runChat(ctx context.Context, req chatRequest, emit func(inapp.A
 		return out.Reply, out.Err
 	}
 
-	history = append(history, inapp.Message{Role: "user", Text: req.Prompt})
 	phones := req.Phones
 	if len(phones) == 0 {
 		phones = []string{"(none)"}
 	}
-	system := "You are Pinky's in-app assistant. Be concise and practical. The person selected: " + strings.Join(phones, ", ") + "."
-	if m.Provider == inapp.Ollama {
-		name, ok := inapp.OllamaModelName(m.ID)
-		if !ok {
-			return "", fmt.Errorf("unknown Ollama model")
+	system := "You are Pinky's in-app assistant. Pinky lets AI agents operate the person's phones while they watch. Be concise and practical; Markdown is fine. The person selected: " + strings.Join(phones, ", ") + "."
+	if strings.HasPrefix(req.Locale, "ja") {
+		system += " Write in Japanese."
+	}
+	var key string
+	if m.Provider != inapp.Ollama {
+		var err error
+		if key, err = s.revealKey(ctx, s.keyAccount(st, *prof)); err != nil {
+			return "", err
 		}
-		return inapp.CompleteOllama(ctx, ollamaBase, name, system, history)
 	}
-	key, err := s.revealKey(ctx, s.keyAccount(st, *prof))
-	if err != nil {
-		return "", err
-	}
-	return inapp.Complete(ctx, m.Provider, m.ID, key, system, history)
+	return inapp.Talk(ctx, inapp.TalkConfig{
+		Provider: m.Provider, ModelID: m.ID, APIKey: key, OllamaBase: ollamaBase,
+		System: system, History: history, Prompt: req.Prompt,
+	}, emit)
 }

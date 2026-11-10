@@ -19,6 +19,8 @@ import {
   type Mode,
   type PhoneRef,
   type Run,
+  type RunItem,
+  type ToolStep,
   type Turn,
 } from './model';
 
@@ -27,7 +29,7 @@ export interface Chat {
   active: ChatSession;
   busy: boolean;
   /** Sends to the phones given, or queues while the chat runs. */
-  send: (text: string, phones: PhoneRef[], mode: Mode) => void;
+  send: (text: string, phones: PhoneRef[], mode: Mode, together?: boolean) => void;
   stop: () => void;
   steer: (i: number) => void;
   removeQueued: (i: number) => void;
@@ -36,6 +38,7 @@ export interface Chat {
   close: (id: string) => void;
   setPhones: (phones: PhoneRef[], noCurrent?: boolean) => void;
   setMode: (mode: Mode) => void;
+  setTogether: (together: boolean) => void;
 }
 
 export interface Panel {
@@ -79,13 +82,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const ref = useRef(sessions);
   // One stream per chat at a time; several chats may run at once.
   const runs = useRef(new Map<string, { id: string; abort: AbortController }>());
-  const interrupt = useRef(new Map<string, { text: string; phones: PhoneRef[]; mode: Mode }>());
+  const interrupt = useRef(new Map<string, { text: string; phones: PhoneRef[]; mode: Mode; together?: boolean }>());
 
+  // Streaming edits many times a second: storage is written at most twice
+  // a second, and when the window goes.
+  const saveTimer = useRef<number | null>(null);
   const mutate = useCallback((fn: (l: ChatSession[]) => ChatSession[]) => {
     const next = fn(ref.current);
     ref.current = next;
     setSessions(next);
-    save(next);
+    if (saveTimer.current === null) {
+      saveTimer.current = window.setTimeout(() => {
+        saveTimer.current = null;
+        save(ref.current);
+      }, 500);
+    }
+  }, []);
+  useEffect(() => {
+    const flush = () => save(ref.current);
+    window.addEventListener('beforeunload', flush);
+    return () => window.removeEventListener('beforeunload', flush);
   }, []);
   const edit = useCallback(
     (id: string, fn: (s: ChatSession) => ChatSession) =>
@@ -93,30 +109,32 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [mutate],
   );
 
-  const startRef = useRef<(session: string, text: string, phones: PhoneRef[], mode: Mode) => void>(() => undefined);
+  const startRef = useRef<(session: string, text: string, phones: PhoneRef[], mode: Mode, together?: boolean) => void>(() => undefined);
 
   const afterRun = useCallback(
     (session: string) => {
       const next = interrupt.current.get(session);
       if (next) {
         interrupt.current.delete(session);
-        startRef.current(session, next.text, next.phones, next.mode);
+        startRef.current(session, next.text, next.phones, next.mode, next.together);
         return;
       }
       const s = ref.current.find((x) => x.id === session);
       if (s && s.queued.length) {
         const [head, ...rest] = s.queued;
         edit(session, (x) => ({ ...x, queued: rest }));
-        startRef.current(session, head.text, head.phones, head.mode);
+        startRef.current(session, head.text, head.phones, head.mode, head.together);
       }
     },
     [edit],
   );
 
-  startRef.current = (session, text, phones, mode) => {
+  startRef.current = (session, text, phones, mode, together) => {
     const s = ref.current.find((x) => x.id === session);
     if (!s) return;
     const drive = mode === 'agent' && agent && phones.length > 0;
+    // One agent on several phones is one run; side by side, a run each.
+    const one = drive && !!together && phones.length > 1;
     const now = Date.now();
     const turnID = newID('t');
     const turn: Turn = {
@@ -124,7 +142,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       prompt: text,
       at: now,
       mode,
-      runs: drive ? phones.map((p) => ({ phone: p, items: [], state: 'running', started: now })) : [{ items: [], state: 'running', started: now }],
+      phones: drive ? phones : undefined,
+      together: one || undefined,
+      runs:
+        drive && !one
+          ? phones.map((p) => ({ phone: p, items: [], state: 'running', started: now }))
+          : [{ items: [], state: 'running', started: now }],
     };
     const title = s.title || titleFrom(text);
     const history = historyOf(s, drive && phones.length === 1 ? phones[0].id : undefined);
@@ -145,27 +168,65 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         ...x,
         turns: x.turns.map((t) => (t.id !== turnID ? t : { ...t, runs: t.runs.map((r) => (r.state === 'running' ? fn(r) : r)) })),
       }));
+    // A streamed text ends when a tool call starts or the run ends.
+    const closeText = (items: RunItem[]): RunItem[] =>
+      items.map((i) => (i.kind === 'text' && i.streaming ? { ...i, streaming: false } : i));
     const settle = (r: Run): Run => ({
       ...r,
       ended: Date.now(),
-      items: r.items.map((i) => (i.kind === 'tool' && i.step.running ? { ...i, step: { ...i.step, running: false } } : i)),
+      retry: undefined,
+      items: closeText(r.items).map((i) =>
+        i.kind === 'tool' && i.step.running ? { ...i, step: { ...i.step, running: false, progress: undefined } } : i,
+      ),
+    });
+    const setTool = (r: Run, id: string | undefined, fn: (t: ToolStep) => ToolStep): Run => ({
+      ...r,
+      items: r.items.map((i) => (i.kind === 'tool' && i.step.id === id ? { ...i, step: fn(i.step) } : i)),
     });
 
     const onStep = (st: ChatStep) =>
-      editRun(st.deviceId, (r) => {
-        if (st.kind === 'text') return { ...r, items: [...r.items, { kind: 'text', text: st.text }] };
-        if (st.kind === 'tool_start') {
-          return {
-            ...r,
-            items: [...r.items, { kind: 'tool', step: { id: st.id ?? newID('s'), tool: st.tool ?? '', intent: st.intent, args: st.args, running: true } }],
-          };
+      editRun(one ? undefined : st.deviceId, (r) => {
+        switch (st.kind) {
+          case 'text_delta': {
+            const last = r.items[r.items.length - 1];
+            if (last?.kind === 'text' && last.streaming) {
+              return { ...r, retry: undefined, items: [...r.items.slice(0, -1), { ...last, text: last.text + (st.delta ?? '') }] };
+            }
+            return { ...r, retry: undefined, items: [...r.items, { kind: 'text', text: st.delta ?? '', streaming: true }] };
+          }
+          case 'text': {
+            // The words a turn streamed, now whole.
+            const last = r.items[r.items.length - 1];
+            if (last?.kind === 'text' && last.streaming) return { ...r, items: [...r.items.slice(0, -1), { kind: 'text', text: st.text }] };
+            return { ...r, items: [...r.items, { kind: 'text', text: st.text }] };
+          }
+          case 'tool_start':
+            return {
+              ...r,
+              retry: undefined,
+              items: [
+                ...closeText(r.items),
+                {
+                  kind: 'tool',
+                  step: { id: st.id ?? newID('s'), tool: st.tool ?? '', intent: st.intent, args: st.args, running: true, device: one ? st.device : undefined },
+                },
+              ],
+            };
+          case 'tool_progress':
+            return setTool(r, st.id, (t) => ({ ...t, progress: st.text }));
+          case 'tool_end':
+            return setTool(r, st.id, (t) => ({ ...t, running: false, progress: undefined, status: st.status, detail: st.detail }));
+          case 'plan':
+            return { ...r, plan: st.plan };
+          case 'retry':
+            return { ...r, retry: st.text };
+          case 'compact':
+            return { ...r, items: [...closeText(r.items), { kind: 'note', text: st.text }] };
+          case 'usage':
+            return { ...r, usage: st.usage };
+          default:
+            return r;
         }
-        return {
-          ...r,
-          items: r.items.map((i) =>
-            i.kind === 'tool' && i.step.id === st.id ? { ...i, step: { ...i.step, running: false, status: st.status, detail: st.detail } } : i,
-          ),
-        };
       });
 
     const abort = new AbortController();
@@ -178,6 +239,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         prompt: text,
         title,
         devices: drive ? phones : undefined,
+        together: one || undefined,
         phones: phones.map((p) => p.name),
         locale,
       },
@@ -211,14 +273,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const stop = useCallback(() => stopSession(activeID), [activeID, stopSession]);
 
   const send = useCallback(
-    (raw: string, phones: PhoneRef[], mode: Mode) => {
+    (raw: string, phones: PhoneRef[], mode: Mode, together?: boolean) => {
       const text = raw.trim();
       if (!text) return;
       if (runs.current.has(activeID)) {
-        edit(activeID, (x) => ({ ...x, queued: [...x.queued, { text, phones, mode }] }));
+        edit(activeID, (x) => ({ ...x, queued: [...x.queued, { text, phones, mode, together }] }));
         return;
       }
-      startRef.current(activeID, text, phones, mode);
+      startRef.current(activeID, text, phones, mode, together);
     },
     [activeID, edit],
   );
@@ -232,7 +294,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (runs.current.has(activeID)) {
         interrupt.current.set(activeID, q);
         stopSession(activeID);
-      } else startRef.current(activeID, q.text, q.phones, q.mode);
+      } else startRef.current(activeID, q.text, q.phones, q.mode, q.together);
     },
     [activeID, edit, stopSession],
   );
@@ -280,6 +342,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [activeID, edit],
   );
   const setMode = useCallback((mode: Mode) => edit(activeID, (x) => ({ ...x, mode })), [activeID, edit]);
+  const setTogether = useCallback((together: boolean) => edit(activeID, (x) => ({ ...x, together })), [activeID, edit]);
 
   // Stop every run when the window goes.
   useEffect(() => {
@@ -301,6 +364,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     close,
     setPhones,
     setMode,
+    setTogether,
   };
 
   // The panel.

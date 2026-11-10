@@ -21,6 +21,12 @@ type gwCall func(ctx context.Context, c gateway.Call) *gateway.Result
 
 // Call runs one tool by MCP name with JSON arguments (same shape as MCP).
 func (p *PhoneTools) Call(ctx context.Context, tool string, args map[string]any) string {
+	return p.call(ctx, tool, args, nil)
+}
+
+// call is Call that reports what a blocking call waits for (the person's
+// approval, a handoff) to progress.
+func (p *PhoneTools) call(ctx context.Context, tool string, args map[string]any, progress func(string)) string {
 	if p == nil || p.Sess == nil {
 		return "error: session · in-app agent not connected"
 	}
@@ -63,7 +69,7 @@ func (p *PhoneTools) Call(ctx context.Context, tool string, args map[string]any)
 			return p.Sess.Act(ctx, c, gateway.Action{
 				Tool: "swipe", Ref: intArg(args, "ref"),
 				Direction: strings.ToLower(str(args, "direction")),
-				From: pointArg(args, "from"), To: pointArg(args, "to"),
+				From:      pointArg(args, "from"), To: pointArg(args, "to"),
 				DurationMS: intArg(args, "duration_ms"),
 			})
 		}
@@ -97,24 +103,34 @@ func (p *PhoneTools) Call(ctx context.Context, tool string, args map[string]any)
 	default:
 		return fmt.Sprintf("error: invalid_argument · unknown tool %q", tool)
 	}
-	return mcp.FormatResult(p.callPending(ctx, args, fn))
+	return mcp.FormatResult(p.callPending(ctx, args, fn, progress))
 }
 
-func (p *PhoneTools) callPending(ctx context.Context, args map[string]any, fn gwCall) *gateway.Result {
-	res := fn(ctx, callArgs(args))
-	deadline := time.Now().Add(90 * time.Second)
-	for res != nil && res.Status == gateway.StatusPending && time.Now().Before(deadline) {
-		if ctx.Err() != nil {
-			break
+// callPending waits out an approval the call opened: the gateway blocks a
+// while on each call and answers approval_pending while the person has
+// not decided, so the call is repeated with the approval's id until they
+// decide, the approval expires, or ctx ends. An MCP agent does the same,
+// one round trip at a time.
+func (p *PhoneTools) callPending(ctx context.Context, args map[string]any, fn gwCall, progress func(string)) *gateway.Result {
+	c := callArgs(args)
+	if progress != nil {
+		c.Progress = func(_, _ float64, msg string) { progress(msg) }
+	}
+	res := fn(ctx, c)
+	for res != nil && res.Status == gateway.StatusPending && res.ApprovalID != "" && ctx.Err() == nil {
+		if progress != nil {
+			progress(res.Message)
 		}
-		select {
-		case <-ctx.Done():
-			return res
-		case <-time.After(400 * time.Millisecond):
-		}
-		c := callArgs(args)
 		c.ApprovalID = res.ApprovalID
+		start := time.Now()
 		res = fn(ctx, c)
+		// A gateway that answers at once would make this a busy loop.
+		if res != nil && res.Status == gateway.StatusPending && time.Since(start) < 200*time.Millisecond {
+			select {
+			case <-ctx.Done():
+			case <-time.After(400 * time.Millisecond):
+			}
+		}
 	}
 	return res
 }

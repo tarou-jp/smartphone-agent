@@ -211,7 +211,7 @@ export function subscribe(onEvent: (e: ServerEvent) => void, onOpen?: () => void
 
 /** One event of an agent's run: a tool call starting or ending, or what the model said between calls. */
 export interface ChatStep {
-  kind: 'tool_start' | 'tool_end' | 'text';
+  kind: 'tool_start' | 'tool_progress' | 'tool_end' | 'text' | 'text_delta' | 'plan' | 'retry' | 'compact' | 'usage';
   text: string;
   id?: string;
   tool?: string;
@@ -219,7 +219,12 @@ export interface ChatStep {
   args?: Record<string, unknown>;
   status?: string;
   detail?: string;
+  /** The phone of the run (several phones side by side), or of the tool call (one agent on several). */
   deviceId?: string;
+  device?: string;
+  delta?: string;
+  plan?: { step: string; status: 'pending' | 'in_progress' | 'completed' }[];
+  usage?: { input: number; output: number; cacheRead: number; cacheWrite: number };
 }
 
 export interface ChatStreamHandlers {
@@ -242,6 +247,8 @@ export async function streamChat(
     deviceId?: string;
     deviceName?: string;
     devices?: { id: string; name: string }[];
+    /** One agent works on all the devices, instead of one each. */
+    together?: boolean;
     phones?: string[];
     locale: string;
   },

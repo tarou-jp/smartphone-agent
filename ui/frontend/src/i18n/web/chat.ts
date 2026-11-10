@@ -1,6 +1,13 @@
 // Words of the Agent panel that the MyGo catalogs lack.
 export default {
   en: {
+    webChatPlan: 'Plan · {done}/{count}',
+    webChatWaitingYou: 'Waiting for your answer in Needs you…',
+    webChatRetrying: 'Trying the model again: {detail}',
+    webChatSideBySide: 'Side by side',
+    webChatSideBySideDesc: 'Each phone gets its own agent, working at the same time. Click to have one agent work on them together.',
+    webChatTogether: 'Together',
+    webChatTogetherDesc: 'One agent works on all the phones, and can use one to check another. Click to give each phone its own agent.',
     webChatSteps: '{count, plural, one {# step} other {# steps}}',
     webChatJumpLatest: 'Jump to the latest message',
     webAgentPanel: 'Agent',
@@ -44,6 +51,13 @@ export default {
     webToolBlocked: 'Blocked',
   },
   ja: {
+    webChatPlan: '計画 · {done}/{count}',
+    webChatWaitingYou: '「対応が必要」であなたの判断を待っています…',
+    webChatRetrying: 'モデルに再接続しています：{detail}',
+    webChatSideBySide: '並行',
+    webChatSideBySideDesc: 'スマホごとに別々の AI が同時に動きます。クリックで 1 つの AI がまとめて操作する「連携」に切り替えます。',
+    webChatTogether: '連携',
+    webChatTogetherDesc: '1 つの AI が全台をまとめて操作し、端末どうしの確認もできます。クリックでスマホごとの「並行」に切り替えます。',
     webChatSteps: '{count} ステップ',
     webChatJumpLatest: '最新のメッセージへ移動',
     webAgentPanel: 'エージェント',
@@ -87,6 +101,13 @@ export default {
     webToolBlocked: 'ブロック',
   },
   'zh-Hans': {
+    webChatPlan: '计划 · {done}/{count}',
+    webChatWaitingYou: '正在等待你在“需要处理”中作出决定…',
+    webChatRetrying: '正在重试模型：{detail}',
+    webChatSideBySide: '并行',
+    webChatSideBySideDesc: '每台手机各有一个智能体同时运行。点击切换为由一个智能体统一操作的“联动”。',
+    webChatTogether: '联动',
+    webChatTogetherDesc: '一个智能体统一操作所有手机，可用一台验证另一台。点击切换为每台手机各自的“并行”。',
     webChatSteps: '{count} 个步骤',
     webChatJumpLatest: '跳到最新消息',
     webAgentPanel: '智能体',
