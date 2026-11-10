@@ -51,3 +51,21 @@ Reveal reason examples: “use the Anthropic API key for an in-app task”.
 1. Settings › (Model) › choose provider → paste key → Save (keychain).
 2. Select two or more connected phones → enter a prompt → Run.
 3. Watch each phone’s task card; approve when asked; Stop one phone without stopping the others.
+
+## The harness (`internal/inapp`)
+
+The loop follows the design of OpenAI's open-source Codex harness (Apache-2.0, `openai/codex`), rebuilt in Go for phones and for every provider Pinky offers (Anthropic, OpenAI, Ollama). No Codex code is used.
+
+- **Thread of items** (`thread.go`): the person's messages, the model's turns (text and tool calls) and the tools' answers. Providers turn items into their own messages (`anthropic.go`, `openai.go`).
+- **Context** (`view`, `compact`): the model sees the last three tool answers whole and older ones cut to their first lines (a screen is long and goes stale); any answer is cut to 24k characters; a thread past about 60k tokens is summed up by the model and goes on from the summary, keeping its latest items.
+- **Streaming and the prompt cache**: replies stream (`text_delta`). On Anthropic the system prompt, the tools and the thread's end carry `cache_control`, so a turn pays full price only for what is new; OpenAI caches the unchanged start by itself.
+- **Retries** (`transport.go`, `streamTurn`): 408, 409, 429, 5xx, 529 and dropped connections are tried again up to five times, waiting 1, 2, 4, 8 s (with jitter, at most 30 s) or what Retry-After says. A stream that broke before the model said anything is tried again; after, it is an error, since its words are on screen. `PINKY_ANTHROPIC_BASE_URL` and `PINKY_OPENAI_BASE_URL` point the clients elsewhere (a proxy, the tests).
+- **Tool calls side by side** (`runCalls`): one reply's calls for different phones run at the same time; calls for one phone run in order.
+- **Approvals** (`PhoneTools.callPending`): a call that opened an approval is repeated with its id, each time blocking in the gateway, until the person decides or the approval expires; the gateway's progress ("Waiting for the person: …") goes to the UI as `tool_progress`. Nothing gives up after a fixed time any more.
+- **Plan** (`update_plan`): the agent's own tool, as Codex's; the UI shows it as a checklist.
+- **One agent on several phones** (`AgentConfig.Devices`, the composer's 並行/連携 toggle, `together` in `/api/chat`): one loop connects every phone and names the device on each call; without it, each phone gets its own loop.
+- **Ask** (`Talk`): the chat without tools streams too, with the same retries.
+
+Events (`AgentEvent.Kind`): `tool_start`, `tool_progress`, `tool_end`, `text_delta`, `text`, `plan`, `retry`, `compact`, `usage`; `/api/chat` sends them as `step` events.
+
+Tests: `harness_test.go` (streaming, retries, context, the loop with a scripted model) and `gateway_test.go` (a scripted model reorders lunch in Dinely on two demo phones through a real gateway, payments approved while the loop waits); `internal/deskapi/chat_test.go` drives `/api/chat` against an Ollama-like server.

@@ -62,7 +62,7 @@ export function Composer({
 
   const submit = () => {
     if (!draft.trim()) return;
-    chat.send(draft, agentMode ? targets : [], agentMode ? 'agent' : 'ask');
+    chat.send(draft, agentMode ? targets : [], agentMode ? 'agent' : 'ask', agentMode && targets.length > 1 && !!s.together);
     setDraft('');
     // A new chat's first message moves the composer from the top to the
     // bottom, a new box: keep typing in it.
@@ -124,6 +124,7 @@ export function Composer({
         }}
       >
         {agentMode && (
+          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 0.5, minWidth: 0 }}>
           <Tooltip title={t('webChatScopeHint')} placement="top-start">
             <Box
               component="span"
@@ -133,7 +134,6 @@ export function Composer({
                 gap: 0.5,
                 height: 22,
                 px: 0.75,
-                mb: 0.5,
                 maxWidth: '100%',
                 borderRadius: 1,
                 border: 1,
@@ -150,6 +150,31 @@ export function Composer({
               </Box>
             </Box>
           </Tooltip>
+            {targets.length > 1 && (
+              <Tooltip title={s.together ? t('webChatTogetherDesc') : t('webChatSideBySideDesc')} placement="top">
+                <ButtonBase
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    chat.setTogether(!s.together);
+                  }}
+                  sx={{
+                    height: 22,
+                    px: 0.75,
+                    flexShrink: 0,
+                    borderRadius: 1,
+                    border: 1,
+                    borderColor: s.together ? p.ink3 : p.line2,
+                    color: s.together ? 'text.primary' : p.ink3,
+                    fontSize: 11.5,
+                    fontWeight: 500,
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                >
+                  {s.together ? t('webChatTogether') : t('webChatSideBySide')}
+                </ButtonBase>
+              </Tooltip>
+            )}
+          </Stack>
         )}
         <InputBase
           inputRef={(el: HTMLTextAreaElement | null) => {
