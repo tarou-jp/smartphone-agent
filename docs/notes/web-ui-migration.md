@@ -245,3 +245,54 @@ Keep **device tests** behind `PINKY_DEVICE` + `scripts/devlock.sh` unchanged.
 - **Upstream:** Stay on fork `main`; merge to DIYgod/pinky only with explicit product decision (in-app agent already conflicts with upstream DESIGN non-goals — document in PR).
 
 When the implementer finishes a phase, update this file’s phase table and append a short “Phase N done” bullet list with commit hashes.
+
+---
+
+## Status (2026-11-10, branch `wails-react-ui`)
+
+The web client exists and covers the main screens; the MyGo client stays, behind `-ui mygo`, until the parity checklist (§8) passes on real phones.
+
+### What was built, and how it differs from the plan above
+
+- **`internal/deskapi`** (pure Go, no cgo): an HTTP server on `127.0.0.1:<random>` over `gateway.API` and the gateway's extras (the same type assertions as `ui/extras.go`). JSON views in camelCase (`views.go`), Server-Sent Events for changes (`/api/events`: `change`, `settings`, `mirrorSize`, `diskImage`), MJPEG for the mirrors (`/api/devices/{id}/mirror`, decoded with `internal/video` at the phone's own size and scaled to the box; touches go as fractions of the screen, `nx`/`ny`), and the in-app chat as an SSE stream per message (`POST /api/chat`). Mirror option A of §5.3, chosen for now: it needs no JS decoder and plays in an `<img>`.
+- **Security:** the window opens `/?token=…`, which the server trades for an HttpOnly, SameSite=Strict cookie (`pinky_token_<port>`); every `/api` request needs it (or `X-Pinky-Token`), and any Host but 127.0.0.1/localhost is refused (DNS rebinding). PINs and model API keys never leave Go: the client only learns whether one is saved. `/api/open` opens only the rules files and exports.
+- **Settings types** moved from `ui` to `deskapi` (`ui` keeps aliases), so both clients and `cmd/pinky` share `settings.json`'s format.
+- **Window:** `internal/webshell`. With the `wails` build tag (and cgo) it is a Wails v2 window whose page forwards to the loopback server, so the front end speaks plain HTTP in the window and in a browser alike, and Wails bindings are not used. Without the tag (every `CGO_ENABLED=0` build) it opens the browser.
+- **`-ui` flag** on `pinky`: `auto` (default) picks the web client when the build has the Wails window and the built front end (`make web-app`), else MyGo — so `go tool mygo build` and the release pipeline still ship the MyGo client, unchanged. `-ui web` and `-ui mygo` force one.
+- **Front end:** `ui/frontend` (the plan said `frontend/`): React 19, TypeScript, Vite 6, **MUI 6** (not Tailwind). Words come from the MyGo catalogs (`cmd/pinky/locales/*.json`, read by a small ICU formatter, `src/i18n/icu.ts`), so both clients say the same; words only the web client has are in `src/i18n/web/*.ts`. `src/lib/gwtext.ts` ports `ui/gwtext.go` (the gateway's English steps, approvals and status lines in the app's language).
+
+### Layout of `ui/frontend/src`
+
+```text
+api/          client.ts (fetch, SSE, chat stream), types.ts (deskapi's JSON)
+state/        AppState: bootstrap, live state, settings, toasts, run()
+i18n/         catalogs + ICU formatter; web/*.ts for web-only words
+lib/          router (hash routes), format, gwtext
+theme/        MUI theme from ui/style.go's palette, light and dark
+components/   common/, layout/ (Sidebar), phone/ (Mirror, TaskCard, …), needs/ (NeedCard, …),
+              chat/ (ChatPanel, Composer, QueueList, useChat), activity/, settings/, addphone/
+pages/        PhonesPage, ActivityPage, SettingsPage, AddPhonePage
+```
+
+### Run it
+
+```sh
+make web-demo                        # fake gateway + the built front end, http://127.0.0.1:7466/?token=devtoken
+cd ui/frontend && npm run dev        # Vite with HMR at :5173, proxied to the demo
+go run -tags wails,desktop,production ./cmd/pinky-web-demo -window   # the demo in Pinky's own window (macOS: CGO_LDFLAGS="-framework UniformTypeIdentifiers")
+make web-app && build/pinky-web      # the app with the web client
+go test ./internal/deskapi/          # the API against ui/fakeapi
+```
+
+### Checked (fake gateway only, no real phone)
+
+Headless Chrome over CDP, in Japanese and English, dark and light: sidebar and All phones; a phone's page with the live mirror, keys, task card, Needs you card (Allow answered the approval and the task went on); touches, typing and Enter from real browser input reach `/touch`, `/text`, `/key`; chat (message, title, the no-key error and its link, sessions kept across a reload); Activity with step screenshots; Settings › Safety and › Model; Add phone › Android with its checkup. The Wails window opened against the fake and streamed (its connections were seen; this terminal cannot capture the screen).
+
+### Not done yet (parity checklist §8 and beyond)
+
+- Real phones: nothing was run against the live gateway or a device.
+- Menu bar / tray icon, the system-wide Stop all shortcut (the window's own ⌥⌘. works), system notifications, the floating approval panel and the flyout (Wails v2 has no tray; v3 or a small native helper).
+- Updates UI (check, install, What's new prompt), Send feedback and "What Pinky shares", recording the screen, screenshots and rotation from the phone page, approval history in the panel, the approval "lens", Checkup fix buttons, the older-iPhone path in Add phone, the "add an agent by hand" commands.
+- MJPEG costs CPU at high frame rates and uses one HTTP connection per mirror (browsers allow six per host); move to H.264 over WebCodecs or MSE (§5.3 B) if that shows.
+- CI: `npm ci && npm run build` and a Wails build are not in `.github/workflows` yet; `make check` stays Go-only and passes without Node (the embed falls back to a page that says how to build).
+- Pre-existing: on `HEAD` before this work, `go test ./ui/` already failed `TestApprovalShotOnCard`, `TestTasksSayNoAgent`, `TestIPhoneHelperReminder`, `TestRemovePhoneAllPhones`, `TestThreePhonesAndAllPhones` (and `TestControlBannerAboveTheScreen` times out).

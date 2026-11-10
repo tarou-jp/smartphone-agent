@@ -274,7 +274,12 @@ make companion      # the Android companion APK (Android SDK and JDK needed)
 make e2e            # a binary with MyGo's automation socket, for UI checks
 scripts/smoke.sh    # the fake gateway, pinky devices and a task through pinky mcp
 make dist           # a dry run of a release, in dist/<version>/ (docs/RELEASING.md)
+make web            # the web client's front end (React, MUI, Vite) in ui/frontend/dist (needs Node.js)
+make web-app        # build/pinky-web: pinky with the web client in its own window (Wails, needs cgo)
+make web-demo       # the web client against the fake gateway, at http://127.0.0.1:7466
 ```
+
+The web client (`ui/frontend`, served by `internal/deskapi`) is replacing the MyGo client. `pinky -ui web` opens it, in its own window in `make web-app` builds and in the browser otherwise; `-ui mygo` keeps the MyGo client, which builds without the web client's window still open by default. See [docs/notes/web-ui-migration.md](docs/notes/web-ui-migration.md).
 
 `go run ./cmd/pinky --fake` runs the app with two scripted phones (a payment to approve, a blocked banking app, a password field), so it needs no phone.
 
@@ -296,6 +301,8 @@ internal/api/                 the local socket for agents and clients
 internal/demo/                scripted fake phones
 internal/update/              new versions: the feed, checks, the swap, What's new
 internal/video/, ui/          the desktop client (MyGo native UI, FFmpeg decoding)
+internal/deskapi/, ui/frontend/  the web client: its HTTP API, and the React front end
+internal/webshell/            the web client's window (Wails) or the browser
 internal/telemetry/           usage statistics, crash reports and feedback
 worker/                       the Cloudflare Worker that receives usage statistics and crash reports
 android/companion/            the Android companion app (Kotlin)

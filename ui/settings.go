@@ -41,16 +41,10 @@ type settingsState struct {
 func (a *app) changed() {
 	a.changes++
 	old := a.reported
-	a.reported = a.settings.clone()
+	a.reported = a.settings.Clone()
 	if a.opt.OnSettings != nil {
-		a.opt.OnSettings(old, a.settings.clone())
+		a.opt.OnSettings(old, a.settings.Clone())
 	}
-}
-
-// clone returns s with a list of blocked apps of its own.
-func (s Settings) clone() Settings {
-	s.BlockedApps = append([]BlockedApp(nil), s.BlockedApps...)
-	return s
 }
 
 func (a *app) settingsPage(c *mg.Context) {

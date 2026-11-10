@@ -8,13 +8,11 @@ import (
 	mg "github.com/egoist/mygo/ui"
 
 	"github.com/DIYgod/pinky/cmd/pinky/locales"
+	"github.com/DIYgod/pinky/internal/deskapi"
 	"github.com/DIYgod/pinky/internal/telemetry"
 )
 
-// usageStatsByDefault is whether usage statistics and crash reports start
-// on. They are on, without a note on the first run; Settings › Privacy
-// turns them off, and so does DO_NOT_TRACK (docs/TELEMETRY.md).
-const usageStatsByDefault = true
+const usageStatsByDefault = deskapi.UsageStatsByDefault
 
 // telState is the client's side of usage statistics, crash reports and
 // feedback.

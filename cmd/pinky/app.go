@@ -12,19 +12,22 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/egoist/mygo"
 
 	"github.com/DIYgod/pinky"
 	"github.com/DIYgod/pinky/internal/api"
+	"github.com/DIYgod/pinky/internal/deskapi"
 	"github.com/DIYgod/pinky/internal/gateway"
 	"github.com/DIYgod/pinky/internal/policy"
 	"github.com/DIYgod/pinky/internal/screen"
 	"github.com/DIYgod/pinky/internal/secret"
+	"github.com/DIYgod/pinky/internal/webshell"
 	"github.com/DIYgod/pinky/ui"
+	"github.com/DIYgod/pinky/ui/frontend"
 )
 
 // runApp runs the desktop app: the gateway, the socket agents connect to,
@@ -36,8 +39,19 @@ func runApp(args []string) error {
 	theme := fs.String("theme", "", `"light" or "dark"; empty follows the system`)
 	background := fs.Bool("background", false, "start in the menu bar without a window; it opens when something needs you")
 	verbose := fs.Bool("verbose", false, "log debug messages")
+	client := fs.String("ui", "auto", `the window: "web" (React, in its own window in builds with it, else the browser), "mygo" (the earlier client), or "auto": web when this build has its window and front end (make web-app), else mygo`)
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	switch *client {
+	case "auto":
+		*client = "mygo"
+		if webshell.HasWindow && frontend.Assets() != nil {
+			*client = "web"
+		}
+	case "web", "mygo":
+	default:
+		return fmt.Errorf(`-ui is "auto", "web" or "mygo", not %q`, *client)
 	}
 	dirs, err := api.DefaultDirs()
 	if err != nil {
@@ -85,12 +99,18 @@ func runApp(args []string) error {
 	tel := startTelemetry(ctx, rg, crashes, settings, "app", c.Fake, c.Log)
 	defer tel.Close()
 	// `pinky quit` quits the app as its menu would.
-	rg.srv.Quit = func() { mygo.App.Quit() }
+	var shell webshell.Shell
+	quit := func() { mygo.App.Quit() }
+	if *client == "web" {
+		shell = webshell.New()
+		quit = shell.Quit
+	}
+	rg.srv.Quit = quit
 	go func() {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		<-ctx.Done()
-		mygo.App.Quit()
+		quit()
 	}()
 	go func() {
 		if err := rg.Serve(ctx); err != nil && ctx.Err() == nil {
@@ -99,20 +119,50 @@ func runApp(args []string) error {
 	}()
 
 	gatewaySettings(&settings, rg)
+	onSettings := func(old, s ui.Settings) {
+		applySettings(rg, old, s, c.Log)
+		applyTelemetry(tel, s)
+		unlock.on.Store(s.UnlockFromComputer)
+		if err := saveSettings(settingsPath, s); err != nil {
+			c.Log.Warn("save settings", "err", err)
+		}
+	}
+	if shell != nil {
+		srv := deskapi.New(deskapi.Options{
+			API:             clientAPI(rg, tel, c.Fake),
+			Agent:           rg.G,
+			Version:         version,
+			Settings:        &settings,
+			OnSettings:      onSettings,
+			GatewaySettings: func(since int) (ui.Settings, int, bool) { return policySettings(rg, since) },
+			RulesFile:       dirs.Rules(),
+			AgentToken:      rg.srv.Token,
+			AgentSetup:      agentSetup(dirs),
+			Telemetry:       tel,
+			Changelog:       pinky.Changelog,
+			Assets:          frontend.Assets(),
+			Hidden:          *background,
+			Quit:            quit,
+			Log:             c.Log,
+		})
+		defer srv.Close()
+		return webshell.Run(shell, srv, webshell.Options{
+			Theme:  *theme,
+			Hidden: *background,
+			OnReady: func() {
+				if err := swapped.Confirm(); err != nil {
+					c.Log.Warn("update: confirm", "err", err)
+				}
+			},
+		})
+	}
 	return ui.Run(clientAPI(rg, tel, c.Fake), ui.Options{
-		AgentGateway: rg.G,
-		Version:      version,
-		Theme:        *theme,
-		Hidden:       *background,
-		Settings:     &settings,
-		OnSettings: func(old, s ui.Settings) {
-			applySettings(rg, old, s, c.Log)
-			applyTelemetry(tel, s)
-			unlock.on.Store(s.UnlockFromComputer)
-			if err := saveSettings(settingsPath, s); err != nil {
-				c.Log.Warn("save settings", "err", err)
-			}
-		},
+		AgentGateway:    rg.G,
+		Version:         version,
+		Theme:           *theme,
+		Hidden:          *background,
+		Settings:        &settings,
+		OnSettings:      onSettings,
 		GatewaySettings: func(since int) (ui.Settings, int, bool) { return policySettings(rg, since) },
 		RulesFile:       dirs.Rules(),
 		AgentToken:      rg.srv.Token,

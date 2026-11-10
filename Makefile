@@ -23,7 +23,7 @@ RELEASE_SIGN ?= Developer ID Application: NATURAL SELECTION LABS PTE. LTD. (492J
 NOTARY_PROFILE ?= pinky-notary
 DMG := build/pinky/darwin-$(GOARCH)/pinky-$(VERSION)-$(GOARCH).dmg
 
-.PHONY: build test vet check app e2e companion companion-release ffmpeg adb release notarize dist
+.PHONY: build test vet check app e2e companion companion-release ffmpeg adb release notarize dist web web-app web-demo
 
 build:
 	CGO_ENABLED=0 go build ./...
@@ -114,3 +114,22 @@ companion:
 # the release workflow has); scripts/dist.sh companion runs it.
 companion-release:
 	cd android/companion && ./gradlew --quiet assembleRelease
+
+# The web client's front end (ui/frontend: React, MUI, Vite), built into
+# ui/frontend/dist, which Pinky embeds (needs Node.js).
+web:
+	cd ui/frontend && npm ci && npm run build
+
+# pinky with the web client in a window of its own (Wails; needs cgo), in
+# build/pinky-web. `pinky` then opens the web client; -ui mygo the earlier
+# one. Builds without the wails tag keep the MyGo client unless run with
+# -ui web, which opens the web client in the browser.
+WEB_LDFLAGS := $(if $(filter Darwin,$(UNAME)),-framework UniformTypeIdentifiers)
+web-app: web
+	CGO_ENABLED=1 CGO_LDFLAGS="$(WEB_LDFLAGS)" go build -tags wails,desktop,production \
+		-ldflags "-X main.version=$(VERSION)" -o build/pinky-web ./cmd/pinky
+
+# The web client against the scripted fake gateway, at
+# http://127.0.0.1:7466 (with `npm run dev` in ui/frontend for Vite).
+web-demo:
+	go run ./cmd/pinky-web-demo -token devtoken

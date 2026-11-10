@@ -227,7 +227,10 @@ Android 上，你点「安装」后会装上 Pinky Companion，之后 Pinky 会�
 ```sh
 make check   # 构建（CGO_ENABLED=0）、vet、测试
 make app     # macOS：带 FFmpeg 和伴侣应用的 Pinky.app，以及 .dmg
+make web-app # 带网页版客户端（React、MUI，Wails 窗口）的 pinky，在 build/pinky-web（需要 Node.js 和 cgo）
 ```
+
+网页版客户端（`ui/frontend`）正在取代 MyGo 客户端：`pinky -ui web` 打开它，`-ui mygo` 仍用 MyGo 客户端。
 
 各系统的构建步骤、FFmpeg 和 adb 的打包方式、测试和代码结构，见英文版的 [Build from source](README.md#build-from-source)、[Build and test](README.md#build-and-test) 和 [Code layout](README.md#code-layout)。开发文档都是英文的：
 

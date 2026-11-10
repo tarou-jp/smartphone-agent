@@ -31,3 +31,11 @@ android/companion/local.properties
 /.claude/
 .idea/
 .vscode/
+
+# The web front end's dependencies and build (make web); dist keeps a
+# placeholder so the Go embed compiles without a build.
+/ui/frontend/node_modules/
+/ui/frontend/*.tsbuildinfo
+/ui/frontend/dist/*
+!/ui/frontend/dist/.gitkeep
+/cmd/pinky/build/

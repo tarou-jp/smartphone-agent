@@ -12,6 +12,7 @@ import (
 
 	"github.com/DIYgod/pinky/cmd/pinky/locales"
 	"github.com/DIYgod/pinky/internal/agents"
+	"github.com/DIYgod/pinky/internal/deskapi"
 	"github.com/DIYgod/pinky/internal/gateway"
 )
 
@@ -61,14 +62,8 @@ func shellWord(s string) string {
 // stdio for an agent on this computer.
 func agentCommand() string { return shellWord(agentProgram()) + " mcp" }
 
-// AgentSetup finds the agents on this computer and adds Pinky to them, as
-// internal/agents.Setup does. Its methods block: the client calls them off
-// the main thread.
-type AgentSetup interface {
-	Find(ctx context.Context) []agents.Status
-	Connect(ctx context.Context, id string) (agents.Result, error)
-	Remove(ctx context.Context, id string) (agents.Result, error)
-}
+// AgentSetup is deskapi.AgentSetup.
+type AgentSetup = deskapi.AgentSetup
 
 // setupState is Settings › Agents › Connect an agent's, and the sidebar
 // card's.

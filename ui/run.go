@@ -16,6 +16,7 @@ import (
 	mg "github.com/egoist/mygo/ui"
 
 	"github.com/DIYgod/pinky/cmd/pinky/locales"
+	"github.com/DIYgod/pinky/internal/deskapi"
 	"github.com/DIYgod/pinky/internal/driver"
 	"github.com/DIYgod/pinky/internal/gateway"
 	"github.com/DIYgod/pinky/internal/secret"
@@ -91,81 +92,20 @@ type Options struct {
 	AgentSetup AgentSetup
 }
 
-// Settings are what the Settings screen changes.
-type Settings struct {
-	Preset             int // 1: payments, messages and deletions; 2: payments only (the default, recommended); 3: every action
-	BlockedApps        []BlockedApp
-	ReadOnly           bool
-	UnlockFromComputer bool
-	HideCodes          bool
-	KeepDays           int
-	Record             bool
-	DeveloperMode      bool
-	// RemoteAgents serves MCP over Streamable HTTP at RemoteAddr, for agents
-	// that cannot start `pinky mcp`; each request needs the agent token.
-	RemoteAgents bool
-	RemoteAddr   string
-	// UsageStats shares anonymous usage statistics and crash reports
-	// (docs/TELEMETRY.md).
-	UsageStats bool
-	// AutoUpdate installs new versions of Pinky, and of the companion app
-	// on Android phones, by themselves while no one uses them.
-	AutoUpdate bool
-	// ModelProvider is read from older settings.json; migrated into ModelKeys.
-	ModelProvider string `json:"modelProvider,omitempty"`
-	// ChatModel is the inapp.ChatModels id used for API calls.
-	ChatModel string
-	// ChatAgentModel is the cloud model for phone control when ChatModel is Ollama without tools.
-	ChatAgentModel string `json:"chatAgentModel,omitempty"`
-	// ModelKeyActive is the id of the API key profile the chat uses.
-	ModelKeyActive string
-	// ModelKeys lists saved API key profiles (labels and providers). Secrets
-	// live in the keychain at inapp.KeyAccount(provider, id).
-	ModelKeys []ModelKeyProfile
-	// OllamaBaseURL is the Ollama HTTP root (default inapp.DefaultOllamaBaseURL).
-	OllamaBaseURL string `json:"ollamaBaseURL,omitempty"`
-	// OllamaModels are model names from `ollama list` offered in chat.
-	OllamaModels []string `json:"ollamaModels,omitempty"`
-}
+// Settings, and the types it holds, live in internal/deskapi, which the web
+// client shares; these aliases keep this package's names.
+type (
+	Settings        = deskapi.Settings
+	ModelKeyProfile = deskapi.ModelKeyProfile
+	BlockedApp      = deskapi.BlockedApp
+	AgentInfo       = deskapi.AgentInfo
+)
 
-// ModelKeyProfile is one saved API key (per provider).
-type ModelKeyProfile struct {
-	ID       string `json:"id"`
-	Provider string `json:"provider"` // anthropic or openai
-	Label    string `json:"label"`
-}
-
-// DefaultRemoteAddr is where Pinky serves MCP over HTTP: this computer
-// only, on port 7465 (PINK on a phone keypad).
-const DefaultRemoteAddr = "127.0.0.1:7465"
-
-// BlockedApp is an app agents may not open. ID is its package name or
-// bundle id when Pinky knows it, so that unblocking takes the app out of
-// every entry that blocks it, not only its name.
-type BlockedApp struct {
-	Name, Kind string
-	ID         string
-}
-
-// AgentInfo is a row of Settings › Agents.
-type AgentInfo struct {
-	Name      string
-	Scope     string // "Can use Dinely, Chatter and Calendar"
-	Connected bool
-}
+// DefaultRemoteAddr is deskapi.DefaultRemoteAddr.
+const DefaultRemoteAddr = deskapi.DefaultRemoteAddr
 
 // DefaultSettings are the design's defaults.
-func DefaultSettings() Settings {
-	return Settings{
-		Preset: 2,
-		BlockedApps: []BlockedApp{
-			{Name: "Northbank", Kind: "Banking"}, {Name: "Vaultly", Kind: "Passwords"}, {Name: "Coinpouch", Kind: "Wallet"},
-		},
-		UnlockFromComputer: true, HideCodes: true, KeepDays: 30, Record: true, RemoteAddr: DefaultRemoteAddr,
-		UsageStats: usageStatsByDefault,
-		AutoUpdate: true,
-	}
-}
+func DefaultSettings() Settings { return deskapi.DefaultSettings() }
 
 type page int
 
@@ -332,11 +272,11 @@ func newApp(api gateway.API, opt Options) *app {
 	a.rec = recState{views: map[string]*recEntry{}}
 	a.control = map[string]controlText{}
 	if opt.Settings != nil {
-		a.settings = opt.Settings.clone()
+		a.settings = opt.Settings.Clone()
 	} else {
 		a.settings = DefaultSettings()
 	}
-	a.reported = a.settings.clone()
+	a.reported = a.settings.Clone()
 	a.gwSet.version = -1
 	a.act.init()
 	switch opt.StartPage {
