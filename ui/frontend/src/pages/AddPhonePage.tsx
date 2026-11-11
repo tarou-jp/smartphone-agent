@@ -37,8 +37,8 @@ export function AddPhonePage({ platform }: { platform?: string }) {
   return (
     <>
       <PageHeader title={<Crumbs items={crumbs} />} />
-      <Box sx={{ flex: 1, overflowY: 'auto', scrollbarGutter: 'stable', bgcolor: (th) => th.pinky.bg2 }}>
-        <Box sx={{ maxWidth: 720, mx: 'auto', px: 4, py: 4 }}>{body}</Box>
+      <Box sx={{ flex: 1, overflowY: 'auto', scrollbarGutter: 'stable' }}>
+        <Box sx={{ maxWidth: 720, mx: 'auto', px: 4, pt: 2, pb: 4 }}>{body}</Box>
       </Box>
     </>
   );

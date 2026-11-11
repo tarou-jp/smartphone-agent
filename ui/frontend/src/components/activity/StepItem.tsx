@@ -8,11 +8,11 @@ import { answered } from './outcome';
 import { StepShot } from './StepShot';
 import { useGw } from '@/lib/gwtext';
 
-function stepColor(p: PinkyTokens, s: Step): string {
+function stepColor(p: PinkyTokens, s: Step): string | null {
   if (s.status === 'blocked_by_policy' || s.status === 'failed' || s.status === 'approval_denied') return p.red;
   if (s.status === 'approval_pending' || s.text.startsWith('Waiting for you')) return p.amberDot;
   if (s.status === 'uncertain') return p.amberDot;
-  return p.line2;
+  return null;
 }
 
 /** One step of a task: its words, the time, its screenshot, and in Developer mode its tool call. */
@@ -26,18 +26,34 @@ export function StepItem({ task, step, developer }: { task: Task; step: Step; de
   const sub = gw.stepSub(split.sub);
   const prev = task.steps[step.index - 1];
   const answer = answered(step) && prev ? new Date(step.at).getTime() - new Date(prev.at).getTime() : 0;
+  const color = stepColor(p, step);
+  const last = step.index === task.steps.length - 1;
+  // A timeline: the time in mono on the left, a node on a line that runs
+  // through the task, the words, and the screen as a small phone.
   return (
-    <Stack direction="row" spacing={1.5} sx={{ py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
-      <Box sx={{ width: 3, borderRadius: 2, bgcolor: stepColor(p, step), flexShrink: 0 }} />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Stack direction="row" spacing={1} alignItems="baseline">
-          <Typography variant="body1" sx={{ flex: 1, fontWeight: answered(step) ? 600 : 400 }} className="selectable">
-            {text}
-          </Typography>
-          <Typography variant="caption" sx={{ flexShrink: 0 }}>
-            {clock(locale, step.at)}
-          </Typography>
-        </Stack>
+    <Stack direction="row" spacing={2} sx={{ position: 'relative' }}>
+      <Typography sx={{ width: 44, flexShrink: 0, pt: 1.75, fontFamily: p.mono, fontSize: 12, color: p.ink3, textAlign: 'right' }}>
+        {clock(locale, step.at)}
+      </Typography>
+      <Box sx={{ position: 'relative', width: 12, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+        <Box sx={{ position: 'absolute', top: 0, bottom: last ? 'calc(100% - 22px)' : 0, width: '1px', bgcolor: p.line2 }} />
+        <Box
+          sx={{
+            position: 'relative',
+            mt: '18px',
+            width: 9,
+            height: 9,
+            borderRadius: '50%',
+            bgcolor: color ?? 'background.default',
+            border: color ? 'none' : `1.5px solid ${p.ink3}`,
+            boxSizing: 'border-box',
+          }}
+        />
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0, py: 1.5 }}>
+        <Typography variant="body1" sx={{ fontWeight: answered(step) ? 600 : 400 }} className="selectable">
+          {text}
+        </Typography>
         {sub && (
           <Typography variant="body2" color="text.secondary" className="selectable">
             {sub}
@@ -67,7 +83,7 @@ export function StepItem({ task, step, developer }: { task: Task; step: Step; de
                   border: 1,
                   borderColor: 'divider',
                   fontSize: 12,
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontFamily: p.mono,
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-all',
                 }}
@@ -78,7 +94,9 @@ export function StepItem({ task, step, developer }: { task: Task; step: Step; de
           </>
         )}
       </Box>
-      <StepShot task={task} step={step} />
+      <Box sx={{ py: 1.5 }}>
+        <StepShot task={task} step={step} />
+      </Box>
     </Stack>
   );
 }

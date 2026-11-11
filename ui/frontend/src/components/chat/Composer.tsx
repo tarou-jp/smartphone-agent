@@ -113,13 +113,14 @@ export function Composer({
         sx={{
           border: 1,
           borderColor: p.line2,
-          borderRadius: 2.5,
-          bgcolor: p.bg2,
-          px: 1.25,
-          pt: 1,
+          borderRadius: '12px',
+          bgcolor: 'background.paper',
+          boxShadow: p.cardShadow === 'none' ? p.highlight : p.cardShadow,
+          px: 1.5,
+          pt: 1.25,
           pb: 1,
           cursor: 'text',
-          transition: 'border-color .1s',
+          transition: 'border-color .15s cubic-bezier(0.22, 1, 0.36, 1)',
           '&:focus-within': { borderColor: p.ink3 },
         }}
       >

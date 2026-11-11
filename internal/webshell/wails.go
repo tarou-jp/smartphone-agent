@@ -60,10 +60,17 @@ func (w *wailsShell) Run(url string, opt Options) error {
 		Menu:        appMenu,
 		AssetServer: &assetserver.Options{Handler: forward},
 		Mac: &mac.Options{
+			// No title bar of its own: the page runs to the window's top
+			// edge and the traffic lights sit over the sidebar, which
+			// leaves room for them (ui/frontend/src/lib/window.ts). The
+			// page asks for a window drag from its top strip. The strip is
+			// the compact one, 38 pt (titlebar_darwin.go).
+			TitleBar:   mac.TitleBarHiddenInset(),
 			Appearance: theme,
 			About:      &mac.AboutInfo{Title: "Pinky", Message: "Let agents use your phone, with you watching."},
 		},
 		OnStartup: func(ctx context.Context) {
+			compactTitleBar()
 			w.mu.Lock()
 			w.ctx = ctx
 			quit, show := w.quit, w.show
@@ -75,6 +82,7 @@ func (w *wailsShell) Run(url string, opt Options) error {
 			}
 		},
 		OnDomReady: func(context.Context) {
+			compactTitleBar()
 			if opt.OnReady != nil {
 				w.readyFn.Do(opt.OnReady)
 			}

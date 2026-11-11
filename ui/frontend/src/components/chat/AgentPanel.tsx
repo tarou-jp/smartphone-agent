@@ -5,7 +5,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Box, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
-import { StatusDot } from '@/components/common/StatusDot';
+import { PhoneGlyph } from '@/components/common/PhoneGlyph';
 import { useApp } from '@/state/AppState';
 import { useT } from '@/i18n';
 import type { Route } from '@/lib/router';
@@ -34,8 +34,8 @@ function EmptyChat({ agentMode, targets }: { agentMode: boolean; targets: { id: 
             {targets.map((d) => {
               const dev = live.devices.find((x) => x.id === d.id);
               return (
-                <Stack key={d.id} direction="row" spacing={1} alignItems="center">
-                  {dev && <StatusDot status={dev.status} size={6} />}
+                <Stack key={d.id} direction="row" spacing={1.25} alignItems="center">
+                  {dev && <PhoneGlyph status={dev.status} size={18} />}
                   <Typography sx={{ fontSize: 13 }}>{d.name}</Typography>
                 </Stack>
               );
@@ -80,7 +80,8 @@ export function AgentPanel({ route }: { route: Route }) {
 
   const agentAvailable = !!boot?.inAppAgent && online.length > 0;
 
-  if (!panel.open) return null;
+  // Settings has the window to itself: no chat beside it.
+  if (!panel.open || route.page === 'settings') return null;
 
   const startDrag = (e: React.PointerEvent) => {
     drag.current = { x: e.clientX, w: panel.width };

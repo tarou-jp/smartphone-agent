@@ -1,17 +1,4 @@
-import {
-  Badge,
-  Box,
-  Button,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  ListSubheader,
-  Stack,
-  Tooltip,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Button, ListItemButton, Stack, Typography, useTheme } from '@mui/material';
 import GridViewIcon from '@mui/icons-material/GridViewRounded';
 import HistoryIcon from '@mui/icons-material/HistoryRounded';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
@@ -22,14 +9,16 @@ import { useApp } from '@/state/AppState';
 import { useT } from '@/i18n';
 import { href, type Route } from '@/lib/router';
 import { statusRank, isRunning } from '@/lib/format';
-import { StatusDot } from '@/components/common';
+import { Keys, PhoneGlyph } from '@/components/common';
 import type { Device } from '@/api/types';
 import { useGw } from '@/lib/gwtext';
+import { inMacWindow, topRow } from '@/lib/window';
 
 export const sidebarWidth = 248;
 
 function PhoneRow({ d, selected, needs }: { d: Device; selected: boolean; needs: number }) {
   const t = useT();
+  const p = useTheme().pinky;
   const status = useGw().statusLine(d);
   return (
     <ListItemButton
@@ -37,19 +26,36 @@ function PhoneRow({ d, selected, needs }: { d: Device; selected: boolean; needs:
       href={href({ page: 'phones', deviceId: d.id })}
       selected={selected}
       aria-label={t('sidebarPhoneRow', { name: d.name, status })}
-      sx={{ py: 0.75, alignItems: 'flex-start' }}
+      sx={{ py: 1, px: 1.25, gap: 1.5, alignItems: 'center', mb: 0.5 }}
     >
-      <ListItemIcon sx={{ minWidth: 20, mt: '7px' }}>
-        <StatusDot status={d.status} />
-      </ListItemIcon>
-      <ListItemText
-        primary={d.name}
-        secondary={status}
-        primaryTypographyProps={{ noWrap: true, fontWeight: 500, fontSize: 13 }}
-        secondaryTypographyProps={{ noWrap: true, fontSize: 12 }}
-        sx={{ my: 0, opacity: d.status === 'offline' ? 0.6 : 1 }}
-      />
-      {needs > 0 && <Badge badgeContent={needs} color="warning" sx={{ mt: '12px', mr: 1 }} />}
+      <PhoneGlyph status={d.status} size={24} />
+      <Box sx={{ flex: 1, minWidth: 0, opacity: d.status === 'offline' ? 0.6 : 1 }}>
+        <Typography noWrap sx={{ fontSize: 14, fontWeight: 500, lineHeight: '20px' }}>
+          {d.name}
+        </Typography>
+        <Typography noWrap sx={{ fontSize: 13, lineHeight: '18px', color: d.status === 'needs_you' ? p.amber : p.ink2 }}>
+          {status}
+        </Typography>
+      </Box>
+      {needs > 0 && (
+        <Box
+          component="span"
+          sx={{
+            fontFamily: p.mono,
+            fontSize: 11,
+            fontWeight: 500,
+            lineHeight: '18px',
+            minWidth: 18,
+            px: '5px',
+            textAlign: 'center',
+            borderRadius: '9px',
+            bgcolor: p.amberDot,
+            color: '#1a1206',
+          }}
+        >
+          {needs}
+        </Box>
+      )}
     </ListItemButton>
   );
 }
@@ -63,11 +69,13 @@ export function Sidebar({ route }: { route: Route }) {
   );
   const needsBy = (id: string) => live.needs.filter((n) => n.deviceId === id).length;
   const anyRunning = live.tasks.some(isRunning);
-  const nav = (r: Route, icon: React.ReactNode, label: string, selected: boolean, badge = 0) => (
-    <ListItemButton component="a" href={href(r)} selected={selected} sx={{ py: 0.75 }}>
-      <ListItemIcon sx={{ minWidth: 30, color: 'text.secondary' }}>{icon}</ListItemIcon>
-      <ListItemText primary={label} primaryTypographyProps={{ fontSize: 13, fontWeight: 500 }} />
-      {badge > 0 && <Badge badgeContent={badge} color="warning" sx={{ mr: 1 }} />}
+  const mac = navigator.platform.startsWith('Mac');
+  const nav = (r: Route, icon: React.ReactNode, label: string, selected: boolean) => (
+    <ListItemButton component="a" href={href(r)} selected={selected} sx={{ minHeight: 36, py: 0, px: 1.25, gap: 1.5, mb: 0.25 }}>
+      <Box sx={{ width: 15, display: 'flex', justifyContent: 'center', color: selected ? 'text.primary' : p.ink3, '& svg': { fontSize: 18 } }}>
+        {icon}
+      </Box>
+      <Typography sx={{ fontSize: 14, fontWeight: selected ? 500 : 400, color: selected ? 'text.primary' : p.ink2 }}>{label}</Typography>
     </ListItemButton>
   );
   return (
@@ -84,57 +92,52 @@ export function Sidebar({ route }: { route: Route }) {
         height: '100%',
       }}
     >
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, height: 52, flexShrink: 0 }}>
-        <Box component="img" src={logo} alt="" sx={{ width: 22, height: 22 }} />
-        <Typography sx={{ fontWeight: 600, fontSize: 15 }}>Pinky</Typography>
+      {/* As tall as the page's and the chat's top rows. In Pinky's own
+          window it holds only the traffic lights; in a browser, the name. */}
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, height: topRow, flexShrink: 0, cursor: 'default' }}>
+        {!inMacWindow && (
+          <>
+            <Box component="img" src={logo} alt="" sx={{ width: 18, height: 18, borderRadius: '5px' }} />
+            <Typography sx={{ fontWeight: 600, fontSize: 14 }}>Pinky</Typography>
+          </>
+        )}
       </Stack>
-      <Box sx={{ flex: 1, overflowY: 'auto', px: 1 }}>
-        <List
-          dense
-          subheader={
-            <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '28px', fontSize: 12, px: 1 }}>
-              {t('sidebarPhones')}
-            </ListSubheader>
-          }
-        >
+      <Box sx={{ flex: 1, overflowY: 'auto', px: 1.25 }}>
+        <Typography sx={{ fontSize: 12, color: p.ink3, px: 1.25, mt: 1, mb: 1 }}>{t('sidebarPhones')}</Typography>
+        <Box>
           {devices.length > 1 &&
-            nav(
-              { page: 'phones' },
-              <GridViewIcon fontSize="small" />,
-              t('sidebarAllPhones'),
-              route.page === 'phones' && !route.deviceId,
-            )}
+            nav({ page: 'phones' }, <GridViewIcon />, t('sidebarAllPhones'), route.page === 'phones' && !route.deviceId)}
           {devices.map((d) => (
-            <PhoneRow
-              key={d.id}
-              d={d}
-              needs={needsBy(d.id)}
-              selected={route.page === 'phones' && route.deviceId === d.id}
-            />
+            <PhoneRow key={d.id} d={d} needs={needsBy(d.id)} selected={route.page === 'phones' && route.deviceId === d.id} />
           ))}
-          {nav({ page: 'add-phone' }, <AddIcon fontSize="small" />, t('sidebarAddPhone'), route.page === 'add-phone')}
-        </List>
+          {nav({ page: 'add-phone' }, <AddIcon />, t('sidebarAddPhone'), route.page === 'add-phone')}
+        </Box>
       </Box>
-      <Box sx={{ px: 1, pb: 1 }}>
-        <List dense>
-          {nav({ page: 'activity' }, <HistoryIcon fontSize="small" />, t('sidebarActivity'), route.page === 'activity')}
-          {nav({ page: 'settings' }, <SettingsIcon fontSize="small" />, t('sidebarSettings'), route.page === 'settings')}
-        </List>
-        <Tooltip title={navigator.platform.startsWith('Mac') ? '⌥⌘.' : 'Ctrl+Alt+.'}>
-          <span>
-            <Button
-              fullWidth
-              variant="outlined"
-              color="error"
-              startIcon={<StopIcon />}
-              disabled={!anyRunning}
-              onClick={() => run(t('callStopAll'), () => import('@/api/client').then((m) => m.api.stopAll()))}
-              sx={{ mt: 0.5, borderColor: p.redLine, bgcolor: anyRunning ? p.redTint : 'transparent' }}
-            >
-              {t('sidebarStopAll')}
-            </Button>
-          </span>
-        </Tooltip>
+      <Box sx={{ px: 1.25, pb: 1.5, pt: 1 }}>
+        {nav({ page: 'activity' }, <HistoryIcon />, t('sidebarActivity'), route.page === 'activity')}
+        {nav({ page: 'settings' }, <SettingsIcon />, t('sidebarSettings'), route.page === 'settings')}
+        <Button
+          fullWidth
+          variant="outlined"
+          color="error"
+          disabled={!anyRunning}
+          onClick={() => run(t('callStopAll'), () => import('@/api/client').then((m) => m.api.stopAll()))}
+          sx={{
+            mt: 1.5,
+            minHeight: 36,
+            justifyContent: 'space-between',
+            borderColor: anyRunning ? p.redLine : p.line2,
+            bgcolor: anyRunning ? p.redTint : 'transparent',
+            boxShadow: 'none',
+            '&.Mui-disabled': { borderColor: p.line, color: p.ink3 },
+          }}
+        >
+          <Stack direction="row" spacing={1} alignItems="center">
+            <StopIcon sx={{ fontSize: 18 }} />
+            <span>{t('sidebarStopAll')}</span>
+          </Stack>
+          <Keys keys={mac ? ['⌥', '⌘', '.'] : ['Ctrl', 'Alt', '.']} />
+        </Button>
       </Box>
     </Box>
   );

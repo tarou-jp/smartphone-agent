@@ -21,7 +21,7 @@ export function StatusText({ tone = 'none', dot, children }: { tone?: Tone; dot?
   return (
     <Box
       component="span"
-      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, fontSize: 12, lineHeight: '16px', color: 'text.secondary', whiteSpace: 'nowrap' }}
+      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, fontSize: 13, lineHeight: '18px', color: 'text.secondary', whiteSpace: 'nowrap' }}
     >
       {dot ??
         (tone !== 'none' && (

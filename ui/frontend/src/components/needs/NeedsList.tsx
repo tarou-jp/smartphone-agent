@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Stack, Typography } from '@mui/material';
+import { Stack, Typography, useTheme } from '@mui/material';
 import type { Need } from '@/api/types';
 import { useT } from '@/i18n';
 import { NeedCard } from './NeedCard';
@@ -10,6 +10,7 @@ const later = new Set<string>();
 /** The Needs you section: oldest first, as the gateway asked. */
 export function NeedsList({ needs, shotFor }: { needs: Need[]; shotFor?: (n: Need) => boolean }) {
   const t = useT();
+  const p = useTheme().pinky;
   const [, setTick] = useState(0);
   const shown = needs
     .filter((n) => !(n.kind === 'unlock' && later.has(n.id)))
@@ -17,7 +18,7 @@ export function NeedsList({ needs, shotFor }: { needs: Need[]; shotFor?: (n: Nee
   if (shown.length === 0) return null;
   return (
     <Stack spacing={1.25}>
-      <Typography variant="subtitle2">{t('needsSection')}</Typography>
+      <Typography sx={{ fontSize: 12, color: p.ink3 }}>{t('needsSection')}</Typography>
       {shown.map((n) => (
         <NeedCard
           key={n.id}

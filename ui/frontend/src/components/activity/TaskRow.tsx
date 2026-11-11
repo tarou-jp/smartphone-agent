@@ -28,10 +28,11 @@ export function OutcomeDot({ task }: { task: Task }) {
 /** A task in Activity's list. */
 export function TaskRow({ task, selected }: { task: Task; selected: boolean }) {
   const { t, locale } = useI18n();
+  const p = useTheme().pinky;
   const n = approvals(task);
   return (
-    <ListItemButton component="a" href={href({ page: 'activity', taskId: task.id })} selected={selected} sx={{ py: 1, px: 1.5, alignItems: 'flex-start' }}>
-      <Box sx={{ pt: '6px', pr: 1.25 }}>
+    <ListItemButton component="a" href={href({ page: 'activity', taskId: task.id })} selected={selected} sx={{ py: 1.25, px: 1.5, mb: 0.25, alignItems: 'flex-start' }}>
+      <Box sx={{ pt: '7px', pr: 1.5 }}>
         <OutcomeDot task={task} />
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -39,14 +40,14 @@ export function TaskRow({ task, selected }: { task: Task; selected: boolean }) {
           <Typography variant="subtitle1" noWrap sx={{ flex: 1, minWidth: 0 }}>
             {task.title}
           </Typography>
-          <Typography variant="caption" sx={{ flexShrink: 0 }}>
+          <Typography variant="caption" sx={{ flexShrink: 0, fontFamily: p.mono, fontSize: 12 }}>
             {clock(locale, task.ended ?? task.started)}
           </Typography>
         </Stack>
         <Typography variant="body2" color="text.secondary" noWrap>
           {[task.agent, task.deviceName].filter(Boolean).join(' · ')}
         </Typography>
-        <Typography variant="caption" noWrap component="div">
+        <Typography variant="caption" noWrap component="div" sx={{ mt: 0.25 }}>
           {outcomeLabel(t, outcomeKind(task))}
           {n > 0 && ` · ${t('activityApprovals', { count: n })}`}
         </Typography>

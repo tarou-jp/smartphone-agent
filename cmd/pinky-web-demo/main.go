@@ -48,7 +48,7 @@ func main() {
 	settings.DeveloperMode = *dev
 	srv := deskapi.New(deskapi.Options{
 		API: api, Version: "0.0.0-demo", Settings: &settings, StartPage: *page,
-		Secrets: &secret.Memory{}, AgentToken: "demo-0f3c9a7e51b24d6c8e2a",
+		Secrets: &secret.Memory{}, AgentToken: "demo-0f3c9a7e51b24d6c8e2a", AgentSetup: newDemoAgents(),
 		Assets: frontend.Assets(), Log: slog.New(slog.NewTextHandler(os.Stderr, nil)),
 		Changelog: "## 0.0.0-demo\n\n- The web client.\n",
 	})
