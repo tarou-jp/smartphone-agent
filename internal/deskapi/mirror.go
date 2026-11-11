@@ -44,7 +44,10 @@ func (s *Server) mirrorSize(id string) (w, h int, ok bool) {
 // mirror streams a phone's screen as MJPEG (multipart/x-mixed-replace),
 // which an <img> shows as it arrives. Query: agent=1 for the background
 // display agents work on, w and h for the box it shows in (pixels), fps
-// for the most pictures a second (default 30).
+// for the most pictures a second (default 30), and read=1 for the same
+// parts as application/octet-stream: the web client reads the stream with
+// fetch, which WebKit refuses for multipart/x-mixed-replace, so that it
+// can close the connection (an <img> in WebKit keeps it open).
 func (s *Server) mirror(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	q := r.URL.Query()
@@ -104,7 +107,11 @@ func (s *Server) mirror(w http.ResponseWriter, r *http.Request) {
 	}
 
 	const boundary = "pinkyframe"
-	w.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary="+boundary)
+	if q.Get("read") == "1" {
+		w.Header().Set("Content-Type", "application/octet-stream")
+	} else {
+		w.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary="+boundary)
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	flush(w)

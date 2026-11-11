@@ -115,6 +115,8 @@ export const api = {
       `/api/devices/${enc(id)}/mirror?w=${Math.round(o.w)}&h=${Math.round(o.h)}` +
         (o.agent ? '&agent=1' : '') +
         (o.fps ? `&fps=${o.fps}` : '') +
+        // As bytes the page reads, not as multipart (components/phone/Mirror.tsx).
+        '&read=1' +
         `&n=${Date.now()}`,
     ),
   size: (id: string) => get<MirrorSize>(`/api/devices/${enc(id)}/size`),
