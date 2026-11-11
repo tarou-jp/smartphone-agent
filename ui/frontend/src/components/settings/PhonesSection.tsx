@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Box, Button, Chip, Stack, Typography } from '@mui/material';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/AddRounded';
-import { PlatformIcon, Row, RowCard, Section, StatusDot } from '@/components/common';
+import { PlatformIcon, Row, RowCard, Section, StatusDot, StatusText } from '@/components/common';
 import { useApp, useHas } from '@/state/AppState';
 import { useT } from '@/i18n';
 import { href } from '@/lib/router';
@@ -14,9 +14,9 @@ import { CheckupPanel } from './phones/CheckupPanel';
 import { RemovePhoneDialog } from './phones/RemovePhoneDialog';
 
 function statusChip(d: Device, t: ReturnType<typeof useT>) {
-  if (d.status === 'offline') return <Chip label={t('settingsPhonesOffline')} variant="outlined" />;
-  if (d.status === 'needs_setup') return <Chip label={t('settingsPhonesNeedsSetup')} color="warning" variant="outlined" />;
-  return <Chip label={t('settingsPhonesConnected')} color="success" variant="outlined" />;
+  if (d.status === 'offline') return <StatusText tone="muted">{t('settingsPhonesOffline')}</StatusText>;
+  if (d.status === 'needs_setup') return <StatusText tone="warn">{t('settingsPhonesNeedsSetup')}</StatusText>;
+  return <StatusText tone="good">{t('settingsPhonesConnected')}</StatusText>;
 }
 
 function PhoneCard({ d }: { d: Device }) {

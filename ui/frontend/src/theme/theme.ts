@@ -1,6 +1,8 @@
 // The client's MUI theme, from the MyGo client's palette (ui/style.go) and
-// the brand (assets/BRAND.md): indigo for actions, amber only for Needs
-// you, red only for Stop, watermelon and lemon only for the brand.
+// the brand (assets/BRAND.md). The chrome is ink: primary actions are ink
+// on light and off-white on dark, so the screen's color goes to what
+// matters. Indigo (overlay) marks only the agent at work, amber only Needs
+// you, red only Stop, watermelon and lemon only the brand.
 
 import { createTheme, alpha, type Theme } from '@mui/material/styles';
 
@@ -101,7 +103,10 @@ export function makeTheme(mode: 'light' | 'dark'): Theme {
     pinky: t,
     palette: {
       mode,
-      primary: { main: mode === 'dark' ? '#5b57e0' : p.accent, contrastText: '#ffffff' },
+      primary:
+        mode === 'dark'
+          ? { main: p.ink, dark: '#d2d2da', contrastText: p.bg }
+          : { main: p.ink, dark: '#3a3a42', contrastText: '#ffffff' },
       secondary: { main: t.brand },
       error: { main: t.red },
       warning: { main: t.amberDot, contrastText: '#ffffff' },

@@ -2,7 +2,8 @@
 // ui/rightpanel.go and ui/format.go.
 
 import { useState } from 'react';
-import { Box, Button, Chip, CircularProgress, Collapse, Link, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Button, CircularProgress, Collapse, Link, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { StatusText } from '@/components/common';
 import CheckIcon from '@mui/icons-material/CheckRounded';
 import PersonIcon from '@mui/icons-material/PersonRounded';
 import BlockIcon from '@mui/icons-material/BlockRounded';
@@ -121,7 +122,7 @@ export function TaskCard({ task }: { task: Task }) {
             {task.agent || t('agentGeneric')} · <span style={{ color }}>{taskStatus(t, task.state)}</span>
           </Typography>
         </Box>
-        {task.readOnly && <Chip label={t('tasksReadOnly')} variant="outlined" />}
+        {task.readOnly && <StatusText>{t('tasksReadOnly')}</StatusText>}
         {running && (
           <Button
             variant="outlined"

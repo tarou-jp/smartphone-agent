@@ -24,7 +24,7 @@ export function GuideStep({ n, title, state, children }: { n: number; title: Rea
           fontSize: 12,
           fontWeight: 600,
           bgcolor: state === 'done' ? p.green : state === 'now' ? 'primary.main' : p.bg3,
-          color: state === 'later' ? p.ink2 : '#fff',
+          color: state === 'later' ? p.ink2 : state === 'now' ? 'primary.contrastText' : '#fff',
         }}
       >
         {state === 'done' ? <CheckIcon sx={{ fontSize: 16 }} /> : n}

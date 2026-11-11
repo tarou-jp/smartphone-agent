@@ -28,6 +28,7 @@ import { useT } from '@/i18n';
 import { usePanel } from '@/components/chat/store';
 
 export { StatusDot } from './StatusDot';
+export { StatusText } from './StatusText';
 
 const mac = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac');
 

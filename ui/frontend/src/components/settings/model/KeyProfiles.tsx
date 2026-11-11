@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Alert, Box, Button, Chip, MenuItem, Select, Stack, TextField, Typography } from '@mui/material';
-import { RowCard } from '@/components/common';
+import { Alert, Box, Button, MenuItem, Select, Stack, TextField, Typography } from '@mui/material';
+import { RowCard, StatusText } from '@/components/common';
 import { api } from '@/api/client';
 import { useApp } from '@/state/AppState';
 import { useT } from '@/i18n';
@@ -91,7 +91,7 @@ function ProfileRow({ p, m, onModel }: { p: ProfileView; m: ModelView; onModel: 
           </Typography>
         </Box>
         {active ? (
-          <Chip label={t('settingsModelKeyInUse')} color="primary" variant="outlined" />
+          <StatusText tone="good">{t('settingsModelKeyInUse')}</StatusText>
         ) : (
           <Button
             color="inherit"

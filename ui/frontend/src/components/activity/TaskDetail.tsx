@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Box, Button, Chip, IconButton, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
+import { Box, Button, IconButton, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/CloseRounded';
-import { EmptyState } from '@/components/common';
+import { EmptyState, StatusText } from '@/components/common';
 import { useApp, useHas } from '@/state/AppState';
 import { useI18n } from '@/i18n';
 import { navigate } from '@/lib/router';
@@ -49,10 +49,10 @@ export function TaskDetail({ task, onExport }: { task?: Task; onExport: (ids: st
             </IconButton>
           </Tooltip>
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-          <Chip icon={<Box sx={{ pl: 1, display: 'flex' }}><OutcomeDot task={task} /></Box>} label={outcomeLabel(t, k)} variant="outlined" />
-          {n > 0 && <Chip label={t('activityApprovals', { count: n })} variant="outlined" />}
-          {task.readOnly && <Chip label={t('tasksReadOnly')} variant="outlined" />}
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
+          <StatusText dot={<OutcomeDot task={task} />}>{outcomeLabel(t, k)}</StatusText>
+          {n > 0 && <StatusText>{t('activityApprovals', { count: n })}</StatusText>}
+          {task.readOnly && <StatusText>{t('tasksReadOnly')}</StatusText>}
         </Stack>
         {hasRec && task.ended && (
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mt: 1 }}>

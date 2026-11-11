@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, Button, Chip, CircularProgress, Link, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Link, Stack, Typography } from '@mui/material';
 import { api } from '@/api/client';
 import { useApp } from '@/state/AppState';
 import { useT, type T } from '@/i18n';
 import type { AgentSetupView } from '@/api/types';
-import { RowCard, Section } from '@/components/common';
+import { RowCard, Section, StatusText } from '@/components/common';
 import { errorText } from '../controls';
 import { joinAnd } from '../labels';
 
@@ -53,7 +53,7 @@ function SetupRow({ a, onChanged }: { a: AgentSetupView; onChanged: () => void }
           </Typography>
         </Box>
         {busy && <CircularProgress size={16} aria-label={t('connectWorking', { agent: a.name })} />}
-        {a.state === 'connected' && <Chip label={t('connectStateConnected')} color="success" variant="outlined" />}
+        {a.state === 'connected' && <StatusText tone="good">{t('connectStateConnected')}</StatusText>}
         {!a.manual && a.state !== 'connected' && (
           <Button
             variant="contained"

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import ArrowUpIcon from '@mui/icons-material/ArrowUpwardRounded';
 import ArrowDownIcon from '@mui/icons-material/ArrowDownwardRounded';
 import DeleteIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import AddIcon from '@mui/icons-material/AddRounded';
-import { RowCard, Section, useConfirm } from '@/components/common';
+import { RowCard, Section, StatusText, useConfirm } from '@/components/common';
 import { api, ApiError } from '@/api/client';
 import { useT, type T } from '@/i18n';
 import type { Rule, RulesView } from '@/api/types';
@@ -28,7 +28,7 @@ function summary(t: T, r: Rule): string {
 function DecisionChip({ d }: { d: string }) {
   const t = useT();
   const label = d === 'allow' ? t('settingsRulesAllow') : d === 'deny' ? t('settingsRulesDeny') : t('settingsRulesAsk');
-  return <Chip label={label} color={d === 'deny' ? 'error' : d === 'ask' ? 'warning' : 'success'} variant="outlined" />;
+  return <StatusText tone={d === 'deny' ? 'bad' : d === 'ask' ? 'warn' : 'good'}>{label}</StatusText>;
 }
 
 function RuleLine({ r, children }: { r: Rule; children?: React.ReactNode }) {

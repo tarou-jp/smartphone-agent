@@ -25,7 +25,6 @@ export function StatusDot({ status, size = 8 }: { status: DeviceStatus; size?: n
         display: 'inline-block',
         background: color[status],
         border: status === 'offline' ? `1.5px solid ${p.ink3}` : 'none',
-        boxShadow: status === 'working' ? `0 0 0 3px ${p.accentTint}` : 'none',
         animation: status === 'working' ? 'pinky-pulse 1.6s ease-in-out infinite' : 'none',
         '@keyframes pinky-pulse': { '50%': { opacity: 0.45 } },
       }}

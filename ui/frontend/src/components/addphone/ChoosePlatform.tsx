@@ -1,23 +1,27 @@
 import { Card, CardActionArea, Stack, Typography, useTheme } from '@mui/material';
 import AndroidIcon from '@mui/icons-material/Android';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import ChevronIcon from '@mui/icons-material/ChevronRightRounded';
 import { useT } from '@/i18n';
 import { href } from '@/lib/router';
 import { GuideHeading } from './Guide';
 
+// A platform to pick: its icon in the text color, its name and what it
+// takes, and a chevron that says the card leads on.
 function PlatformCard({ to, icon, title, detail }: { to: string; icon: React.ReactNode; title: string; detail: string }) {
   const p = useTheme().pinky;
   return (
-    <Card sx={{ flex: 1, minWidth: 220 }}>
-      <CardActionArea href={to} sx={{ p: 3, height: '100%' }}>
-        <Stack spacing={1.5}>
-          <Stack sx={{ width: 44, height: 44, borderRadius: 2.5, bgcolor: p.accentTint, color: 'primary.main', alignItems: 'center', justifyContent: 'center' }}>
-            {icon}
+    <Card sx={{ flex: 1, minWidth: 240 }}>
+      <CardActionArea href={to} sx={{ px: 2.5, py: 2, height: '100%' }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Stack sx={{ color: p.ink2, flexShrink: 0, '& svg': { fontSize: 24 } }}>{icon}</Stack>
+          <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="h3">{title}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {detail}
+            </Typography>
           </Stack>
-          <Typography variant="h3">{title}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {detail}
-          </Typography>
+          <ChevronIcon sx={{ fontSize: 18, color: p.ink3, flexShrink: 0 }} />
         </Stack>
       </CardActionArea>
     </Card>

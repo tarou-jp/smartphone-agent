@@ -10,6 +10,7 @@ import StopIcon from '@mui/icons-material/StopRounded';
 import PhoneIcon from '@mui/icons-material/SmartphoneRounded';
 import { useT } from '@/i18n';
 import { href } from '@/lib/router';
+import { StatusDot } from '@/components/common/StatusDot';
 import { Markdown } from './Markdown';
 import { ToolRow } from './ToolRow';
 import type { PlanStep, Run, Turn } from './model';
@@ -28,25 +29,15 @@ function StateIcon({ run }: { run: Run }) {
   }
 }
 
-function Shimmer({ children }: { children: React.ReactNode }) {
+/** While the agent thinks or works between steps: the same live dot the
+ * sidebar shows for a working phone, and plain muted text. */
+function Working({ children }: { children: React.ReactNode }) {
   const p = useTheme().pinky;
   return (
-    <Typography
-      sx={{
-        fontSize: 12,
-        px: 0.75,
-        py: 0.5,
-        background: `linear-gradient(90deg, ${p.ink3} 0%, ${p.ink3} 40%, ${p.line2} 50%, ${p.ink3} 60%, ${p.ink3} 100%)`,
-        backgroundSize: '200% 100%',
-        WebkitBackgroundClip: 'text',
-        backgroundClip: 'text',
-        color: 'transparent',
-        animation: 'pinky-shimmer 1.8s linear infinite',
-        '@keyframes pinky-shimmer': { from: { backgroundPosition: '100% 0' }, to: { backgroundPosition: '-100% 0' } },
-      }}
-    >
-      {children}
-    </Typography>
+    <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 0.75, py: 0.5 }}>
+      <StatusDot status="working" size={6} />
+      <Typography sx={{ fontSize: 12, color: p.ink3 }}>{children}</Typography>
+    </Stack>
   );
 }
 
@@ -109,7 +100,7 @@ function RunBody({ run, phoneName }: { run: Run; phoneName: (id?: string) => str
         it.kind === 'tool' ? (
           <ToolRow key={it.step.id + i} step={it.step} phone={phoneName(it.step.device)} />
         ) : it.kind === 'note' ? (
-          <Typography key={i} sx={{ px: 0.75, fontSize: 12, color: p.ink3, fontStyle: 'italic' }}>
+          <Typography key={i} sx={{ px: 0.75, fontSize: 12, color: p.ink3 }}>
             {it.text}
           </Typography>
         ) : (
@@ -122,7 +113,7 @@ function RunBody({ run, phoneName }: { run: Run; phoneName: (id?: string) => str
         <Typography sx={{ px: 0.75, fontSize: 12, color: p.amber }}>{t('webChatRetrying', { detail: run.retry })}</Typography>
       )}
       {run.state === 'running' && !toolRunning && !streaming && (
-        <Shimmer>{run.items.length ? t('webChatWorking') : t('chatThinking')}</Shimmer>
+        <Working>{run.items.length ? t('webChatWorking') : t('chatThinking')}</Working>
       )}
       {run.reply && !replyShown && (
         <Box sx={{ px: 0.75, pt: run.items.length ? 0.75 : 0 }}>

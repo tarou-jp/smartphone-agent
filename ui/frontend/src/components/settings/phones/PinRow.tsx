@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Button, Chip, Stack, TextField } from '@mui/material';
-import { Row } from '@/components/common';
+import { Button, Stack, TextField } from '@mui/material';
+import { Row, StatusText } from '@/components/common';
 import { api } from '@/api/client';
 import { useApp } from '@/state/AppState';
 import { useT } from '@/i18n';
@@ -62,7 +62,7 @@ export function PinRow({ d }: { d: Device }) {
       control={
         !editing && (
           <Stack direction="row" spacing={1} alignItems="center">
-            {st.saved && <Chip label={t('pinSaved')} color="success" variant="outlined" />}
+            {st.saved && <StatusText tone="good">{t('pinSaved')}</StatusText>}
             <Button
               variant="outlined"
               color="inherit"

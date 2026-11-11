@@ -1,4 +1,5 @@
-import { Box, Chip, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Stack, Typography, useTheme } from '@mui/material';
+import { StatusText } from '@/components/common';
 import type { Need } from '@/api/types';
 import { useT } from '@/i18n';
 import { clock } from '@/lib/format';
@@ -62,7 +63,9 @@ export function NeedCard({ need, showShot = true, onLater }: { need: Need; showS
         </Typography>
       )}
       {need.rule && !newAgent && need.kind === 'approval' && (
-        <Chip label={ruleName(t, need.rule)} variant="outlined" sx={{ alignSelf: 'flex-start', mt: 1, borderColor: p.amberLine }} />
+        <Box sx={{ mt: 1 }}>
+          <StatusText>{ruleName(t, need.rule)}</StatusText>
+        </Box>
       )}
       {controls}
     </Box>
