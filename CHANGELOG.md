@@ -8,6 +8,9 @@ What changed for people in each release of Pinky, newest first. A version is the
 - Ctrl+C in the terminal now quits the desktop app when you run Pinky from the command line.
 - OpenAI tool calls with reasoning models no longer fail on Luna-class models.
 - Model API keys are cached for the session so macOS does not ask for the keychain on every chat message.
+- The in-app agent now streams its replies, retries when the model provider is busy or the connection drops, and keeps long chats going by summing up older turns.
+- The in-app agent can work on several phones at once, side by side or together, and shows its plan as a checklist.
+- When the agent asks for your approval it now waits for you instead of giving up after 90 seconds.
 
 ## 2026.1108.13 (2026-11-08)
 
