@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, InputAdornment, Snackbar, TextField, Tooltip } from '@mui/material';
+import { Alert, Box, Button, IconButton, InputAdornment, Snackbar, TextField, Tooltip } from '@mui/material';
+import ExportIcon from '@mui/icons-material/IosShareRounded';
 import SearchIcon from '@mui/icons-material/SearchRounded';
 import { PageHeader } from '@/components/common';
 import { TaskList } from '@/components/activity/TaskList';
@@ -85,10 +86,11 @@ export function ActivityPage({ taskId }: { taskId?: string }) {
 
   return (
     <>
-      <PageHeader
-        title={t('activityTitle')}
-        actions={
-          <>
+      <PageHeader title={t('activityTitle')} />
+      <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        <Box sx={{ width: 360, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+          {/* No title bar: search and export sit above the list they act on. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, pt: 1.5, pb: 1 }}>
             <TextField
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -101,20 +103,16 @@ export function ActivityPage({ taskId }: { taskId?: string }) {
                   </InputAdornment>
                 ),
               }}
-              sx={{ width: 260 }}
+              sx={{ flex: 1 }}
             />
             {hasExport && (
               <Tooltip title={t('exportAllTooltip')}>
-                <Button variant="outlined" color="inherit" onClick={() => doExport([])}>
-                  {t('exportAll')}
-                </Button>
+                <IconButton aria-label={t('exportAll')} onClick={() => doExport([])}>
+                  <ExportIcon fontSize="small" />
+                </IconButton>
               </Tooltip>
             )}
-          </>
-        }
-      />
-      <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <Box sx={{ width: 360, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+          </Box>
           {err && (
             <Alert severity="error" sx={{ m: 1 }}>
               {err}
@@ -135,8 +133,12 @@ export function ActivityPage({ taskId }: { taskId?: string }) {
       <Snackbar
         open={!!exported}
         autoHideDuration={10000}
+        // The timer runs on whether or not the window has focus: Pinky's
+        // window (WebKit) may never say it got it back.
+        disableWindowBlurListener
         onClose={() => setExported(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ top: '50px !important' }}
       >
         <Alert
           severity={exported?.error ? 'error' : 'success'}

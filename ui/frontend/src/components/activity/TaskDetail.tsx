@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Box, Button, Chip, IconButton, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
+import { Box, Button, IconButton, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/CloseRounded';
-import { EmptyState } from '@/components/common';
+import TimelineIcon from '@mui/icons-material/TimelineOutlined';
+import { EmptyState, StatusText } from '@/components/common';
 import { useApp, useHas } from '@/state/AppState';
 import { useI18n } from '@/i18n';
 import { navigate } from '@/lib/router';
@@ -19,20 +20,20 @@ export function TaskDetail({ task, onExport }: { task?: Task; onExport: (ids: st
   const hasRec = useHas('recordings');
   const hasExport = useHas('export');
   const [tab, setTab] = useState<'steps' | 'recording'>('steps');
-  if (!task) return <EmptyState title={t('activityChooseTask')} />;
+  if (!task) return <EmptyState icon={<TimelineIcon />} title={t('activityChooseTask')} />;
   const k = outcomeKind(task);
   const n = approvals(task);
   const end = task.ended ? new Date(task.ended).getTime() : Date.now();
   const took = end - new Date(task.started).getTime();
   return (
     <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }} aria-label={t('activityDetailLabel')}>
-      <Box sx={{ px: 3, pt: 2.5, pb: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+      <Box sx={{ px: 4, pt: 3, pb: 0, borderBottom: 1, borderColor: 'divider' }}>
         <Stack direction="row" alignItems="flex-start" spacing={1}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="h2" className="selectable">
+            <Typography variant="h1" className="selectable" sx={{ fontSize: 22 }}>
               {task.title}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
               {[task.agent, task.deviceName, `${day(t, task.started)} ${clock(locale, task.started)}`, duration(t, took)]
                 .filter(Boolean)
                 .join(' · ')}
@@ -49,10 +50,10 @@ export function TaskDetail({ task, onExport }: { task?: Task; onExport: (ids: st
             </IconButton>
           </Tooltip>
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-          <Chip icon={<Box sx={{ pl: 1, display: 'flex' }}><OutcomeDot task={task} /></Box>} label={outcomeLabel(t, k)} variant="outlined" />
-          {n > 0 && <Chip label={t('activityApprovals', { count: n })} variant="outlined" />}
-          {task.readOnly && <Chip label={t('tasksReadOnly')} variant="outlined" />}
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1.5, mb: 1.5 }}>
+          <StatusText dot={<OutcomeDot task={task} />}>{outcomeLabel(t, k)}</StatusText>
+          {n > 0 && <StatusText>{t('activityApprovals', { count: n })}</StatusText>}
+          {task.readOnly && <StatusText>{t('tasksReadOnly')}</StatusText>}
         </Stack>
         {hasRec && task.ended && (
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mt: 1 }}>
@@ -61,7 +62,7 @@ export function TaskDetail({ task, onExport }: { task?: Task; onExport: (ids: st
           </Tabs>
         )}
       </Box>
-      <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 1 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', px: 4, py: 2 }}>
         {tab === 'recording' && hasRec && task.ended ? (
           <Box sx={{ py: 1.5 }}>
             <RecordingPlayer task={task} />

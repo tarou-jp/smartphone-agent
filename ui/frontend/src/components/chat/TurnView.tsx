@@ -10,6 +10,7 @@ import StopIcon from '@mui/icons-material/StopRounded';
 import PhoneIcon from '@mui/icons-material/SmartphoneRounded';
 import { useT } from '@/i18n';
 import { href } from '@/lib/router';
+import { StatusDot } from '@/components/common/StatusDot';
 import { Markdown } from './Markdown';
 import { ToolRow } from './ToolRow';
 import type { PlanStep, Run, Turn } from './model';
@@ -28,25 +29,15 @@ function StateIcon({ run }: { run: Run }) {
   }
 }
 
-function Shimmer({ children }: { children: React.ReactNode }) {
+/** While the agent thinks or works between steps: the same live dot the
+ * sidebar shows for a working phone, and plain muted text. */
+function Working({ children }: { children: React.ReactNode }) {
   const p = useTheme().pinky;
   return (
-    <Typography
-      sx={{
-        fontSize: 12.5,
-        px: 0.75,
-        py: 0.375,
-        background: `linear-gradient(90deg, ${p.ink3} 0%, ${p.ink3} 40%, ${p.line2} 50%, ${p.ink3} 60%, ${p.ink3} 100%)`,
-        backgroundSize: '200% 100%',
-        WebkitBackgroundClip: 'text',
-        backgroundClip: 'text',
-        color: 'transparent',
-        animation: 'pinky-shimmer 1.8s linear infinite',
-        '@keyframes pinky-shimmer': { from: { backgroundPosition: '100% 0' }, to: { backgroundPosition: '-100% 0' } },
-      }}
-    >
-      {children}
-    </Typography>
+    <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 0.75, py: 0.5 }}>
+      <StatusDot status="working" size={6} />
+      <Typography sx={{ fontSize: 12, color: p.ink3 }}>{children}</Typography>
+    </Stack>
   );
 }
 
@@ -57,12 +48,12 @@ function Plan({ plan, live }: { plan: PlanStep[]; live: boolean }) {
   const done = plan.filter((s) => s.status === 'completed').length;
   return (
     <Box sx={{ mx: 0.75, mb: 0.5, border: 1, borderColor: p.line, borderRadius: 1.5, px: 1.25, py: 0.75, bgcolor: p.bg2 }}>
-      <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: p.ink3, mb: 0.5 }}>
+      <Typography sx={{ fontSize: 12, fontWeight: 500, color: p.ink3, mb: 0.5 }}>
         {t('webChatPlan', { done, count: plan.length })}
       </Typography>
-      <Stack spacing={0.375}>
+      <Stack spacing={0.5}>
         {plan.map((s, i) => (
-          <Stack key={i} direction="row" spacing={0.75} alignItems="flex-start">
+          <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
             <Box sx={{ width: 14, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {s.status === 'completed' ? (
                 <CheckIcon sx={{ fontSize: 14, color: p.green }} />
@@ -76,7 +67,7 @@ function Plan({ plan, live }: { plan: PlanStep[]; live: boolean }) {
             </Box>
             <Typography
               sx={{
-                fontSize: 12.5,
+                fontSize: 13,
                 lineHeight: '18px',
                 color: s.status === 'completed' ? p.ink3 : s.status === 'in_progress' ? 'text.primary' : p.ink2,
                 textDecoration: s.status === 'completed' ? 'line-through' : 'none',
@@ -109,7 +100,7 @@ function RunBody({ run, phoneName }: { run: Run; phoneName: (id?: string) => str
         it.kind === 'tool' ? (
           <ToolRow key={it.step.id + i} step={it.step} phone={phoneName(it.step.device)} />
         ) : it.kind === 'note' ? (
-          <Typography key={i} sx={{ px: 0.75, fontSize: 12, color: p.ink3, fontStyle: 'italic' }}>
+          <Typography key={i} sx={{ px: 0.75, fontSize: 12, color: p.ink3 }}>
             {it.text}
           </Typography>
         ) : (
@@ -122,7 +113,7 @@ function RunBody({ run, phoneName }: { run: Run; phoneName: (id?: string) => str
         <Typography sx={{ px: 0.75, fontSize: 12, color: p.amber }}>{t('webChatRetrying', { detail: run.retry })}</Typography>
       )}
       {run.state === 'running' && !toolRunning && !streaming && (
-        <Shimmer>{run.items.length ? t('webChatWorking') : t('chatThinking')}</Shimmer>
+        <Working>{run.items.length ? t('webChatWorking') : t('chatThinking')}</Working>
       )}
       {run.reply && !replyShown && (
         <Box sx={{ px: 0.75, pt: run.items.length ? 0.75 : 0 }}>
@@ -134,7 +125,7 @@ function RunBody({ run, phoneName }: { run: Run; phoneName: (id?: string) => str
       )}
       {run.state === 'error' && (
         <Box sx={{ mx: 0.75, px: 1.25, py: 1, borderRadius: 1.5, bgcolor: p.redTint, border: 1, borderColor: p.redLine, color: p.red }}>
-          <Typography sx={{ fontSize: 12.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text' }}>
+          <Typography sx={{ fontSize: 13, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text' }}>
             {run.code === 'no_key'
               ? t('chatErrNoKey')
               : run.code === 'no_fallback'
@@ -142,7 +133,7 @@ function RunBody({ run, phoneName }: { run: Run; phoneName: (id?: string) => str
                 : t('chatErrReply', { detail: run.error ?? '' })}
           </Typography>
           {(run.code === 'no_key' || run.code === 'no_fallback') && (
-            <Link href={href({ page: 'settings', section: 'model' })} sx={{ fontSize: 12.5, fontWeight: 600, mt: 0.5, display: 'inline-block' }}>
+            <Link href={href({ page: 'settings', section: 'model' })} sx={{ fontSize: 13, fontWeight: 500, mt: 0.5, display: 'inline-block' }}>
               {t('chatNeedKeyLink')}
             </Link>
           )}
@@ -171,7 +162,7 @@ function Prompt({ turn }: { turn: Turn }) {
           borderRadius: 2,
           bgcolor: p.bg2,
           px: 1.25,
-          py: 0.875,
+          py: 1,
         }}
       >
         <Typography
@@ -186,7 +177,7 @@ function Prompt({ turn }: { turn: Turn }) {
           {turn.prompt}
         </Typography>
         {(phones.length > 0 || turn.mode === 'ask') && (
-          <Stack direction="row" spacing={0.5} sx={{ mt: 0.75, flexWrap: 'wrap', rowGap: 0.5 }}>
+          <Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: 'wrap', rowGap: 0.5 }}>
             {turn.mode === 'ask' && <Pill>{t('webChatModeAsk')}</Pill>}
             {phones.map((ph) => (
               <Pill key={ph!.id} icon>
@@ -208,13 +199,13 @@ export function Pill({ children, icon }: { children: React.ReactNode; icon?: boo
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 0.375,
+        gap: 0.5,
         height: 20,
         px: 0.75,
         borderRadius: 1,
         bgcolor: p.bg3,
         color: p.ink2,
-        fontSize: 11.5,
+        fontSize: 12,
         fontWeight: 500,
         maxWidth: 160,
       }}
@@ -249,7 +240,7 @@ export function TurnView({ turn }: { turn: Turn }) {
                 px: 1,
                 borderRadius: 1.5,
                 fontSize: 12,
-                fontWeight: 550,
+                fontWeight: 500,
                 color: i === sel ? 'text.primary' : p.ink3,
                 bgcolor: i === sel ? p.sel : 'transparent',
                 border: 1,

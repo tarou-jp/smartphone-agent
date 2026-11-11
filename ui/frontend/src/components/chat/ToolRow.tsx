@@ -73,9 +73,9 @@ export function ToolRow({ step, phone }: { step: ToolStep; phone?: string }) {
         sx={{
           width: '100%',
           justifyContent: 'flex-start',
-          gap: 0.75,
+          gap: 1,
           px: 0.75,
-          py: 0.375,
+          py: 0.5,
           borderRadius: 1,
           color: p.ink3,
           textAlign: 'left',
@@ -84,8 +84,8 @@ export function ToolRow({ step, phone }: { step: ToolStep; phone?: string }) {
         }}
       >
         <Icon sx={{ fontSize: 14, flexShrink: 0, color: failed ? p.red : p.ink3 }} />
-        <Typography noWrap sx={{ fontSize: 12.5, minWidth: 0, flex: '0 1 auto' }}>
-          <Box component="span" sx={{ color: failed ? p.red : p.ink2, fontWeight: 550 }}>
+        <Typography noWrap sx={{ fontSize: 12, minWidth: 0, flex: '0 1 auto' }}>
+          <Box component="span" sx={{ color: failed ? p.red : p.ink2, fontWeight: 500 }}>
             {verb}
           </Box>
           {target && (
@@ -101,7 +101,7 @@ export function ToolRow({ step, phone }: { step: ToolStep; phone?: string }) {
         )}
         {step.running && <CircularProgress size={10} thickness={6} sx={{ color: p.ink3, flexShrink: 0 }} />}
         {failed && (
-          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', color: p.red, fontSize: 11.5, flexShrink: 0 }}>
+          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', color: p.red, fontSize: 12, flexShrink: 0 }}>
             <CloseIcon sx={{ fontSize: 13 }} />
             {failed}
           </Box>
@@ -115,7 +115,7 @@ export function ToolRow({ step, phone }: { step: ToolStep; phone?: string }) {
         )}
       </ButtonBase>
       {step.running && step.progress && (
-        <Typography noWrap sx={{ pl: 3.25, pr: 0.75, fontSize: 11.5, color: p.amber }}>
+        <Typography noWrap sx={{ pl: 3.25, pr: 0.75, fontSize: 12, color: p.amber }}>
           {/^(Waiting for the person|Still waiting for the person)/.test(step.progress) ? t('webChatWaitingYou') : step.progress}
         </Typography>
       )}
@@ -132,7 +132,7 @@ export function ToolRow({ step, phone }: { step: ToolStep; phone?: string }) {
             border: 1,
             borderColor: p.line,
             fontFamily: 'ui-monospace, Menlo, monospace',
-            fontSize: 11.5,
+            fontSize: 12,
             lineHeight: 1.5,
             color: p.ink2,
             whiteSpace: 'pre-wrap',

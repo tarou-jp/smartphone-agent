@@ -13,6 +13,7 @@ import PanelIcon from '@mui/icons-material/ViewSidebarOutlined';
 import { useI18n } from '@/i18n';
 import type { Chat } from './store';
 import { isBusy } from './model';
+import { topRow } from '@/lib/window';
 
 const mod = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl+';
 
@@ -38,7 +39,7 @@ export function ChatHeader({ chat, onCollapse }: { chat: Chat; onCollapse?: () =
     <Stack
       direction="row"
       alignItems="stretch"
-      sx={{ height: 52, pr: 0.75, flexShrink: 0, borderBottom: 1, borderColor: 'divider', '& > .MuiIconButton-root, & > .MuiCircularProgress-root': { alignSelf: 'center' } }}
+      sx={{ height: topRow, pr: 0.75, flexShrink: 0, borderBottom: 1, borderColor: 'divider', '& > .MuiIconButton-root, & > .MuiCircularProgress-root': { alignSelf: 'center' } }}
     >
       <Stack
         direction="row"
@@ -62,7 +63,7 @@ export function ChatHeader({ chat, onCollapse }: { chat: Chat; onCollapse?: () =
                 maxWidth: 200,
                 pl: 1.5,
                 pr: 0.75,
-                gap: 0.75,
+                gap: 1,
                 mb: '-1px',
                 borderRight: 1,
                 borderColor: 'divider',

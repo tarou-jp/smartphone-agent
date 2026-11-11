@@ -16,19 +16,16 @@ export function AllPhones() {
   return (
     <>
       <PageHeader title={t('phoneAllPhones')}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" noWrap>
           {[t('phoneConnected', { count: online }), offline ? t('phoneOfflineCount', { count: offline }) : '']
             .filter(Boolean)
             .join(' · ')}
         </Typography>
       </PageHeader>
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto', p: 3 }}>
         <Box
           sx={{
-            flex: 1,
-            minWidth: 0,
-            overflowY: 'auto',
-            p: 2.5,
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
             gridAutoRows: 'max-content',
@@ -39,6 +36,7 @@ export function AllPhones() {
           {devices.map((d) => (
             <PhoneTile key={d.id} device={d} />
           ))}
+        </Box>
         </Box>
         {live.needs.length > 0 && (
           <Stack component="aside" sx={{ width: 'clamp(280px, 34%, 360px)', flexShrink: 0, borderLeft: 1, borderColor: 'divider', overflowY: 'auto', p: 2 }}>

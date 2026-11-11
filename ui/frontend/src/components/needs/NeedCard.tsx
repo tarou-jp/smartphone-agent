@@ -1,4 +1,6 @@
-import { Box, Chip, Stack, Typography, useTheme } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Box, Stack, Typography, useTheme } from '@mui/material';
+import { StatusText } from '@/components/common';
 import type { Need } from '@/api/types';
 import { useT } from '@/i18n';
 import { clock } from '@/lib/format';
@@ -8,6 +10,34 @@ import { NeedShot } from './NeedShot';
 import { AgentRequestControls, ApprovalControls, HandoffControls, UnblockControls, UnlockControls } from './controls';
 import { isNewAgent, ruleName } from './words';
 import { useGw } from '@/lib/gwtext';
+
+/** How much of the time to answer is left, as a bar along the card's top
+ * edge that drains toward the automatic answer. */
+function DeadlineBar({ created, deadline }: { created: string; deadline: string }) {
+  const p = useTheme().pinky;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const start = new Date(created).getTime();
+  const end = new Date(deadline).getTime();
+  const left = end > start ? Math.min(1, Math.max(0, (end - now) / (end - start))) : 0;
+  return (
+    <Box aria-hidden sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, bgcolor: p.amberLine }}>
+      <Box
+        sx={{
+          height: '100%',
+          width: '100%',
+          bgcolor: p.amberDot,
+          transformOrigin: 'left',
+          transform: `scaleX(${left})`,
+          transition: 'transform 1s linear',
+        }}
+      />
+    </Box>
+  );
+}
 
 /**
  * A Needs you card: what the agent asks, and the buttons that answer it.
@@ -44,16 +74,28 @@ export function NeedCard({ need, showShot = true, onLater }: { need: Need; showS
     <Box
       role="group"
       aria-label={gw.needTitle(need)}
-      sx={{ p: 1.75, borderRadius: 3, bgcolor: p.amberTint, border: `1px solid ${p.amberLine}`, display: 'flex', flexDirection: 'column' }}
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        p: 2.5,
+        pt: need.deadline ? 3 : 2.5,
+        borderRadius: '16px',
+        bgcolor: p.amberTint,
+        border: `1px solid ${p.amberLine}`,
+        boxShadow: p.cardShadow,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
     >
+      {need.deadline && <DeadlineBar created={need.created} deadline={need.deadline} />}
       <Stack direction="row" alignItems="center" spacing={1}>
         <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: p.amberDot, flexShrink: 0 }} />
-        <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, color: p.amber, flex: 1, minWidth: 0 }}>
+        <Typography noWrap sx={{ fontSize: 12, fontWeight: 500, color: p.amber, flex: 1, minWidth: 0 }}>
           {eyebrow}
         </Typography>
         {need.deadline && <Countdown deadline={need.deadline} words={need.kind === 'handoff' ? 'panelEndsIn' : 'panelDeniesIn'} />}
       </Stack>
-      <Typography sx={{ fontSize: 16, fontWeight: 650, mt: 0.75 }} className="selectable">
+      <Typography sx={{ fontSize: 20, fontWeight: 600, lineHeight: 1.25, mt: 1.25, mb: 0.5 }} className="selectable">
         {gw.needTitle(need)}
       </Typography>
       {detail && (
@@ -62,7 +104,9 @@ export function NeedCard({ need, showShot = true, onLater }: { need: Need; showS
         </Typography>
       )}
       {need.rule && !newAgent && need.kind === 'approval' && (
-        <Chip label={ruleName(t, need.rule)} variant="outlined" sx={{ alignSelf: 'flex-start', mt: 1, borderColor: p.amberLine }} />
+        <Box sx={{ mt: 1 }}>
+          <StatusText>{ruleName(t, need.rule)}</StatusText>
+        </Box>
       )}
       {controls}
     </Box>

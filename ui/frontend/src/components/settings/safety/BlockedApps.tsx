@@ -17,7 +17,7 @@ export function BlockedApps({ apps, onChange }: { apps: BlockedApp[]; onChange: 
   };
   return (
     <Row label={t('settingsSafetyBlockedApps')} description={t('settingsSafetyBlockedIntro')}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1.25 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1.25 }}>
         {apps.map((a) => (
           <Chip
             key={a.name}

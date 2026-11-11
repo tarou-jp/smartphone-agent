@@ -1,6 +1,7 @@
-// The live mirror of a phone's screen: MJPEG from deskapi in an <img>,
-// with the person's touches, scrolls and typing sent back to the phone,
-// and the running step's target drawn over it.
+// The live mirror of a phone's screen: MJPEG from deskapi, read by the
+// page and shown frame by frame in an <img>, with the person's touches,
+// scrolls and typing sent back to the phone, and the running step's target
+// drawn over it.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
 import { Box, CircularProgress, Stack, Typography, useTheme } from '@mui/material';
@@ -11,6 +12,61 @@ import { useT } from '@/i18n';
 import { TargetOverlay } from './TargetOverlay';
 
 const defaultAspect = 9 / 19.5;
+
+const crlf2 = new Uint8Array([13, 10, 13, 10]);
+
+function indexOf(buf: Uint8Array, pat: Uint8Array, from = 0): number {
+  outer: for (let i = from; i <= buf.length - pat.length; i++) {
+    for (let j = 0; j < pat.length; j++) if (buf[i + j] !== pat[j]) continue outer;
+    return i;
+  }
+  return -1;
+}
+
+/**
+ * Reads an MJPEG stream (MIME parts, each with a Content-Length; deskapi
+ * sends them as application/octet-stream for read=1, since WebKit's fetch
+ * refuses multipart/x-mixed-replace) and hands each picture over as an
+ * object URL.
+ *
+ * The page reads the stream itself rather than giving its URL to an <img>:
+ * WebKit, the engine of Pinky's window, keeps an <img>'s multipart
+ * connection open after the image is removed or its src changes. Those
+ * connections piled up until all six a page may have to one server were
+ * taken, and then nothing else loaded: not the mirror, not Activity.
+ * Aborting the fetch closes the connection in every engine.
+ */
+function readMjpeg(src: string, signal: AbortSignal, onFrame: (url: string) => void): Promise<void> {
+  return (async () => {
+    const res = await fetch(src, { signal, credentials: 'include', cache: 'no-store' });
+    if (!res.ok || !res.body) throw new Error(`mirror: ${res.status}`);
+    const reader = res.body.getReader();
+    const text = new TextDecoder();
+    let buf = new Uint8Array(0);
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) return;
+      const next = new Uint8Array(buf.length + value.length);
+      next.set(buf);
+      next.set(value, buf.length);
+      buf = next;
+      for (;;) {
+        const head = indexOf(buf, crlf2);
+        if (head < 0) break;
+        const m = /content-length:\s*(\d+)/i.exec(text.decode(buf.subarray(0, head)));
+        const start = head + 4;
+        if (!m) {
+          buf = buf.subarray(start);
+          continue;
+        }
+        const len = Number(m[1]);
+        if (buf.length < start + len) break;
+        onFrame(URL.createObjectURL(new Blob([buf.slice(start, start + len)], { type: 'image/jpeg' })));
+        buf = buf.subarray(start + len);
+      }
+    }
+  })();
+}
 
 /** The box an element has, kept up to date. */
 function useBoxSize<E extends HTMLElement>(): [React.RefObject<E | null>, { w: number; h: number }] {
@@ -109,26 +165,41 @@ export function Mirror({ deviceId, agent, interactive = true, fps, target, point
     backoff.current = Math.min(backoff.current * 2, 10000);
     return () => window.clearTimeout(id);
   }, [phase]);
-  // Close the connection when the mirror goes: an <img> keeps streaming
-  // otherwise. lastImg outlives the ref, which React clears first.
-  const lastImg = useRef<HTMLImageElement | null>(null);
-  useEffect(
-    () => () => {
-      if (lastImg.current) lastImg.current.src = '';
-    },
-    [],
-  );
-  // Not every engine fires load for MJPEG: a picture with a size is playing.
+  // The stream: one connection per src, closed when the src changes or the
+  // mirror goes. Each picture replaces the last in the <img>; the previous
+  // picture's URL is let go once the new one is up.
   useEffect(() => {
-    if (phase !== 'connecting') return;
-    const id = window.setInterval(() => {
-      if ((imgRef.current?.naturalWidth ?? 0) > 0) {
+    if (!src) return;
+    const ac = new AbortController();
+    let shown = '';
+    let first = true;
+    readMjpeg(src, ac.signal, (url) => {
+      const img = imgRef.current;
+      if (!img) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      const old = shown;
+      shown = url;
+      img.src = url;
+      if (old) window.setTimeout(() => URL.revokeObjectURL(old), 500);
+      if (first) {
+        first = false;
         setPhase('playing');
         backoff.current = 1000;
       }
-    }, 300);
-    return () => window.clearInterval(id);
-  }, [phase, src]);
+    }).then(
+      () => !ac.signal.aborted && setPhase('ended'),
+      () => !ac.signal.aborted && setPhase('ended'),
+    );
+    return () => {
+      ac.abort();
+      if (shown) {
+        const last = shown;
+        window.setTimeout(() => URL.revokeObjectURL(last), 500);
+      }
+    };
+  }, [src]);
 
   // Input. Touches go out in order; moves at most about 60 a second.
   const chain = useRef<Promise<unknown>>(Promise.resolve());
@@ -250,28 +321,30 @@ export function Mirror({ deviceId, agent, interactive = true, fps, target, point
           borderRadius: `${Math.max(8, fit.w / 14)}px`,
           overflow: 'hidden',
           bgcolor: p.phone,
-          boxShadow: interactive ? `0 0 0 6px ${p.phone}, 0 10px 40px rgba(0,0,0,.25)` : 'none',
+          // A real device: the black bezel, a thin metal edge, and a soft
+          // contact shadow on the stage, all neutral.
+          boxShadow: interactive
+            ? `0 0 0 7px ${p.phone}, 0 0 0 8px rgba(255,255,255,0.12), 0 0 0 9px rgba(0,0,0,0.4), 0 32px 64px -24px rgba(0,0,0,0.5), 0 12px 24px -12px rgba(0,0,0,0.3)`
+            : 'none',
           cursor: interactive ? 'pointer' : 'inherit',
           touchAction: 'none',
           outline: 'none',
-          '&:focus-visible': { boxShadow: `0 0 0 6px ${p.phone}, 0 0 0 9px ${p.overlay}` },
+          '&:focus-visible': { boxShadow: `0 0 0 7px ${p.phone}, 0 0 0 10px ${p.overlay}` },
         }}
       >
         {src && (
           <img
-            ref={(el) => {
-              imgRef.current = el;
-              if (el) lastImg.current = el;
-            }}
-            src={src}
+            ref={imgRef}
             alt=""
             draggable={false}
-            onLoad={() => {
-              setPhase('playing');
-              backoff.current = 1000;
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'block',
+              objectFit: 'contain',
+              pointerEvents: 'none',
+              visibility: phase === 'playing' ? 'visible' : 'hidden',
             }}
-            onError={() => setPhase('ended')}
-            style={{ width: '100%', height: '100%', display: 'block', objectFit: 'contain', pointerEvents: 'none' }}
           />
         )}
         {size && <TargetOverlay w={size.w} h={size.h} target={target} point={point} />}

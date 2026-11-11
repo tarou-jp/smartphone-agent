@@ -131,9 +131,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
   }, [load, refresh]);
 
+  // A toast goes by itself after a while, errors a little later. The timer
+  // is ours: MUI's Snackbar pauses its own while the window has no focus,
+  // and in Pinky's window (WebKit) it often never hears the focus come
+  // back, so the toast stayed.
   const toast = useCallback((text: string, severity: Toast['severity'] = 'info') => {
     const id = ++seq.current;
     setToasts((l) => [...l.slice(-3), { id, text, severity }]);
+    window.setTimeout(() => setToasts((l) => l.filter((x) => x.id !== id)), severity === 'error' ? 8000 : 4000);
   }, []);
   const dismissToast = useCallback((id: number) => setToasts((l) => l.filter((x) => x.id !== id)), []);
 

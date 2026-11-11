@@ -2,7 +2,8 @@
 // ui/rightpanel.go and ui/format.go.
 
 import { useState } from 'react';
-import { Box, Button, Chip, CircularProgress, Collapse, Link, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Button, CircularProgress, Collapse, Link, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { StatusText } from '@/components/common';
 import CheckIcon from '@mui/icons-material/CheckRounded';
 import PersonIcon from '@mui/icons-material/PersonRounded';
 import BlockIcon from '@mui/icons-material/BlockRounded';
@@ -111,17 +112,17 @@ export function TaskCard({ task }: { task: Task }) {
   const hidden = all ? 0 : Math.max(0, task.steps.length - shownSteps);
   const color = task.state === 'waiting' ? p.amber : task.state === 'failed' ? p.red : running ? p.overlay : p.ink2;
   return (
-    <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 3 }}>
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
       <Stack direction="row" alignItems="flex-start" spacing={1}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 650 }} className="selectable">
+          <Typography sx={{ fontSize: 15, fontWeight: 600 }} className="selectable">
             {task.title}
           </Typography>
           <Typography variant="body2" color="text.secondary" noWrap>
             {task.agent || t('agentGeneric')} · <span style={{ color }}>{taskStatus(t, task.state)}</span>
           </Typography>
         </Box>
-        {task.readOnly && <Chip label={t('tasksReadOnly')} variant="outlined" />}
+        {task.readOnly && <StatusText>{t('tasksReadOnly')}</StatusText>}
         {running && (
           <Button
             variant="outlined"

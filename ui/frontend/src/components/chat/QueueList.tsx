@@ -23,7 +23,7 @@ export function QueueList({
   const [open, setOpen] = useState(true);
   if (queued.length === 0) return null;
   return (
-    <Box sx={{ border: 1, borderColor: p.line2, borderRadius: 2, bgcolor: 'background.paper', mb: 0.75, overflow: 'hidden' }}>
+    <Box sx={{ border: 1, borderColor: p.line2, borderRadius: 2, bgcolor: 'background.paper', mb: 1, overflow: 'hidden' }}>
       <ButtonBase
         onClick={() => setOpen((o) => !o)}
         aria-label={t('chatQueueToggle')}
@@ -31,7 +31,7 @@ export function QueueList({
         sx={{ width: '100%', justifyContent: 'flex-start', px: 1, py: 0.5, gap: 0.5, color: p.ink2 }}
       >
         <ChevronRightIcon sx={{ fontSize: 16, transition: 'transform .15s', transform: open ? 'rotate(90deg)' : 'none' }} />
-        <Typography variant="caption" sx={{ fontWeight: 600, color: p.ink2 }}>
+        <Typography variant="caption" sx={{ fontWeight: 500, color: p.ink2 }}>
           {t('chatQueueHeading', { count: queued.length })}
         </Typography>
       </ButtonBase>
@@ -45,7 +45,7 @@ export function QueueList({
               </Typography>
               <Stack direction="row" className="q-actions" sx={{ opacity: 0.7 }}>
                 <Tooltip title={t('webChatSteerHint')}>
-                  <Button size="small" onClick={() => onSteer(i)} sx={{ minHeight: 22, py: 0, px: 1, fontSize: 11.5 }}>
+                  <Button size="small" onClick={() => onSteer(i)} sx={{ minHeight: 22, py: 0, px: 1, fontSize: 12 }}>
                     {t('chatQueueSteer')}
                   </Button>
                 </Tooltip>

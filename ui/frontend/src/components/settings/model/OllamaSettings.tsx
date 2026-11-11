@@ -60,7 +60,7 @@ export function OllamaSettings({ m, onModel }: { m: ModelView; onModel: (v: Mode
           </Button>
         }
       >
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
           {m.ollamaModels.map((n) => (
             <Chip
               key={n}

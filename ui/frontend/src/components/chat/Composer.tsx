@@ -113,13 +113,14 @@ export function Composer({
         sx={{
           border: 1,
           borderColor: p.line2,
-          borderRadius: 2.5,
-          bgcolor: p.bg2,
-          px: 1.25,
-          pt: 1,
+          borderRadius: '12px',
+          bgcolor: 'background.paper',
+          boxShadow: p.cardShadow === 'none' ? p.highlight : p.cardShadow,
+          px: 1.5,
+          pt: 1.25,
           pb: 1,
           cursor: 'text',
-          transition: 'border-color .1s',
+          transition: 'border-color .15s cubic-bezier(0.22, 1, 0.36, 1)',
           '&:focus-within': { borderColor: p.ink3 },
         }}
       >
@@ -139,7 +140,7 @@ export function Composer({
                 border: 1,
                 borderColor: p.line2,
                 color: scope ? p.ink2 : p.ink3,
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: 500,
                 whiteSpace: 'nowrap',
               }}
@@ -165,7 +166,7 @@ export function Composer({
                     border: 1,
                     borderColor: s.together ? p.ink3 : p.line2,
                     color: s.together ? 'text.primary' : p.ink3,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: 500,
                     '&:hover': { bgcolor: 'action.hover' },
                   }}
@@ -194,7 +195,7 @@ export function Composer({
           inputProps={{ 'aria-label': t('chatSection') }}
           sx={{ display: 'block', fontSize: 13, lineHeight: 1.5, px: 0.25, py: 0 }}
         />
-        <Stack direction="row" alignItems="center" spacing={0.25} sx={{ mt: 0.75, height: 24 }}>
+        <Stack direction="row" alignItems="center" spacing={0.25} sx={{ mt: 1, height: 24 }}>
           <Tooltip title={`${t('webChatModeSwitch')}  ${mac ? '⌘.' : 'Ctrl+.'}`}>
           <ButtonBase
             onClick={(e) => {
@@ -280,8 +281,8 @@ export function Composer({
             <ListItemText
               primary={m.label}
               secondary={m.desc}
-              primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
-              secondaryTypographyProps={{ fontSize: 11.5 }}
+              primaryTypographyProps={{ fontSize: 13, fontWeight: 500 }}
+              secondaryTypographyProps={{ fontSize: 12 }}
             />
             {m.mode === modeNow.mode && <CheckIcon sx={{ fontSize: 16, ml: 1 }} />}
           </MenuItem>

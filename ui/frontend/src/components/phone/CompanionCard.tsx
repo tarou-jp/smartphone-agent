@@ -65,8 +65,8 @@ export function CompanionCard({ device }: { device: Device }) {
     }
   };
   return (
-    <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 3 }} aria-label={t('companionCardLabel', { name: device.name })}>
-      <Typography sx={{ fontSize: 14, fontWeight: 650 }}>{busy ? t('companionInstallingTitle') : title}</Typography>
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }} aria-label={t('companionCardLabel', { name: device.name })}>
+      <Typography sx={{ fontSize: 15, fontWeight: 600 }}>{busy ? t('companionInstallingTitle') : title}</Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
         {body}
       </Typography>

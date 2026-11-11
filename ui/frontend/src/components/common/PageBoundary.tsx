@@ -29,7 +29,7 @@ export class PageBoundary extends Component<{ children: ReactNode; label: string
           }
         >
           {this.props.label}
-          <Box component="pre" sx={{ m: 0, mt: 1, fontSize: 11.5, whiteSpace: 'pre-wrap', userSelect: 'text' }}>
+          <Box component="pre" sx={{ m: 0, mt: 1, fontSize: 12, whiteSpace: 'pre-wrap', userSelect: 'text' }}>
             {this.state.error.message}
           </Box>
         </Alert>

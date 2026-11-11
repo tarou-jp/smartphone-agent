@@ -2,11 +2,11 @@
 // the task on the right. The Agent panel is the window's, beside it.
 
 import { useEffect, useState } from 'react';
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { api } from '@/api/client';
 import { useApp, useHas } from '@/state/AppState';
 import { useT } from '@/i18n';
-import { PageHeader, PlatformIcon, StatusDot } from '@/components/common';
+import { PageHeader, PhoneGlyph } from '@/components/common';
 import { NeedsList } from '@/components/needs/NeedsList';
 import { Mirror } from './Mirror';
 import { ControlBar } from './ControlBar';
@@ -20,7 +20,7 @@ import { useGw } from '@/lib/gwtext';
 import { useWidth } from '@/hooks/useWidth';
 
 // Needs you narrows when the page is narrow, so the mirror keeps room.
-const asideWidth = 360;
+const asideWidth = 380;
 const asideNarrow = 300;
 const mirrorMin = 280;
 
@@ -50,6 +50,7 @@ function useBackground(id: string, can: boolean): [boolean | null, (on: boolean)
 export function PhoneDetail({ id }: { id: string }) {
   const t = useT();
   const gw = useGw();
+  const p = useTheme().pinky;
   const { device, task, running, needs } = usePhone(id);
   const hasBackground = useHas('background');
   const hasAgentStream = useHas('agentStream');
@@ -70,26 +71,19 @@ export function PhoneDetail({ id }: { id: string }) {
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <PageHeader
           title={
-            <Stack direction="row" alignItems="center" spacing={1} component="span">
-              <PlatformIcon platform={device.platform} />
+            <Stack direction="row" alignItems="center" spacing={1.25} component="span">
+              <PhoneGlyph status={device.status} size={20} />
               <span>{device.name}</span>
             </Stack>
           }
-          actions={
-            <>
-              <PhoneActions device={device} task={task} running={running} background={background} onBackground={setBackground} />
-            </>
-          }
+          actions={<PhoneActions device={device} task={task} running={running} background={background} onBackground={setBackground} />}
         >
-          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
-            <StatusDot status={device.status} />
-            <Typography variant="body2" color="text.secondary" noWrap>
-              {gw.statusLine(device)}
-            </Typography>
-          </Stack>
+          <Typography variant="body2" noWrap sx={{ color: device.status === 'needs_you' ? p.amber : p.ink3 }}>
+            {gw.statusLine(device)}
+          </Typography>
         </PageHeader>
         <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
-          <Box sx={{ flex: 1, minWidth: 220, display: 'flex', flexDirection: 'column', p: 2, pb: 0 }}>
+          <Box sx={{ flex: 1, minWidth: 220, display: 'flex', flexDirection: 'column', px: 3, pt: 2, pb: 1 }}>
             <StatusBanner device={device} task={task} needs={needs} />
             {noMirror ? (
               <PhoneStatePanel device={device} />
@@ -122,14 +116,12 @@ export function PhoneDetail({ id }: { id: string }) {
           <Box
             component="aside"
             aria-label={t('needsAndTasksLabel')}
-            sx={{ width: aside, flexShrink: 0, borderLeft: 1, borderColor: 'divider', overflowY: 'auto', p: 2 }}
+            sx={{ width: aside, flexShrink: 0, borderLeft: 1, borderColor: 'divider', overflowY: 'auto', p: 2.5 }}
           >
-            <Stack spacing={2}>
+            <Stack spacing={3}>
               <NeedsList needs={needs} shotFor={(n) => n.deviceId !== id || noMirror} />
               <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  {t('tasksSection')}
-                </Typography>
+                <Typography sx={{ fontSize: 12, color: p.ink3, mb: 1.25 }}>{t('tasksSection')}</Typography>
                 {task ? (
                   <TaskCard task={task} />
                 ) : (

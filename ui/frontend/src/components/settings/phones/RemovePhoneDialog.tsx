@@ -48,7 +48,7 @@ export function RemovePhoneDialog({ d, open, onClose }: { d: Device; open: boole
   };
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontSize: 15, fontWeight: 650 }}>{t('removePhoneTitle', { name: d.name })}</DialogTitle>
+      <DialogTitle sx={{ fontSize: 15, fontWeight: 600 }}>{t('removePhoneTitle', { name: d.name })}</DialogTitle>
       <DialogContent>
         {lines.map((l) => (
           <Typography key={l} variant="body1" sx={{ mb: 1 }}>

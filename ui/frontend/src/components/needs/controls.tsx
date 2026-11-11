@@ -183,7 +183,7 @@ export function AgentRequestControls({ need }: { need: Need }) {
             />
           )}
           {hint && (
-            <Typography variant="caption" component="p" sx={{ mt: 0.75 }}>
+            <Typography variant="caption" component="p" sx={{ mt: 1 }}>
               {t(hint)}
             </Typography>
           )}

@@ -97,7 +97,7 @@ function QRPairing({ onPaired, onCode }: { onPaired: (d: Device) => void; onCode
       </Paper>
       {err ? <GuideProblem title={err} /> : id && <GuideWaiting>{t('pairingWaiting')}</GuideWaiting>}
       {!err && waited > 50000 && <GuideProblem title={t('pairingStuckNotSeenTitle')} detail={t('pairingStuckNotSeen')} />}
-      <Link component="button" variant="body1" onClick={onCode} sx={{ alignSelf: 'flex-start', fontWeight: 600 }}>
+      <Link component="button" variant="body1" onClick={onCode} sx={{ alignSelf: 'flex-start', fontWeight: 500 }}>
         {t('pairingUseCode')}
       </Link>
     </Stack>
@@ -145,7 +145,7 @@ function CodePairing({ onPaired, onQR }: { onPaired: (d: Device) => void; onQR: 
         <Button type="submit" variant="contained" disabled={busy}>
           {busy ? t('pairingBusy') : t('pairingPair')}
         </Button>
-        <Link component="button" type="button" variant="body1" onClick={onQR} sx={{ fontWeight: 600 }}>
+        <Link component="button" type="button" variant="body1" onClick={onQR} sx={{ fontWeight: 500 }}>
           {t('pairingUseQR')}
         </Link>
       </Stack>
@@ -211,7 +211,7 @@ export function WirelessPairing({ onUSB }: { onUSB: () => void }) {
       )}
       <Box sx={{ mt: 3 }}>
         <GuideNote>
-          <Link component="button" variant="body2" onClick={onUSB} sx={{ fontWeight: 600 }}>
+          <Link component="button" variant="body2" onClick={onUSB} sx={{ fontWeight: 500 }}>
             {t('pairingUseUSB')}
           </Link>
         </GuideNote>

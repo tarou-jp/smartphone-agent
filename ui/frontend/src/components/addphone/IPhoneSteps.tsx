@@ -53,7 +53,7 @@ function MirrorOffer() {
       <GuideNote>{t('addPhoneIPhoneMirrorDetail', { source: info.name, image: info.image, size: bytes(locale, info.size) })}</GuideNote>
       <Box sx={{ mt: 1.5 }}>
         {prog.running ? (
-          <Stack spacing={0.75}>
+          <Stack spacing={1}>
             <Typography variant="body2">
               {t('addPhoneIPhoneMirrorDownloading', { done: bytes(locale, prog.done), total: bytes(locale, prog.total || info.size) })}
             </Typography>
@@ -95,7 +95,7 @@ function Prepare({ d, platform }: { d: Device; platform: string }) {
       return (
         <GuideProblem title={t('connectionChosenNeedsIOS27', { version: d.osVersion })}>
           <Box sx={{ mt: 0.5 }}>
-            <Link href={href({ page: 'settings', section: 'phones' })} sx={{ fontWeight: 600 }}>
+            <Link href={href({ page: 'settings', section: 'phones' })} sx={{ fontWeight: 500 }}>
               {t('connectionChoose')}
             </Link>
           </Box>
@@ -107,7 +107,7 @@ function Prepare({ d, platform }: { d: Device; platform: string }) {
           {platform === 'darwin' ? (
             <GuideProblem title={t('addPhoneIPhoneNoImageTitle')} detail={t('addPhoneIPhoneNoImageMac')}>
               <Box sx={{ mt: 0.5 }}>
-                <Link href={xcodeAppStore} target="_blank" rel="noreferrer" sx={{ fontWeight: 600 }}>
+                <Link href={xcodeAppStore} target="_blank" rel="noreferrer" sx={{ fontWeight: 500 }}>
                   {t('addPhoneIPhoneGetXcode')}
                 </Link>
               </Box>
@@ -198,7 +198,7 @@ export function IPhoneSteps() {
         <Stack spacing={1.5} sx={{ mt: 3 }} alignItems="flex-start" role="status">
           <Stack direction="row" spacing={1} alignItems="center">
             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: p.green }} />
-            <Typography sx={{ fontWeight: 600 }}>{t('addPhoneReady', { name: d.name })}</Typography>
+            <Typography sx={{ fontWeight: 500 }}>{t('addPhoneReady', { name: d.name })}</Typography>
           </Stack>
           {already && <GuideNote>{t('addPhoneIPhoneAnother')}</GuideNote>}
           <Button variant="contained" onClick={() => navigate({ page: 'phones', deviceId: d.id })}>

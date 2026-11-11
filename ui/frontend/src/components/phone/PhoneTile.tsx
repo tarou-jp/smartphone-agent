@@ -42,7 +42,7 @@ export function PhoneTile({ device }: { device: Device }) {
         </Box>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.5 }}>
           <StatusDot status={device.status} />
-          <Typography sx={{ fontWeight: 650, flex: 1, minWidth: 0 }} noWrap>
+          <Typography sx={{ fontWeight: 600, flex: 1, minWidth: 0 }} noWrap>
             {device.name}
           </Typography>
           {mine > 0 && <Badge badgeContent={mine} color="warning" sx={{ mr: 1 }} />}

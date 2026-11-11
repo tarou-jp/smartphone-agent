@@ -38,10 +38,10 @@ function Shot({ task, step, height, overlay }: { task: Task; step: Step; height:
         position: 'relative',
         height,
         width: img ? (height * img.w) / img.h : height * 0.46,
-        borderRadius: 2.5,
+        borderRadius: '8px',
         overflow: 'hidden',
-        border: 1,
-        borderColor: p.line2,
+        // The screen as a small phone: a dark bezel around it.
+        boxShadow: `0 0 0 3px ${p.phone}, 0 0 0 4px ${p.line2}`,
         bgcolor: failed ? p.bg3 : '#000',
         flexShrink: 0,
       }}
@@ -84,8 +84,8 @@ export function StepShot({ task, step }: { task: Task; step: Step }) {
   return (
     <>
       <Tooltip title={t('shotEnlarge')}>
-        <ButtonBase onClick={() => setOpen(true)} sx={{ borderRadius: 2.5 }} aria-label={t('activityShowShot')}>
-          <Shot task={task} step={step} height={96} overlay={false} />
+        <ButtonBase onClick={() => setOpen(true)} sx={{ borderRadius: '8px', m: '4px' }} aria-label={t('activityShowShot')}>
+          <Shot task={task} step={step} height={88} overlay={false} />
         </ButtonBase>
       </Tooltip>
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth={false} PaperProps={{ sx: { bgcolor: 'transparent', boxShadow: 'none' } }}>

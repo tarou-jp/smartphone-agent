@@ -22,6 +22,10 @@ func agentSetup(dirs api.Dirs) *agents.Setup {
 		Dir:    filepath.Join(dirs.Data, "agents"),
 		Bundle: agents.BundleOptions{Version: version, Icon: assets.Icon256},
 	}
+	// Finding the agents' commands asks the login shell for its PATH, which
+	// takes a couple of seconds; do it now, so Settings › Agents does not
+	// wait for it the first time it opens.
+	go s.Env.Path()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if tools, err := mcp.Tools(ctx, version); err == nil {

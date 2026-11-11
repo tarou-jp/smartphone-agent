@@ -4,7 +4,8 @@
 // the page keeps its width. ⌘L shows it and puts the cursor in it.
 
 import { useEffect, useRef } from 'react';
-import { Box, useMediaQuery } from '@mui/material';
+import { Box, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { PhoneGlyph } from '@/components/common/PhoneGlyph';
 import { useApp } from '@/state/AppState';
 import { useT } from '@/i18n';
 import type { Route } from '@/lib/router';
@@ -14,6 +15,37 @@ import { Composer } from './Composer';
 import { useChat, usePanel } from './store';
 
 const mac = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac');
+
+/** Under a new chat's composer: what this mode does and, for Agent, the
+ * phones the message will go to, so the empty column says something. */
+function EmptyChat({ agentMode, targets }: { agentMode: boolean; targets: { id: string; name: string }[] }) {
+  const t = useT();
+  const { live } = useApp();
+  const p = useTheme().pinky;
+  return (
+    <Box sx={{ px: 2, pt: 2 }}>
+      <Typography sx={{ fontSize: 12, color: p.ink3, lineHeight: 1.6 }}>
+        {agentMode ? t('webChatEmptyAgent') : t('webChatEmptyAsk')}
+      </Typography>
+      {agentMode && targets.length > 0 && (
+        <Box sx={{ mt: 2 }}>
+          <Typography sx={{ fontSize: 12, fontWeight: 500, color: p.ink2, mb: 1 }}>{t('webChatEmptyTargets')}</Typography>
+          <Stack spacing={1}>
+            {targets.map((d) => {
+              const dev = live.devices.find((x) => x.id === d.id);
+              return (
+                <Stack key={d.id} direction="row" spacing={1.25} alignItems="center">
+                  {dev && <PhoneGlyph status={dev.status} size={18} />}
+                  <Typography sx={{ fontSize: 13 }}>{d.name}</Typography>
+                </Stack>
+              );
+            })}
+          </Stack>
+        </Box>
+      )}
+    </Box>
+  );
+}
 
 export function AgentPanel({ route }: { route: Route }) {
   const t = useT();
@@ -48,7 +80,8 @@ export function AgentPanel({ route }: { route: Route }) {
 
   const agentAvailable = !!boot?.inAppAgent && online.length > 0;
 
-  if (!panel.open) return null;
+  // Settings has the window to itself: no chat beside it.
+  if (!panel.open || route.page === 'settings') return null;
 
   const startDrag = (e: React.PointerEvent) => {
     drag.current = { x: e.clientX, w: panel.width };
@@ -109,6 +142,7 @@ export function AgentPanel({ route }: { route: Route }) {
         // A new chat, as Cursor draws one: the composer at the top.
         <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pt: 0.75 }}>
           <Composer targets={targets} all={all} agentAvailable={agentAvailable} tall />
+          <EmptyChat agentMode={chat.active.mode === 'agent' && agentAvailable} targets={targets} />
         </Box>
       ) : (
         <>

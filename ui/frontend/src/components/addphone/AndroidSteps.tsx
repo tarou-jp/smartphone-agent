@@ -36,7 +36,7 @@ function BrandPicker({ value, onChange }: { value: string; onChange: (id: string
       <Typography variant="subtitle1" sx={{ mb: 1 }}>
         {t('addAndroidBrandQuestion')}
       </Typography>
-      <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.75}>
+      <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
         {brands.map((b) => (
           <Chip
             key={b.id}
@@ -45,7 +45,7 @@ function BrandPicker({ value, onChange }: { value: string; onChange: (id: string
             color={b.id === value ? 'primary' : 'default'}
             variant={b.id === value ? 'filled' : 'outlined'}
             onClick={() => onChange(b.id)}
-            sx={{ height: 28, fontSize: 12.5 }}
+            sx={{ height: 28, fontSize: 12 }}
           />
         ))}
       </Stack>
@@ -63,7 +63,7 @@ function Switches({ b }: { b: Brand }) {
       {b.switches.map((s) => (
         <Box key={s.name}>
           {s.path && <MenuPath path={t(s.path)} />}
-          <Typography variant="body1" sx={{ fontWeight: 600, mt: s.path ? 0.75 : 0 }}>
+          <Typography variant="body1" sx={{ fontWeight: 500, mt: s.path ? 0.75 : 0 }}>
             {s.off ? t('addAndroidTurnOff', { name: t(s.name) }) : t('addAndroidTurnOn', { name: t(s.name) })}
           </Typography>
           {s.why && <GuideNote>{t(s.why)}</GuideNote>}
@@ -79,16 +79,16 @@ function AllowSketch({ always, allow }: { always: string; allow: string }) {
   const p = useTheme().pinky;
   return (
     <Paper variant="outlined" aria-label={t('addAndroidSketchLabel')} sx={{ p: 2, maxWidth: 320, borderRadius: 3, bgcolor: p.bg2 }}>
-      <Typography sx={{ fontWeight: 650, fontSize: 14, mb: 1 }}>{t('addAndroidSketchTitle')}</Typography>
+      <Typography sx={{ fontWeight: 600, fontSize: 15, mb: 1 }}>{t('addAndroidSketchTitle')}</Typography>
       <Stack direction="row" spacing={1} alignItems="center">
         <CheckIcon color="primary" sx={{ fontSize: 18 }} />
         <Typography variant="body2">{always}</Typography>
       </Stack>
       <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 1.5 }}>
-        <Typography variant="body2" sx={{ color: p.ink3, fontWeight: 600 }}>
+        <Typography variant="body2" sx={{ color: p.ink3, fontWeight: 500 }}>
           {t('addAndroidSketchCancel')}
         </Typography>
-        <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>
+        <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
           {allow}
         </Typography>
       </Stack>
@@ -203,7 +203,7 @@ export function AndroidSteps({ onWireless }: { onWireless: () => void }) {
       </Stack>
       {!online && pairing && (
         <Box sx={{ mt: 3 }}>
-          <Link component="button" variant="body1" onClick={onWireless} sx={{ fontWeight: 600 }}>
+          <Link component="button" variant="body1" onClick={onWireless} sx={{ fontWeight: 500 }}>
             {t('addPhoneOrWiFi')}
           </Link>
         </Box>
