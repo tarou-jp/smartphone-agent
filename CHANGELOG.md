@@ -2,7 +2,7 @@
 
 What changed for people in each release of Pinky, newest first. A version is the release's date in Asia/Shanghai and that day's count: 2026.1107.2 is the second release of 7 November 2026. Notes wait under "Unreleased" until the next release takes them; see [docs/RELEASING.md](docs/RELEASING.md).
 
-## Unreleased
+## 2026.1111.1 (2026-11-11)
 
 - In-app chat follows new messages while you stay at the bottom of the thread, streams agent progress in one place, and queues follow-ups closer to Cursor (toolbar, Steer, Stop).
 - Ctrl+C in the terminal now quits the desktop app when you run Pinky from the command line.
