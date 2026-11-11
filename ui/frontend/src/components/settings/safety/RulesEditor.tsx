@@ -34,7 +34,7 @@ function DecisionChip({ d }: { d: string }) {
 function RuleLine({ r, children }: { r: Rule; children?: React.ReactNode }) {
   const t = useT();
   return (
-    <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, py: 1.1 }}>
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, py: 1 }}>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography variant="subtitle1">{ruleName(t, r.name)}</Typography>
         <Typography variant="body2" color="text.secondary" noWrap>
@@ -124,7 +124,7 @@ export function RulesEditor() {
           {err}
         </Alert>
       )}
-      <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
         {t('settingsRulesYours')}
       </Typography>
       {view.file.length === 0 ? (
@@ -168,7 +168,7 @@ export function RulesEditor() {
         </RowCard>
       )}
       <Typography variant="subtitle2">{t('settingsRulesBuiltIn')}</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         {t('settingsRulesBuiltInDesc')}
       </Typography>
       <RowCard>

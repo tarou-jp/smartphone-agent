@@ -80,7 +80,7 @@ export function ConnectionRow({ d }: { d: Device }) {
             value={w.id}
             disabled={!w.available && w.id !== chosen}
             control={<Radio size="small" />}
-            sx={{ alignItems: 'flex-start', mb: 0.75, '& .MuiRadio-root': { pt: 0.25 } }}
+            sx={{ alignItems: 'flex-start', mb: 1, '& .MuiRadio-root': { pt: 0.25 } }}
             label={
               <Box>
                 <Typography variant="subtitle1">

@@ -111,10 +111,10 @@ export function TaskCard({ task }: { task: Task }) {
   const hidden = all ? 0 : Math.max(0, task.steps.length - shownSteps);
   const color = task.state === 'waiting' ? p.amber : task.state === 'failed' ? p.red : running ? p.overlay : p.ink2;
   return (
-    <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 3 }}>
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
       <Stack direction="row" alignItems="flex-start" spacing={1}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: 14, fontWeight: 650 }} className="selectable">
+          <Typography sx={{ fontSize: 15, fontWeight: 600 }} className="selectable">
             {task.title}
           </Typography>
           <Typography variant="body2" color="text.secondary" noWrap>

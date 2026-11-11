@@ -44,16 +44,16 @@ export function NeedCard({ need, showShot = true, onLater }: { need: Need; showS
     <Box
       role="group"
       aria-label={gw.needTitle(need)}
-      sx={{ p: 1.75, borderRadius: 3, bgcolor: p.amberTint, border: `1px solid ${p.amberLine}`, display: 'flex', flexDirection: 'column' }}
+      sx={{ p: 2, borderRadius: 3, bgcolor: p.amberTint, border: `1px solid ${p.amberLine}`, display: 'flex', flexDirection: 'column' }}
     >
       <Stack direction="row" alignItems="center" spacing={1}>
         <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: p.amberDot, flexShrink: 0 }} />
-        <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, color: p.amber, flex: 1, minWidth: 0 }}>
+        <Typography noWrap sx={{ fontSize: 12, fontWeight: 500, color: p.amber, flex: 1, minWidth: 0 }}>
           {eyebrow}
         </Typography>
         {need.deadline && <Countdown deadline={need.deadline} words={need.kind === 'handoff' ? 'panelEndsIn' : 'panelDeniesIn'} />}
       </Stack>
-      <Typography sx={{ fontSize: 16, fontWeight: 650, mt: 0.75 }} className="selectable">
+      <Typography sx={{ fontSize: 17, fontWeight: 600, mt: 1 }} className="selectable">
         {gw.needTitle(need)}
       </Typography>
       {detail && (

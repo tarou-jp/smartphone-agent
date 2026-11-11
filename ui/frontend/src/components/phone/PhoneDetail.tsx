@@ -81,7 +81,7 @@ export function PhoneDetail({ id }: { id: string }) {
             </>
           }
         >
-          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
             <StatusDot status={device.status} />
             <Typography variant="body2" color="text.secondary" noWrap>
               {gw.statusLine(device)}

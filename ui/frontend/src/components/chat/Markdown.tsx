@@ -112,7 +112,7 @@ export function Markdown({ text }: { text: string }) {
         switch (b.t) {
           case 'h':
             return (
-              <Typography key={i} sx={{ fontWeight: 650, fontSize: b.level <= 2 ? 15 : 13.5, mt: i ? 2 : 0 }}>
+              <Typography key={i} sx={{ fontWeight: 600, fontSize: b.level <= 2 ? 15 : 13, mt: i ? 2 : 0 }}>
                 {inline(b.text)}
               </Typography>
             );

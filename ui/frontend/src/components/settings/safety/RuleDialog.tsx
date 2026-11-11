@@ -21,7 +21,7 @@ import { actionKeys, actions, categories, categoryKeys, splitList } from '../lab
 
 function ChipPicker({ options, label, value, onChange }: { options: string[]; label: (k: string) => string; value: string[]; onChange: (v: string[]) => void }) {
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
       {options.map((o) => {
         const on = value.includes(o);
         return (
@@ -67,7 +67,7 @@ export function RuleDialog({
   };
   const field = (title: string, node: React.ReactNode) => (
     <Box sx={{ mb: 2 }}>
-      <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
         {title}
       </Typography>
       {node}
@@ -75,7 +75,7 @@ export function RuleDialog({
   );
   return (
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontSize: 15, fontWeight: 650 }}>
+      <DialogTitle sx={{ fontSize: 15, fontWeight: 600 }}>
         {rule ? t('settingsRulesChangeLabel', { rule: rule.name }) : t('settingsRulesAdd')}
       </DialogTitle>
       <DialogContent>

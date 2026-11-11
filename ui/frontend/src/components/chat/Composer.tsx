@@ -139,7 +139,7 @@ export function Composer({
                 border: 1,
                 borderColor: p.line2,
                 color: scope ? p.ink2 : p.ink3,
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: 500,
                 whiteSpace: 'nowrap',
               }}
@@ -165,7 +165,7 @@ export function Composer({
                     border: 1,
                     borderColor: s.together ? p.ink3 : p.line2,
                     color: s.together ? 'text.primary' : p.ink3,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: 500,
                     '&:hover': { bgcolor: 'action.hover' },
                   }}
@@ -194,7 +194,7 @@ export function Composer({
           inputProps={{ 'aria-label': t('chatSection') }}
           sx={{ display: 'block', fontSize: 13, lineHeight: 1.5, px: 0.25, py: 0 }}
         />
-        <Stack direction="row" alignItems="center" spacing={0.25} sx={{ mt: 0.75, height: 24 }}>
+        <Stack direction="row" alignItems="center" spacing={0.25} sx={{ mt: 1, height: 24 }}>
           <Tooltip title={`${t('webChatModeSwitch')}  ${mac ? '⌘.' : 'Ctrl+.'}`}>
           <ButtonBase
             onClick={(e) => {
@@ -280,8 +280,8 @@ export function Composer({
             <ListItemText
               primary={m.label}
               secondary={m.desc}
-              primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }}
-              secondaryTypographyProps={{ fontSize: 11.5 }}
+              primaryTypographyProps={{ fontSize: 13, fontWeight: 500 }}
+              secondaryTypographyProps={{ fontSize: 12 }}
             />
             {m.mode === modeNow.mode && <CheckIcon sx={{ fontSize: 16, ml: 1 }} />}
           </MenuItem>

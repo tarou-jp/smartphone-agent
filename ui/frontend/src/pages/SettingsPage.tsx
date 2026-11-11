@@ -34,7 +34,7 @@ export function SettingsPage({ section }: { section?: string }) {
           <List dense>
             {sections.map((s) => (
               <ListItemButton key={s.id} component="a" href={href({ page: 'settings', section: s.id })} selected={s.id === cur.id}>
-                <ListItemText primary={t(s.label)} primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }} />
+                <ListItemText primary={t(s.label)} primaryTypographyProps={{ fontSize: 13, fontWeight: 500 }} />
               </ListItemButton>
             ))}
           </List>

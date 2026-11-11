@@ -66,7 +66,7 @@ export function StepItem({ task, step, developer }: { task: Task; step: Step; de
                   bgcolor: p.bg2,
                   border: 1,
                   borderColor: 'divider',
-                  fontSize: 11.5,
+                  fontSize: 12,
                   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-all',

@@ -31,7 +31,7 @@ export function TaskList({
     else groups.push({ day: d, tasks: [task] });
   }
   const header = (label: string) => (
-    <ListSubheader sx={{ lineHeight: '30px', fontSize: 11.5, fontWeight: 600, bgcolor: 'background.default', px: 1.5 }}>
+    <ListSubheader sx={{ lineHeight: '30px', fontSize: 12, fontWeight: 500, bgcolor: 'background.default', px: 1.5 }}>
       {label}
     </ListSubheader>
   );

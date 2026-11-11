@@ -116,21 +116,25 @@ export function makeTheme(mode: 'light' | 'dark'): Theme {
       fontFamily:
         '-apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, "Hiragino Sans", "PingFang SC", "Microsoft YaHei", sans-serif',
       fontSize: 13,
-      h1: { fontSize: 22, fontWeight: 650 },
-      h2: { fontSize: 17, fontWeight: 650 },
-      h3: { fontSize: 15, fontWeight: 650 },
-      subtitle1: { fontSize: 13, fontWeight: 600 },
-      subtitle2: { fontSize: 12, fontWeight: 600, color: t.ink2 },
+      // One scale (11, 12, 13, 15, 17, 22) and three weights: 600 for
+      // headings only, 500 for labels and controls, 400 for the rest.
+      h1: { fontSize: 22, fontWeight: 600 },
+      h2: { fontSize: 17, fontWeight: 600 },
+      h3: { fontSize: 15, fontWeight: 600 },
+      subtitle1: { fontSize: 13, fontWeight: 500 },
+      subtitle2: { fontSize: 12, fontWeight: 500, color: t.ink2 },
       body1: { fontSize: 13 },
       body2: { fontSize: 12 },
       caption: { fontSize: 11, color: t.ink3 },
-      button: { textTransform: 'none', fontWeight: 600 },
+      button: { textTransform: 'none', fontWeight: 500 },
     },
     components: {
       MuiCssBaseline: {
         styleOverrides: {
           'html, body, #root': { height: '100%' },
-          body: { overflow: 'hidden', WebkitFontSmoothing: 'antialiased', userSelect: 'none' },
+          // Tabular figures everywhere, so times, counts and durations line
+          // up in their columns and don't shift as they tick.
+          body: { overflow: 'hidden', WebkitFontSmoothing: 'antialiased', userSelect: 'none', fontVariantNumeric: 'tabular-nums' },
           'input, textarea, [contenteditable], .selectable': { userSelect: 'text' },
           '*::-webkit-scrollbar': { width: 10, height: 10 },
           '*::-webkit-scrollbar-thumb': {
@@ -145,9 +149,9 @@ export function makeTheme(mode: 'light' | 'dark'): Theme {
       MuiButtonBase: { defaultProps: { disableRipple: true } },
       MuiButton: {
         defaultProps: { disableElevation: true, size: 'small' },
-        styleOverrides: { root: { borderRadius: 7, paddingInline: 12, minHeight: 30, whiteSpace: 'nowrap' } },
+        styleOverrides: { root: { borderRadius: 8, paddingInline: 12, minHeight: 30, whiteSpace: 'nowrap' } },
       },
-      MuiIconButton: { defaultProps: { size: 'small' }, styleOverrides: { root: { borderRadius: 7 } } },
+      MuiIconButton: { defaultProps: { size: 'small' }, styleOverrides: { root: { borderRadius: 8 } } },
       MuiTooltip: { defaultProps: { arrow: false, enterDelay: 400 } },
       MuiPaper: {
         defaultProps: { elevation: 0 },
@@ -160,18 +164,18 @@ export function makeTheme(mode: 'light' | 'dark'): Theme {
       MuiTextField: { defaultProps: { size: 'small' } },
       MuiSelect: { defaultProps: { size: 'small' } },
       MuiSwitch: { defaultProps: { size: 'small' } },
-      MuiChip: { defaultProps: { size: 'small' }, styleOverrides: { root: { fontWeight: 600 } } },
+      MuiChip: { defaultProps: { size: 'small' }, styleOverrides: { root: { fontWeight: 500 } } },
       MuiListItemButton: {
         styleOverrides: {
           root: {
-            borderRadius: 7,
+            borderRadius: 8,
             '&.Mui-selected': { background: t.sel },
             '&.Mui-selected:hover': { background: t.sel },
           },
         },
       },
       MuiDialog: { styleOverrides: { paper: { borderRadius: 14 } } },
-      MuiTab: { styleOverrides: { root: { minHeight: 36, textTransform: 'none', fontWeight: 600 } } },
+      MuiTab: { styleOverrides: { root: { minHeight: 36, textTransform: 'none', fontWeight: 500 } } },
       MuiTabs: { styleOverrides: { root: { minHeight: 36 } } },
     },
   });

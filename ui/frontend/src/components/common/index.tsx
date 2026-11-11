@@ -211,7 +211,7 @@ export function useConfirm(): [
     <Dialog open={!!state} onClose={() => close(false)} maxWidth="xs" fullWidth>
       {state && (
         <>
-          <DialogTitle sx={{ fontSize: 15, fontWeight: 650 }}>{state.title}</DialogTitle>
+          <DialogTitle sx={{ fontSize: 15, fontWeight: 600 }}>{state.title}</DialogTitle>
           {state.body && (
             <DialogContent>
               <DialogContentText component="div" sx={{ fontSize: 13 }}>

@@ -47,7 +47,7 @@ export function SafetySection() {
     <>
       <Section title={t('settingsSectionSafety')} description={t('settingsSafetyIntro')}>
         <FileProblems problems={problems} />
-        <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t('settingsSafetyAskTitle')}
         </Typography>
         <RowCard sx={{ mb: 3 }}>
@@ -76,7 +76,7 @@ export function SafetySection() {
             </RadioGroup>
           </Box>
         </RowCard>
-        <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t('settingsSafetyProtections')}
         </Typography>
         <RowCard>

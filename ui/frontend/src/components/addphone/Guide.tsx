@@ -22,7 +22,7 @@ export function GuideStep({ n, title, state, children }: { n: number; title: Rea
           display: 'grid',
           placeItems: 'center',
           fontSize: 12,
-          fontWeight: 700,
+          fontWeight: 600,
           bgcolor: state === 'done' ? p.green : state === 'now' ? 'primary.main' : p.bg3,
           color: state === 'later' ? p.ink2 : '#fff',
         }}
@@ -30,7 +30,7 @@ export function GuideStep({ n, title, state, children }: { n: number; title: Rea
         {state === 'done' ? <CheckIcon sx={{ fontSize: 16 }} /> : n}
       </Box>
       <Box sx={{ flex: 1, minWidth: 0, pt: 0.25 }}>
-        <Typography variant="subtitle1" sx={{ fontSize: 14 }}>
+        <Typography variant="subtitle1" sx={{ fontSize: 15 }}>
           {title}
         </Typography>
         {state !== 'done' && children && (
@@ -74,7 +74,7 @@ export function GuideWaiting({ children }: { children: ReactNode }) {
 export function GuideProblem({ title, detail, children }: { title: ReactNode; detail?: ReactNode; children?: ReactNode }) {
   return (
     <Alert severity="warning" sx={{ fontSize: 13 }}>
-      <AlertTitle sx={{ fontSize: 13, fontWeight: 600, mb: detail ? 0.5 : 0 }}>{title}</AlertTitle>
+      <AlertTitle sx={{ fontSize: 13, fontWeight: 500, mb: detail ? 0.5 : 0 }}>{title}</AlertTitle>
       {detail}
       {children}
     </Alert>
@@ -112,7 +112,7 @@ export function GuideHeading({ title, detail }: { title: ReactNode; detail?: Rea
     <Box sx={{ mb: 2.5 }}>
       <Typography variant="h1">{title}</Typography>
       {detail && (
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 0.75 }}>
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
           {detail}
         </Typography>
       )}

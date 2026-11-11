@@ -53,7 +53,7 @@ export function PinDialog({
   };
   return (
     <Dialog open={open} onClose={close} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ fontSize: 15, fontWeight: 650 }}>{t('pinSaveLabel', { name: device.name })}</DialogTitle>
+      <DialogTitle sx={{ fontSize: 15, fontWeight: 600 }}>{t('pinSaveLabel', { name: device.name })}</DialogTitle>
       <DialogContent>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
           {boot?.keychain === false ? t('unlockNotAvailable') : pitch}

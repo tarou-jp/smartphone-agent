@@ -62,7 +62,7 @@ export function ChatHeader({ chat, onCollapse }: { chat: Chat; onCollapse?: () =
                 maxWidth: 200,
                 pl: 1.5,
                 pr: 0.75,
-                gap: 0.75,
+                gap: 1,
                 mb: '-1px',
                 borderRight: 1,
                 borderColor: 'divider',

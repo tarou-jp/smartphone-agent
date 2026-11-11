@@ -45,8 +45,8 @@ function PhoneRow({ d, selected, needs }: { d: Device; selected: boolean; needs:
       <ListItemText
         primary={d.name}
         secondary={status}
-        primaryTypographyProps={{ noWrap: true, fontWeight: 600, fontSize: 13 }}
-        secondaryTypographyProps={{ noWrap: true, fontSize: 11.5 }}
+        primaryTypographyProps={{ noWrap: true, fontWeight: 500, fontSize: 13 }}
+        secondaryTypographyProps={{ noWrap: true, fontSize: 12 }}
         sx={{ my: 0, opacity: d.status === 'offline' ? 0.6 : 1 }}
       />
       {needs > 0 && <Badge badgeContent={needs} color="warning" sx={{ mt: '12px', mr: 1 }} />}
@@ -66,7 +66,7 @@ export function Sidebar({ route }: { route: Route }) {
   const nav = (r: Route, icon: React.ReactNode, label: string, selected: boolean, badge = 0) => (
     <ListItemButton component="a" href={href(r)} selected={selected} sx={{ py: 0.75 }}>
       <ListItemIcon sx={{ minWidth: 30, color: 'text.secondary' }}>{icon}</ListItemIcon>
-      <ListItemText primary={label} primaryTypographyProps={{ fontSize: 13, fontWeight: 600 }} />
+      <ListItemText primary={label} primaryTypographyProps={{ fontSize: 13, fontWeight: 500 }} />
       {badge > 0 && <Badge badgeContent={badge} color="warning" sx={{ mr: 1 }} />}
     </ListItemButton>
   );
@@ -86,13 +86,13 @@ export function Sidebar({ route }: { route: Route }) {
     >
       <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, height: 52, flexShrink: 0 }}>
         <Box component="img" src={logo} alt="" sx={{ width: 22, height: 22 }} />
-        <Typography sx={{ fontWeight: 700, fontSize: 15 }}>Pinky</Typography>
+        <Typography sx={{ fontWeight: 600, fontSize: 15 }}>Pinky</Typography>
       </Stack>
       <Box sx={{ flex: 1, overflowY: 'auto', px: 1 }}>
         <List
           dense
           subheader={
-            <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '28px', fontSize: 11.5, px: 1 }}>
+            <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '28px', fontSize: 12, px: 1 }}>
               {t('sidebarPhones')}
             </ListSubheader>
           }
