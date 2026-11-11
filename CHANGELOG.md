@@ -2,7 +2,7 @@
 
 What changed for people in each release of Pinky, newest first. A version is the release's date in Asia/Shanghai and that day's count: 2026.1107.2 is the second release of 7 November 2026. Notes wait under "Unreleased" until the next release takes them; see [docs/RELEASING.md](docs/RELEASING.md).
 
-## Unreleased
+## 2026.1111.2 (2026-11-11)
 
 - The phone's screen in Pinky's window no longer stays on "Connecting", and Activity no longer keeps loading, after you move between pages or resize the window.
 - Pinky's window has a new look: warm, calmer colors in light and dark, easier-to-read text, and no title bar of its own.
