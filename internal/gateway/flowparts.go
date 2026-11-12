@@ -24,8 +24,8 @@ import (
 //     two replays (RunFlow), and learned again from the next task that
 //     does the step by hand.
 
-// partsFlow names the replay phone_flow_run makes of parts.
-const partsFlow = "parts"
+// planFlow names the replay phone_flow_run makes of an agent's plan.
+const planFlow = "plan"
 
 const (
 	// offeredParts bounds the parts of one app a result lists; the ones
@@ -72,13 +72,18 @@ func (g *Gateway) partStep(id string) (flow.Step, bool) {
 }
 
 // keepParts takes the steps of the session's tasks that are about to end
-// (all of them, or the one on the named device) into the apps' parts.
-func (s *Session) keepParts(device string) {
+// (all of them, or the one on the named device) into the apps' parts, and
+// returns, per lease, the part each step of the task's trace is. done
+// says the tasks end well: a part that a saved flow ran and that led
+// elsewhere than it says is then repaired from what the step led to. A
+// test run teaches nothing.
+func (s *Session) keepParts(device string, done bool) map[*lease][]string {
 	g := s.g
 	type job struct {
-		title  string
-		steps  []flow.Step
-		afters []*screen.Screen
+		l     *lease
+		title string
+		ran   []flow.Ran
+		shots [][]byte // per step, the picture of the screen it led to
 	}
 	var jobs []job
 	g.mu.Lock()
@@ -88,19 +93,43 @@ func (s *Session) keepParts(device string) {
 				continue
 			}
 		}
-		if t := l.task; len(t.trace) > 0 {
-			jobs = append(jobs, job{t.title, append([]flow.Step(nil), t.trace...), append([]*screen.Screen(nil), t.traceAfter...)})
+		t := l.task
+		if t.test || len(t.trace) == 0 {
+			continue
 		}
+		j := job{l: l, title: t.title}
+		for i, st := range t.trace {
+			j.ran = append(j.ran, flow.Ran{Step: st, After: t.traceAfter[i], Part: t.tracePart[i], Repair: done && t.traceSaved[i]})
+			var thumb []byte
+			// Only a screenshot a later read confirmed shows where the
+			// step led.
+			if i < len(t.traceShot) && t.traceShot[i] != nil && t.traceShot[i].state == shotKept {
+				thumb = t.traceShot[i].thumb
+			}
+			j.shots = append(j.shots, thumb)
+		}
+		jobs = append(jobs, j)
 	}
 	g.mu.Unlock()
+	out := map[*lease][]string{}
 	for _, j := range jobs {
-		added, err := g.flows.LearnParts(j.steps, j.afters, time.Now())
+		ids, added, err := g.flows.LearnParts(j.ran, time.Now())
 		if err != nil {
 			g.log.Warn("flows: keeping a task's steps as parts", "task", j.title, "err", err)
 		} else if added > 0 {
 			g.log.Info("flows: new parts", "task", j.title, "parts", added)
 		}
+		for i, id := range ids {
+			if id == "" || i >= len(j.shots) || j.shots[i] == nil {
+				continue
+			}
+			if err := g.flows.SaveShot(id, j.shots[i]); err != nil {
+				g.log.Warn("flows: keeping a part's picture", "part", id, "err", err)
+			}
+		}
+		out[j.l] = ids
 	}
+	return out
 }
 
 // offerParts adds the parts of apps to a result, for the apps the agent
@@ -110,6 +139,8 @@ func (g *Gateway) offerParts(res *Result, l *lease, apps ...string) *Result {
 	if res == nil || res.IsError() {
 		return res
 	}
+	// What people and agents wrote down about the apps goes with them.
+	g.offerNotes(res, l, apps...)
 	known := g.flows.PartApps()
 	if len(known) == 0 {
 		return res
@@ -152,7 +183,7 @@ func (g *Gateway) offerParts(res *Result, l *lease, apps ...string) *Result {
 		g.mu.Unlock()
 	}
 	if len(names) > 0 {
-		res.Message = strings.TrimSpace(res.Message + fmt.Sprintf(" Parts of %s are listed below: single steps that worked before, each with the screen it leads to. For what no flow covers, pick the parts the task needs and run them in one call, in order, with phone_flow_run { parts: [\"p…\", \"p…\"] }, instead of tapping step by step: each part finds its target, acts and checks the screen it leads to. A part works wherever its target is on the screen (“after” names a part it was recorded after), and the call stops with mismatch, showing the screen, where a part does not fit. Do by hand only what no part covers.",
+		res.Message = strings.TrimSpace(res.Message + fmt.Sprintf(" Parts of %s are listed below: single steps that worked before, each with the screen it leads to. Plan the task from them and run the whole plan in one call, in order, with phone_flow_run { parts: [\"p…\", \"p…\"] }, instead of tapping and reading the screen step by step: each part finds its target, acts and checks the screen it leads to, so you need not look in between. To mix in other steps, pass steps instead: [{\"part\": \"p…\"}, {\"tap\": \"A label on the screen\"}, {\"part\": \"p…\", \"type\": \"text for a part that types\"}, {\"assert\": {\"visible\": \"Text that must show\"}}]. A part works wherever its target is on the screen (“after” names a part it was recorded after), and the call stops with mismatch, showing the screen, where a step does not fit. Do one at a time only what you cannot plan.",
 			strings.Join(names, " and ")))
 	}
 	return res
@@ -201,6 +232,6 @@ func (g *Gateway) listParts(want string) *Result {
 	for _, p := range ps.Sorted() {
 		out.Parts = append(out.Parts, partInfo(app, p))
 	}
-	out.Message = fmt.Sprintf("%s of %s. phone_flow_run { parts: [ids] } runs the ones you pick, in order.", plural(len(out.Parts), "part"), app)
+	out.Message = fmt.Sprintf("%s of %s. phone_flow_run { parts: [ids] } runs the ones you pick, in order; steps mixes them with other steps.", plural(len(out.Parts), "part"), app)
 	return out
 }

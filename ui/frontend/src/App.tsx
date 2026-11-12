@@ -10,6 +10,7 @@ import { Toasts } from '@/components/common';
 import { PhonesPage } from '@/pages/PhonesPage';
 import { ActivityPage } from '@/pages/ActivityPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { FlowsPage } from '@/pages/FlowsPage';
 import { AddPhonePage } from '@/pages/AddPhonePage';
 import { isRunning } from '@/lib/format';
 import { ChatProvider } from '@/components/chat/store';
@@ -58,6 +59,9 @@ function Shell() {
   switch (route.page) {
     case 'activity':
       page = <ActivityPage taskId={route.taskId} />;
+      break;
+    case 'flows':
+      page = <FlowsPage app={route.app} />;
       break;
     case 'settings':
       page = <SettingsPage section={route.section} />;

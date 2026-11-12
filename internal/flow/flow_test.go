@@ -225,11 +225,8 @@ func TestCheckpoint(t *testing.T) {
 		screen.Element{Role: screen.RoleText, Label: "Your cart"},
 		screen.Element{Role: screen.RoleText, Label: "Delivery"})
 	c := Checkpoint(before, after)
-	if c == nil || c.App != "app.dinely" || len(c.Visible) != 2 {
-		t.Fatalf("checkpoint: %+v", c)
-	}
-	if c.Visible[0].ID != "place" || c.Visible[1].Label != "Your cart" {
-		t.Errorf("ids first, then steady labels; nothing with digits: %+v", c.Visible)
+	if c == nil || c.App != "app.dinely" || len(c.Visible) != 1 || c.Visible[0].ID != "place" {
+		t.Fatalf("an id marks the screen, and text beside it is left out: %+v", c)
 	}
 	if ok, why := c.Check(after); !ok {
 		t.Errorf("the checkpoint does not hold on its own screen: %s", why)
@@ -239,6 +236,26 @@ func TestCheckpoint(t *testing.T) {
 	}
 	if c := Checkpoint(before, demoScreen()); c != nil {
 		t.Errorf("the same screen has no checkpoint: %+v", c)
+	}
+	// A feed: what people wrote is not what the screen is. Controls mark
+	// it; text does only when there is nothing else, and never a sentence
+	// or anything long.
+	feed := demoScreen()
+	feed.Elements = append(feed.Elements,
+		screen.Element{Role: screen.RoleText, Label: "shinno"},
+		screen.Element{Role: screen.RoleText, Label: "Beautiful, though the flow is not my type."},
+		screen.Element{Role: screen.RoleButton, Label: "More"},
+		screen.Element{Role: screen.RoleTab, Label: "Following"})
+	if c := Checkpoint(before, feed); c == nil || len(c.Visible) != 2 || c.Visible[0].Label != "More" || c.Visible[1].Label != "Following" {
+		t.Errorf("controls mark a screen before text does: %+v", c)
+	}
+	words := demoScreen()
+	words.Elements = append(words.Elements,
+		screen.Element{Role: screen.RoleText, Label: "Beautiful, though the flow is not my type."},
+		screen.Element{Role: screen.RoleText, Label: "A title that goes on and on for far too long"},
+		screen.Element{Role: screen.RoleText, Label: "Trending"})
+	if c := Checkpoint(before, words); c == nil || len(c.Visible) != 1 || c.Visible[0].Label != "Trending" {
+		t.Errorf("short text that is no sentence, when the screen has nothing else: %+v", c)
 	}
 	// An element that kept its id and changed its label was there before:
 	// its id would hold before the step ran.

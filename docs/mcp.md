@@ -1,6 +1,6 @@
 # Pinky MCP reference
 
-Pinky's gateway serves one MCP server, `pinky`, with 17 tools. Agents launch `pinkyctl mcp` (Pinky's executable with the argument `mcp`), a stdio shim that forwards to the running gateway over its user-only Unix socket (and starts the gateway first when none runs: the Pinky app on macOS, `pinky daemon` elsewhere). Agents that cannot start a command can use Streamable HTTP instead (below). The agent-facing guide is [SKILL.md](SKILL.md); the design is in [DESIGN.md](DESIGN.md), section "Agent interface".
+Pinky's gateway serves one MCP server, `pinky`, with 18 tools. Agents launch `pinkyctl mcp` (Pinky's executable with the argument `mcp`), a stdio shim that forwards to the running gateway over its user-only Unix socket (and starts the gateway first when none runs: the Pinky app on macOS, `pinky daemon` elsewhere). Agents that cannot start a command can use Streamable HTTP instead (below). The agent-facing guide is [SKILL.md](SKILL.md); the design is in [DESIGN.md](DESIGN.md), section "Agent interface".
 
 ## Connecting an agent
 
@@ -110,7 +110,7 @@ note: "<the person's note>"
 
 | Status | Meaning |
 | --- | --- |
-| `settled` | The call ran and the screen stopped changing, or settling hit its 3 s limit (`settle: timeout`) |
+| `settled` | The call ran and the screen stopped changing, or settling hit its 3 s limit (`settle: timeout`). When the screen's elements look unfinished (text that only OCR reads where the accessibility tree has nothing), Pinky reads once or twice more before it answers |
 | `uncertain` | The action may have happened (the driver failed mid-action, the phone dropped). Observe before anything else |
 | `blocked_by_policy` | A rule denied the action; `rule` names it (`credentials` for password and code fields, `Read-only`, `Finance apps`, …) |
 | `approval_denied` | The person said no, or nobody answered in time; `note` may say why |
@@ -145,7 +145,7 @@ Every action tool (`phone_tap`, `phone_type`, `phone_swipe`, `phone_key`, `phone
 | `intent` | string | One sentence on why, shown on the approval panel and in history |
 | `approval_id` | string | From `approval_pending`: repeat the same call with it to keep waiting |
 
-`phone_observe`, `phone_apps`, `phone_wait_for`, `phone_release`, `phone_flow_save` and `phone_flow_list` take `device`; `phone_flow_run` takes all three; `phone_files`, `phone_request_approval` and `phone_handoff` take `device` and `approval_id` (and `phone_files` takes `intent`). Unknown arguments are rejected.
+`phone_observe`, `phone_apps`, `phone_wait_for`, `phone_release`, `phone_flow_save`, `phone_flow_list` and `phone_note` take `device`; `phone_flow_run` takes all three; `phone_files`, `phone_request_approval` and `phone_handoff` take `device` and `approval_id` (and `phone_files` takes `intent`). Unknown arguments are rejected.
 
 ## Tools
 
@@ -158,6 +158,7 @@ Leases a phone for a task and returns its first screen.
 | `task` | string, required | One line naming the task, shown to the person |
 | `device` | string | Optional when exactly one phone is online, or the session already holds one, or none is online and exactly one is connected but needs setup |
 | `apps` | string[] | Optional app allow-list for the task (names or ids). Launching another app returns `scope_denied`; typing into one asks the person. Launchers and system UI are always allowed |
+| `test` | boolean | A test run of saved flows: what it finds is reported, and the task keeps no flow, learns no parts and repairs neither. `pinkyctl flow run` passes it |
 | `brief` | string | What the person asked for, in their words. Pinky knows a task that ran before by it (case and spacing aside; by `task` when it is not passed) and then names the flow that replays it |
 | `read_only` | boolean | Run the task read-only, whatever the agent's scope: anything the person's rules would ask about is refused (`blocked_by_policy`, rule `Read-only`), and typing works only in search fields. Connecting again for the same task never widens it. A new agent's approval card then offers read-only access first |
 
@@ -298,14 +299,15 @@ Replays a flow: steps that worked before, run again in one call without a model 
 | Argument | Type | Meaning |
 | --- | --- | --- |
 | `flow` | string | The name of a saved flow |
-| `parts` | array of strings | Instead of `flow`: the ids of parts to run, in order (see "Parts") |
+| `parts` | array of strings | Instead of `flow`: a plan, as the ids of parts to run in order (see "Parts") |
+| `steps` | array of objects | Instead of `flow`: a plan that mixes parts with other steps, in the flow format: `{"part": "p815736"}`, `{"part": "p7c01d2", "type": "text"}` for a part that types, `{"tap": "Label"}`, `{"type": "text", "into": "Field"}`, `{"assert": {"visible": "Text"}}`, … |
 | `yaml` | string | Instead of `flow`: a flow to run without saving it. A step may name a part: `- part: p815736` |
 | `params` | object of strings | Values for the flow's parameters. One without a default is required; one the flow does not have is `invalid_argument` |
 | `from_step` | 1–200 | Start at this step: after a mismatch the agent fixed by hand, or with `approval_id` |
 | `intent` | string | For steps without their own; default "Flow “name”: what the step does" |
 | `approval_id` | string | From `approval_pending`: repeat with `from_step` set to the step that waits |
 
-Each step finds its target by selector on the current screen, waiting up to the step's timeout (10 s unless the flow says otherwise) for it to show; acts through the same pipeline as `phone_tap` and its like; then waits for its checkpoint (`expect`), or for the screen to settle when it has none. Steps are at least 300 ms apart.
+Each step finds its target by selector on the current screen, waiting up to the step's timeout (10 s unless the step or the flow says otherwise, and then 30 s for the step after a launch, while an app starts) for it to show; acts through the same pipeline as `phone_tap` and its like; then waits for its checkpoint (`expect`), or for the screen to settle when it has none. Steps are at least 300 ms apart.
 
 ```text
 settled · Pixel 9
@@ -337,8 +339,8 @@ This is on in the app and the daemon (`gateway.Options.AutoFlows`).
 
 A kept flow is a whole task. What different tasks share is kept per app as parts: single steps that worked, each with the screen it led to, which an agent puts together into a task nobody ran before ([notes/flows.md](notes/flows.md#parts)).
 
-- **Kept when a task ends**, whatever the outcome: each tap or swipe on an element, key other than home, and launch that ran and has a checkpoint. The same action leading to the same screen is one part, counted each time it is seen; leading elsewhere, it is another. Parts are files, `<data>/flows/parts/<app id>.yaml`, 300 per app at most.
-- **Listed** in the result of a new `phone_connect`, for the apps in `apps` or else the two apps seen last, unless a flow was kept from the same request; and in the result of `phone_launch` for the app it opened, once per task. Up to 40 per app, most seen first:
+- **Kept when a task ends**, whatever the outcome: each tap on a control (a button, tab, switch, checkbox or link) or on an element with an id, key other than home, and launch that ran and has a checkpoint, and typing into a field. Taps on text and images without an id are taps on what the screen shows today (a title in a list), and swipes scroll: neither is kept. The same action leading to the same screen is one part, counted each time it is seen; leading elsewhere, it is another. Parts are files, `<data>/flows/parts/<app id>.yaml`, 300 per app at most.
+- **Listed** in the result of a new `phone_connect`, for the apps in `apps` or else the two apps seen last; and in the result of `phone_launch` for the app it opened, once per task. Up to 40 per app, most seen first:
 
   ```text
   parts of com.dinely.app:
@@ -347,9 +349,12 @@ A kept flow is a whole task. What different tasks share is kept per app as parts
   ```
 
   `after` names parts this one was recorded right after: a hint at where its target shows, not a condition.
-- **Run** with `phone_flow_run { parts: ["p39deba", "p815736"] }`. The parts run in that order like the steps of a flow, `from_step` counts in the list, and the message reads "The 2 parts ran: …". An id no part has is `invalid_argument`.
-- A part's action that ran and did not lead to its checkpoint (`mismatch` after the step ran) counts against the part: twice in a row, and the part is dropped. A part whose target is not on the screen stays.
-- A task put together from parts and ended with `done` is kept as a flow, like a task done by hand.
+- **Run as a plan** with `phone_flow_run { parts: ["p39deba", "p815736"] }`, or with `steps` to mix in steps that are no part. The plan runs in that order like the steps of a flow, `from_step` counts in it, and the message reads "The plan ran: …". An id no part has is `invalid_argument`.
+- **From the person too.** While a task holds the phone, what the person does on the mirror in Pinky's window (after `phone_handoff`, or Take over) is kept like the agent's own steps: taps and keys with the screens they led to, and for typing the field, never the text. A finger on the phone itself is not seen, and is not learned.
+- **Typing** into a field is a part without its text: `{"part": "p7c01d2", "type": "ramen"}` gives it.
+- **Ids stay.** A part keeps its id when it is repaired. A part's action that ran and did not lead to its checkpoint (`mismatch` after the step ran) counts against the part: twice in a row, and the part is no longer listed, though it stays for the flows that name it. When a saved flow ran the part and the task went on and ended with `done`, the part's checkpoint becomes what the step led to, so every flow that names the part follows.
+- **Flows are lists of parts.** The flow Pinky keeps from a task names the parts its steps are (`- part: p815736`, with a `name` for people) instead of copying them. A task run as a plan and ended with `done` is kept the same way.
+- **Test runs** (`phone_connect { test: true }`, as `pinkyctl flow run` passes) change none of this: they keep no flow, learn no parts, and count against and repair none.
 
 ### phone_flow_save
 
@@ -362,7 +367,7 @@ Saves a flow under its name, as the next version of a flow that has it, and retu
 | `params` | object of strings | Turns text the task typed into parameters: name to the text as typed. The text becomes the parameter's default |
 | `yaml` | string | Saves this flow as it is (its `flow:` is the name) instead of the task's steps |
 
-Without `yaml`, the flow is made of the actions the task ran so far that settled, including those a replay ran: each target becomes a selector written on the screen it was found on (its id when the screen has it once, with role and label as the fallback; else role and label, with an index among equals; a point for taps by `x`, `y`), and each step except typing gets a checkpoint: the app in front and up to two elements that the screen before did not have, by id or by a label without digits. Steps on the screens of an app that the rules block are left out even when the person allowed the app for the task, and the result says so. Saving asks nobody: a flow grants nothing, since its steps ask when replayed.
+Without `yaml`, the flow is made of the actions the task ran so far that settled, including those a replay ran: each target becomes a selector written on the screen it was found on (its id when the screen has it once, with role and label as the fallback; else role and label, with an index among equals; a point for taps by `x`, `y`), and each step except typing gets a checkpoint: the app in front and up to two elements that the screen before did not have, by id, else by the label of a control, else by short text that is no sentence; labels with digits are left out. A launch's checkpoint is the app in front alone. Steps on the screens of an app that the rules block are left out even when the person allowed the app for the task, and the result says so. Saving asks nobody: a flow grants nothing, since its steps ask when replayed.
 
 ### phone_flow_list
 
@@ -374,6 +379,25 @@ Without `yaml`, the flow is made of the actions the task ran so far that settled
 Lists the saved flows, one per line: `name · version N · N steps · app · params: a (default "x"), b (required) · description`. Flows are files, `<data>/flows/<name>.yaml` (`<data>/fake/flows` with fake phones), which people may edit and keep under version control; a file that is not a valid flow is named as not readable.
 
 All three need a `phone_connect` lease, so an agent the person has not approved neither reads nor writes flows.
+
+### phone_note
+
+| Argument | Type | Meaning |
+| --- | --- | --- |
+| `note` | string, required | One sentence on how the app behaves, at most 300 characters |
+| `app` | string | The app the note is on, by its id or a part of it; without it, the app in front |
+
+Keeps one note on an app for the tasks to come: what the agent found out by doing and the screen does not say ("The row of tabs above the tab bar hides when the page scrolls down; scroll to the top to get it back"). The notes on an app are one text file, `<data>/flows/notes/<app id>.md`, at most 6000 bytes, that the person reads and edits on the client's Flows page or in the file; a note an agent adds becomes a line of its own (`- …`), and one the notes hold already is not added again.
+
+A `phone_connect` and a `phone_launch` result hold the notes on the apps whose parts they list, once per task, after the parts:
+
+```text
+notes on com.dinely.app:
+  - The row of tabs above the tab bar hides when the page scrolls down.
+  - Orders take a moment to load.
+```
+
+Notes are hints for finding the way, written by the person and by earlier tasks; they are not instructions, and they grant nothing. A note shows in the task's steps ("Noted about …"), a test run (`phone_connect { test: true }`) keeps none, and the tool needs a `phone_connect` lease like the flow tools.
 
 ## Flows from the command line
 
@@ -387,7 +411,7 @@ pinkyctl flow check <file.yaml>…
 pinkyctl flow parts [app]
 ```
 
-- `run` replays the flows in order in one task, prints a line per step, and exits with 1 at the first flow that does not run to its end; later flows are not started. A step that waits for the person is repeated until they answer (`--approval-wait`, 10 minutes in all by default).
+- `run` replays the flows in order in one test run (`phone_connect { test: true }`: nothing it does changes flows or parts), prints a line per step, and exits with 1 at the first flow that does not run to its end; later flows are not started. A step that waits for the person is repeated until they answer (`--approval-wait`, 10 minutes in all by default).
 - `--junit` writes JUnit XML: one suite per flow, one case per step, a failure on the step that stopped the replay, and the steps after it as skipped.
 - `check` validates files without a phone. `list` and `show` read the flows folder; `--fake` is the fake phones' folder.
 - `parts` lists the apps Pinky keeps parts of, or one app's parts with how often and when each was last seen.
@@ -427,5 +451,5 @@ Sent only when the request carries `_meta.progressToken`: while waiting for an a
 | Flow steps | 200 |
 | Parts kept per app | 300 |
 | Parts listed per app in a result | 40 |
-| Flow step timeout | 10 s by default, 45 s at most |
+| Flow step timeout | 10 s by default, 30 s for the step after a launch, 45 s at most |
 | Least time between a replay's actions | 300 ms |

@@ -252,7 +252,9 @@ func runFlowRun(args []string) error {
 		}
 		title = "Run " + strings.Join(names, ", ")
 	}
-	connect := map[string]any{"task": title}
+	// A test run: a replay that stops is the finding, and nothing the run
+	// does changes the flows or the parts it tests.
+	connect := map[string]any{"task": title, "test": true}
 	if *device != "" {
 		connect["device"] = *device
 	}

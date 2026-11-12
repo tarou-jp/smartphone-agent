@@ -2,6 +2,7 @@ package inapp
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -46,7 +47,15 @@ func (c *anthropicClient) messages(items []item) []map[string]any {
 				add("assistant", anthBlock{"type": "text", "text": "…"})
 			}
 		case itemResult:
-			add("user", anthBlock{"type": "tool_result", "tool_use_id": it.CallID, "content": nonEmpty(it.Output)})
+			if it.Image == nil {
+				add("user", anthBlock{"type": "tool_result", "tool_use_id": it.CallID, "content": nonEmpty(it.Output)})
+				break
+			}
+			// The picture of the screen goes with the answer it belongs to.
+			add("user", anthBlock{"type": "tool_result", "tool_use_id": it.CallID, "content": []anthBlock{
+				{"type": "text", "text": nonEmpty(it.Output)},
+				{"type": "image", "source": map[string]string{"type": "base64", "media_type": "image/jpeg", "data": base64.StdEncoding.EncodeToString(it.Image)}},
+			}})
 		}
 	}
 	// The cache breakpoint at the thread's end.

@@ -4,6 +4,7 @@
 //
 //	go run ./cmd/pinky-web-demo                  # one phone, at http://127.0.0.1:7466
 //	go run ./cmd/pinky-web-demo -scenario three  # three phones
+//	go run ./cmd/pinky-web-demo -library <dir>   # with the Flows page, from <dir>/flows
 //	cd ui/frontend && npm run dev                # Vite, proxied to the demo
 //	go run -tags wails,desktop,production ./cmd/pinky-web-demo -window  # in Pinky's own window (cgo)
 //
@@ -12,6 +13,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -22,6 +24,8 @@ import (
 	"time"
 
 	"github.com/DIYgod/pinky/internal/deskapi"
+	"github.com/DIYgod/pinky/internal/gateway"
+	"github.com/DIYgod/pinky/internal/policy"
 	"github.com/DIYgod/pinky/internal/secret"
 	"github.com/DIYgod/pinky/internal/webshell"
 	"github.com/DIYgod/pinky/ui/fakeapi"
@@ -40,10 +44,21 @@ func main() {
 	dev := flag.Bool("dev", false, "start with Developer mode on")
 	page := flag.String("page", "", `open "activity", "settings" or "add-phone" at start`)
 	token := flag.String("token", "", "the client token; empty makes one. Tests set it to call the API")
+	library := flag.String("library", "", "a Pinky data folder whose flows, parts and notes the Flows page shows; without it the demo has no Flows page")
 	window := flag.Bool("window", false, "show the client in a window, as pinky does: Pinky's own in builds with the wails tag, else the browser")
 	flag.Parse()
 
-	api := fakeapi.New(fakeapi.Options{Scenario: fakeapi.Scenario(*scenario), Speed: *speed, ApprovalTimeout: *timeout})
+	fake := fakeapi.New(fakeapi.Options{Scenario: fakeapi.Scenario(*scenario), Speed: *speed, ApprovalTimeout: *timeout})
+	var api gateway.API = fake
+	if *library != "" {
+		// A gateway without phones, for the flows it keeps in the folder.
+		g, err := gateway.New(gateway.Options{DataDir: *library, Policy: policy.Default(), NoScreenshots: true})
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer g.Close()
+		api = withLibrary{API: fake, g: g}
+	}
 	settings := deskapi.DefaultSettings()
 	settings.DeveloperMode = *dev
 	srv := deskapi.New(deskapi.Options{
@@ -57,7 +72,7 @@ func main() {
 	}
 	if *window {
 		shell := webshell.New()
-		go serveDemo(api, demoAddr(*addr))
+		go serveDemo(fake, demoAddr(*addr))
 		if err := webshell.Run(shell, srv, webshell.Options{}); err != nil {
 			log.Fatal(err)
 		}
@@ -67,9 +82,24 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	go serveDemo(api, demoAddr(*addr))
+	go serveDemo(fake, demoAddr(*addr))
 	fmt.Printf("Pinky web demo: %s\nDemo controls: http://%s/demo/...\n", url, demoAddr(*addr))
 	<-srv.Done()
+}
+
+// withLibrary is the fake gateway with the flows a real one keeps.
+type withLibrary struct {
+	*fakeapi.API
+	g *gateway.Gateway
+}
+
+func (w withLibrary) Library() gateway.LibraryView       { return w.g.Library() }
+func (w withLibrary) SetNotes(app, text string) error    { return w.g.SetNotes(app, text) }
+func (w withLibrary) RemoveFlow(name string) error       { return w.g.RemoveFlow(name) }
+func (w withLibrary) RemovePart(id string) error         { return w.g.RemovePart(id) }
+func (w withLibrary) PartShot(id string) ([]byte, error) { return w.g.PartShot(id) }
+func (w withLibrary) AppIcon(ctx context.Context, app string) ([]byte, error) {
+	return w.g.AppIcon(ctx, app)
 }
 
 // serveDemo serves the demo's controls.

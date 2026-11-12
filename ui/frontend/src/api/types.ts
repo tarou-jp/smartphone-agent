@@ -304,3 +304,66 @@ export interface ChangeEvent {
   taskId?: string;
   needId?: string;
 }
+
+/** What Pinky keeps for replaying tasks: deskapi's Library (GET /api/library). */
+export interface Library {
+  /** The folder the files are in. */
+  dir?: string;
+  apps: LibraryApp[];
+  /** Flow files that cannot be read. */
+  broken?: string[];
+  /** How many bytes the notes on one app may take. */
+  maxNotes: number;
+}
+
+/** One app's notes, flows and parts; app is "" for the flows of no app. */
+export interface LibraryApp {
+  app: string;
+  notes: string;
+  flows: LibraryFlow[];
+  parts: LibraryPart[];
+}
+
+export interface LibraryFlow {
+  name: string;
+  description?: string;
+  /** The request the flow was kept from. */
+  task?: string;
+  version: number;
+  file?: string;
+  steps: LibraryStep[];
+}
+
+export interface LibraryStep {
+  kind: string;
+  /** What the step does, as Pinky words it. */
+  text: string;
+  /** What the screen shows afterwards. */
+  leads?: string;
+  /** Why, in the words of the agent that first did it. */
+  intent?: string;
+  /** The id of the part the step names. */
+  part?: string;
+  /** That part is gone. */
+  missing?: boolean;
+  optional?: boolean;
+  /** The part has a picture of where it leads (api.partShotURL). */
+  shot?: boolean;
+}
+
+export interface LibraryPart {
+  id: string;
+  kind: string;
+  text: string;
+  leads?: string;
+  intent?: string;
+  after?: string[];
+  seen: number;
+  last?: string;
+  /** Replays found it leading elsewhere; agents are not offered it. */
+  broken?: boolean;
+  /** The flows that use it. */
+  flows?: string[];
+  /** It has a picture of where it leads (api.partShotURL). */
+  shot?: boolean;
+}

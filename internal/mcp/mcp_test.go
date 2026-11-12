@@ -123,7 +123,7 @@ func TestToolList(t *testing.T) {
 	}
 	want := []string{"phone_connect", "phone_release", "phone_observe", "phone_tap", "phone_type", "phone_swipe", "phone_key",
 		"phone_launch", "phone_apps", "phone_batch", "phone_wait_for", "phone_files", "phone_request_approval", "phone_handoff",
-		"phone_flow_run", "phone_flow_save", "phone_flow_list"}
+		"phone_flow_run", "phone_flow_save", "phone_flow_list", "phone_note"}
 	got := map[string]*sdk.Tool{}
 	for _, tool := range res.Tools {
 		got[tool.Name] = tool
@@ -411,7 +411,7 @@ func TestPartsTools(t *testing.T) {
 		t.Fatalf("connect: %v\n%s", ids, text)
 	}
 	text, isErr := c.call(t, "phone_flow_run", map[string]any{"parts": []string{ids[0][1], ids[1][1]}})
-	if isErr || !strings.HasPrefix(text, "settled · Pixel 9") || !strings.Contains(text, "The 2 parts ran") || !strings.Contains(text, "step 2: ok · tap #dinely:tab:orders") {
+	if isErr || !strings.HasPrefix(text, "settled · Pixel 9") || !strings.Contains(text, "The plan ran") || !strings.Contains(text, "step 2: ok · tap #dinely:tab:orders") {
 		t.Fatalf("run: %s", text)
 	}
 	if text, isErr = c.call(t, "phone_flow_run", map[string]any{"parts": []string{"pffffff"}}); !isErr || !strings.Contains(text, "pffffff") {
@@ -420,5 +420,26 @@ func TestPartsTools(t *testing.T) {
 	text, _ = c.call(t, "phone_flow_list", map[string]any{"app": "com.dinely.app"})
 	if !strings.Contains(text, "2 parts of com.dinely.app") || !strings.Contains(text, ids[1][1]) {
 		t.Fatalf("list: %s", text)
+	}
+}
+
+// A note an agent keeps on an app is shown to the next task in the app.
+func TestNoteTool(t *testing.T) {
+	h := newHarness(t)
+	c := h.connect(t, "claude-code")
+	c.call(t, "phone_connect", map[string]any{"task": "Look around"})
+	c.call(t, "phone_launch", map[string]any{"app": "Dinely"})
+	text, isErr := c.call(t, "phone_note", map[string]any{"note": "The row of tabs hides when the page scrolls."})
+	if isErr || !strings.HasPrefix(text, "settled") || !strings.Contains(text, "com.dinely.app") {
+		t.Fatalf("note: %s", text)
+	}
+	if text, isErr = c.call(t, "phone_note", map[string]any{"note": ""}); !isErr {
+		t.Fatalf("an empty note: %s", text)
+	}
+	c.call(t, "phone_release", map[string]any{"outcome": "done"})
+
+	text, _ = c.call(t, "phone_connect", map[string]any{"task": "Order lunch", "apps": []string{"Dinely"}})
+	if !strings.Contains(text, "notes on com.dinely.app:\n  - The row of tabs hides when the page scrolls.") {
+		t.Fatalf("connect: %s", text)
 	}
 }

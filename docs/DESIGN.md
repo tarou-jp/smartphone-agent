@@ -164,7 +164,7 @@ Interaction rules:
 
 ## Agent interface
 
-Agents see one MCP server, `pinky`, with 17 tools. Every action waits for the screen to settle and returns the new screen, or only what changed, so agents rarely call `phone_observe`.
+Agents see one MCP server, `pinky`, with 18 tools. Every action waits for the screen to settle and returns the new screen, or only what changed, so agents rarely call `phone_observe`.
 
 | Tool | Arguments | Returns |
 | --- | --- | --- |
@@ -182,9 +182,10 @@ Agents see one MCP server, `pinky`, with 17 tools. Every action waits for the sc
 | `phone_files` | none | A local folder synced with the phone's `Pinky/` folder (Android only) |
 | `phone_request_approval` | `summary`, `details?` | The person's answer and note; it grants nothing by itself |
 | `phone_handoff` | `reason` | Returns when the person hands control back, with their note |
-| `phone_flow_run` | `flow`, `parts` or `yaml`; `params?`; `from_step?` | Replays a flow, or parts of an app in the order given, without a model: how each step went and the screen at the end, or `mismatch` at the step whose screen was not as expected |
+| `phone_flow_run` | `flow`, `parts`, `steps` or `yaml`; `params?`; `from_step?` | Replays a flow, or a plan the agent made of an app's parts and steps of its own, without a model in between: how each step went and the screen at the end, or `mismatch` at the step whose screen was not as expected |
 | `phone_flow_save` | `name`; `description?`; `params?`; or `yaml` | Saves the task's actions so far as a flow, or a flow as given; returns it as YAML |
 | `phone_flow_list` | `name?`; `app?` | The saved flows, one flow's steps, or the parts kept for an app |
+| `phone_note` | `note`; `app?` | Keeps one note on how an app behaves, which later tasks in the app are shown with its parts |
 
 Every action tool also takes `device?` (required when the session holds more than one device), `intent?` (one sentence on why, shown on the approval panel and in history) and `approval_id?` (to keep waiting on a pending approval).
 

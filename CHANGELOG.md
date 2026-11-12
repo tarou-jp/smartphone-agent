@@ -2,6 +2,19 @@
 
 What changed for people in each release of Pinky, newest first. A version is the release's date in Asia/Shanghai and that day's count: 2026.1107.2 is the second release of 7 November 2026. Notes wait under "Unreleased" until the next release takes them; see [docs/RELEASING.md](docs/RELEASING.md).
 
+## Unreleased
+
+- A task you give an agent again now replays the steps that worked last time, much faster and without the agent working each step out, and agents can put new tasks together from steps learned in earlier ones.
+- A new Flows page lists, for each app, the saved flows, the steps Pinky has learned and your notes, with the app's icon and a picture of the screen each step leads to.
+- Notes on an app are now separate notes, each with a title and a description that opens on a click. Agents read them before they work in the app and can add their own.
+- When you do a step on the phone's screen in Pinky's window because the agent could not, the next agent learns it.
+- A replay opens its app first when another app is in front, and no longer taps in the wrong app.
+- A replay no longer stops when a screen it reaches shows different content than last time (news headlines, rankings): it checks the screen where nothing else would notice a wrong one.
+- On iPhones, agents now see the content of web pages inside apps (such as a news list), not only what OCR reads of it.
+- A screen read before it has finished drawing is read again, so agents no longer take a half-loaded form for an empty one.
+- The in-app agent uses OpenAI's Responses API with OpenAI models, so it can look at the screen while it reasons.
+- Pinky Companion can now send the icons of the phone's apps to the computer.
+
 ## 2026.1111.2 (2026-11-11)
 
 - The phone's screen in Pinky's window no longer stays on "Connecting", and Activity no longer keeps loading, after you move between pages or resize the window.

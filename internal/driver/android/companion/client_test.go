@@ -1,6 +1,7 @@
 package companion
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -131,6 +132,34 @@ func TestErrorsMapToDriverErrors(t *testing.T) {
 		return nil, &Error{Code: "unsupported", Message: "cannot append to a password field"}
 	}
 	if _, err := c.SetText(context.Background(), Target{}, "x", SetTextOptions{Append: true}); !errors.Is(err, driver.ErrUnsupported) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAppIcon(t *testing.T) {
+	p, c := readyClient(t)
+	ctx := context.Background()
+	png, err := c.AppIcon(ctx, "com.example.app", 96)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(png, fakeIcon) {
+		t.Errorf("icon = %q, want %q", png, fakeIcon)
+	}
+	req := p.lastRequest("app_icon")
+	if req["package"] != "com.example.app" || req["size"] != 96.0 {
+		t.Errorf("request: %v", req)
+	}
+	// 0 leaves the size to the app.
+	if _, err := c.AppIcon(ctx, "com.example.app", 0); err != nil {
+		t.Fatal(err)
+	}
+	if req := p.lastRequest("app_icon"); req["size"] != nil {
+		t.Errorf("size sent for the default: %v", req)
+	}
+	_, err = c.AppIcon(ctx, "com.example.missing", 0)
+	var cerr *Error
+	if !errors.As(err, &cerr) || cerr.Code != "not_found" || !errors.Is(err, driver.ErrNotFound) {
 		t.Fatalf("err = %v", err)
 	}
 }

@@ -384,6 +384,9 @@ func (g *Gateway) takeOver(d *device, byInput bool) {
 			l.handedBack, l.handBackNote = false, ""
 			l.task.state = TaskPaused
 			g.recordTaskLocked(l.task)
+			// Read the screen the person starts from, to learn their
+			// first step (person.go).
+			g.personInputLocked(d, personEvent{kind: "look"})
 		}
 		g.wakeLocked(d)
 	}
@@ -501,6 +504,9 @@ func (g *Gateway) Touch(deviceID string, a driver.TouchAction, p screen.Point) e
 	}
 	ctx, cancel := context.WithTimeout(g.ctx, 10*time.Second)
 	defer cancel()
+	// What the person does on the mirror while a task holds the phone
+	// is a step the task can learn (person.go).
+	defer g.personTouch(d, a, p)
 	if t, ok := dev.(driver.Toucher); ok {
 		return t.Touch(ctx, a, p)
 	}
@@ -535,23 +541,30 @@ func (g *Gateway) Touch(deviceID string, a driver.TouchAction, p screen.Point) e
 
 // Key implements API.
 func (g *Gateway) Key(deviceID string, k driver.Key) error {
-	_, dev, err := g.personInput(deviceID)
+	d, dev, err := g.personInput(deviceID)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(g.ctx, 10*time.Second)
 	defer cancel()
-	return dev.Key(ctx, k)
+	err = dev.Key(ctx, k)
+	g.mu.Lock()
+	g.personInputLocked(d, personEvent{kind: "key", key: string(k)})
+	g.mu.Unlock()
+	return err
 }
 
 // Text implements API.
 func (g *Gateway) Text(deviceID string, text string) error {
-	_, dev, err := g.personInput(deviceID)
+	d, dev, err := g.personInput(deviceID)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(g.ctx, 30*time.Second)
 	defer cancel()
+	g.mu.Lock()
+	g.personInputLocked(d, personEvent{kind: "text"})
+	g.mu.Unlock()
 	return dev.Type(ctx, text, driver.TypeOptions{Append: true})
 }
 

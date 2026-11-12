@@ -38,6 +38,10 @@ type Info struct {
 // then write on the main display.
 const FeatureDisplays = "displays"
 
+// FeatureAppIcons means the app answers app_icon with an installed app's
+// icon. Apps built before 2026-11-12 do not.
+const FeatureAppIcons = "app_icons"
+
 // Has reports whether the app has a feature.
 func (i *Info) Has(feature string) bool {
 	for _, f := range i.Features {

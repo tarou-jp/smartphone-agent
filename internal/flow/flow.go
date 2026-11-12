@@ -277,8 +277,23 @@ func checkTimeout(ms int) error {
 }
 
 func (s Step) validate() error {
+	if s.Part != "" {
+		// A step that names a part takes the part's place: only the text
+		// a typing part types, and the words around a step, are its own.
+		if s.Tap != nil || s.Swipe != "" || s.From != nil || s.To != nil || s.Key != "" || s.Launch != "" || s.Assert != nil ||
+			s.Into != nil || s.In != nil || s.LongPress || s.Append || s.Submit || s.DurationMS != 0 {
+			return errors.New("a part brings its own action; besides part, a step may have type (the text a typing part types), name, intent, timeout_ms and optional")
+		}
+		if !ValidPartID(s.Part) {
+			return fmt.Errorf("part: %q is not a part's id, such as p1a2b3c", s.Part)
+		}
+		if s.Expect != nil {
+			return errors.New("a part brings its own checkpoint; leave expect out")
+		}
+		return checkTimeout(s.TimeoutMS)
+	}
 	n := 0
-	for _, set := range []bool{s.Tap != nil, s.Type != nil, s.Swipe != "" || s.From != nil || s.To != nil, s.Key != "", s.Launch != "", s.Assert != nil, s.Part != ""} {
+	for _, set := range []bool{s.Tap != nil, s.Type != nil, s.Swipe != "" || s.From != nil || s.To != nil, s.Key != "", s.Launch != "", s.Assert != nil} {
 		if set {
 			n++
 		}
@@ -357,15 +372,6 @@ func (s Step) validate() error {
 		if s.Optional {
 			return errors.New("an assert cannot be optional")
 		}
-	}
-	if kind == "part" {
-		if !ValidPartID(s.Part) {
-			return fmt.Errorf("part: %q is not a part's id, such as p1a2b3c", s.Part)
-		}
-		if s.Expect != nil {
-			return errors.New("a part brings its own checkpoint; leave expect out")
-		}
-		return nil
 	}
 	if s.Optional && s.Target() == nil {
 		return errors.New("optional needs a step with a target to look for")

@@ -15,6 +15,7 @@ import type {
   FileProblem,
   HistoryPage,
   HostCheck,
+  Library,
   MirrorSize,
   ModelView,
   PINState,
@@ -151,6 +152,14 @@ export const api = {
     post<{ backups: string[] | null; restart: string; opened: string }>(`/api/agent-setup/${enc(id)}/${op}`),
   exemptions: () => get<Exemption[]>('/api/exemptions'),
   removeExemption: (x: Exemption) => post('/api/exemptions/remove', x),
+  library: (signal?: AbortSignal) => get<Library>('/api/library', signal),
+  setNotes: (app: string, text: string) => put<Library>('/api/library/notes', { app, text }),
+  removeFlow: (name: string) => del<Library>(`/api/library/flows/${enc(name)}`),
+  removePart: (id: string) => del<Library>(`/api/library/parts/${enc(id)}`),
+  /** The picture of the screen a part leads to (LibraryPart.shot). */
+  partShotURL: (id: string) => authURL(`/api/library/parts/${enc(id)}/shot`),
+  /** An app's icon; 404 when no phone and no store has it. */
+  appIconURL: (app: string) => authURL(`/api/apps/${enc(app)}/icon`),
   rules: () => get<RulesView>('/api/rules'),
   setRules: (base: Rule[], rules: Rule[]) => put<RulesView>('/api/rules', { base, rules }),
   fileProblems: () => get<FileProblem[]>('/api/file-problems'),

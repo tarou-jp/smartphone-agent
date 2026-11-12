@@ -2,10 +2,11 @@ import { Box, Button, ListItemButton, Stack, Typography, useTheme } from '@mui/m
 import GridViewIcon from '@mui/icons-material/GridViewRounded';
 import HistoryIcon from '@mui/icons-material/HistoryRounded';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
+import FlowsIcon from '@mui/icons-material/AccountTreeOutlined';
 import AddIcon from '@mui/icons-material/AddRounded';
 import StopIcon from '@mui/icons-material/StopCircleOutlined';
 import logo from '@/assets/pinky.svg';
-import { useApp } from '@/state/AppState';
+import { useApp, useHas } from '@/state/AppState';
 import { useT } from '@/i18n';
 import { href, type Route } from '@/lib/router';
 import { statusRank, isRunning } from '@/lib/format';
@@ -64,6 +65,7 @@ export function Sidebar({ route }: { route: Route }) {
   const t = useT();
   const p = useTheme().pinky;
   const { live, run } = useApp();
+  const hasLibrary = useHas('library');
   const devices = [...live.devices].sort(
     (a, b) => statusRank[a.status] - statusRank[b.status] || a.name.localeCompare(b.name),
   );
@@ -115,6 +117,7 @@ export function Sidebar({ route }: { route: Route }) {
       </Box>
       <Box sx={{ px: 1.25, pb: 1.5, pt: 1 }}>
         {nav({ page: 'activity' }, <HistoryIcon />, t('sidebarActivity'), route.page === 'activity')}
+        {hasLibrary && nav({ page: 'flows' }, <FlowsIcon />, t('flowsTitle'), route.page === 'flows')}
         {nav({ page: 'settings' }, <SettingsIcon />, t('sidebarSettings'), route.page === 'settings')}
         <Button
           fullWidth

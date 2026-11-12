@@ -103,8 +103,19 @@ func TestPhoneToolsParts(t *testing.T) {
 	}
 	launch, orders := id("open com.dinely.app"), id(`tap tab "Orders"`)
 	out = p.Call(ctx, "phone_flow_run", map[string]any{"parts": []any{launch, orders}})
-	if !strings.HasPrefix(out, "settled") || !strings.Contains(out, "The 2 parts ran") || !strings.Contains(out, "step 2: ok") || dev.Current() != "orders" {
+	if !strings.HasPrefix(out, "settled") || !strings.Contains(out, "The plan ran") || !strings.Contains(out, "step 2: ok") || dev.Current() != "orders" {
 		t.Fatalf("run (on %s): %s", dev.Current(), out)
+	}
+	// A plan as steps mixes parts with steps of the model's own, as the
+	// model sends them: decoded JSON.
+	p.Call(ctx, "phone_key", map[string]any{"key": "home"})
+	out = p.Call(ctx, "phone_flow_run", map[string]any{"steps": []any{
+		map[string]any{"part": launch},
+		map[string]any{"tap": "Orders"},
+		map[string]any{"assert": map[string]any{"visible": map[string]any{"contains": "Reorder"}}},
+	}})
+	if !strings.HasPrefix(out, "settled") || !strings.Contains(out, "step 3: ok") || dev.Current() != "orders" {
+		t.Fatalf("plan of steps (on %s): %s", dev.Current(), out)
 	}
 	if out = p.Call(ctx, "phone_flow_list", map[string]any{"app": "dinely"}); !strings.Contains(out, orders+" · tap tab") {
 		t.Fatalf("list: %s", out)
