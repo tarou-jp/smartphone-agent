@@ -99,7 +99,7 @@ Each feature is tagged with the milestone that first ships it (see Roadmap). A b
 | Safety | Approve from a notification, a phone push or a chat app | M4 |
 | History | Task timeline: each step in plain language, with before and after screenshots, approvals and, in Developer mode, the tool call; wipe | M1 |
 | History | Continuous recording with step markers; search; HTML report and JSON export; retention limits | M2 |
-| History | Turn a successful task into a flow that replays without a model and hands back to the agent on a mismatch | M4 |
+| History | Turn a successful task into a flow that replays without a model and hands back to the agent on a mismatch ([notes/flows.md](notes/flows.md)) | M4 |
 | History | History as an MCP resource; optional encryption at rest | M4 |
 | Scale | Watch-only access, per-agent device permissions, queueing | M4 |
 | Scale | Run one flow on many devices at once | Later |
@@ -164,7 +164,7 @@ Interaction rules:
 
 ## Agent interface
 
-Agents see one MCP server, `pinky`, with 14 tools. Every action waits for the screen to settle and returns the new screen, or only what changed, so agents rarely call `phone_observe`.
+Agents see one MCP server, `pinky`, with 17 tools. Every action waits for the screen to settle and returns the new screen, or only what changed, so agents rarely call `phone_observe`.
 
 | Tool | Arguments | Returns |
 | --- | --- | --- |
@@ -182,6 +182,9 @@ Agents see one MCP server, `pinky`, with 14 tools. Every action waits for the sc
 | `phone_files` | none | A local folder synced with the phone's `Pinky/` folder (Android only) |
 | `phone_request_approval` | `summary`, `details?` | The person's answer and note; it grants nothing by itself |
 | `phone_handoff` | `reason` | Returns when the person hands control back, with their note |
+| `phone_flow_run` | `flow`, `parts` or `yaml`; `params?`; `from_step?` | Replays a flow, or parts of an app in the order given, without a model: how each step went and the screen at the end, or `mismatch` at the step whose screen was not as expected |
+| `phone_flow_save` | `name`; `description?`; `params?`; or `yaml` | Saves the task's actions so far as a flow, or a flow as given; returns it as YAML |
+| `phone_flow_list` | `name?`; `app?` | The saved flows, one flow's steps, or the parts kept for an app |
 
 Every action tool also takes `device?` (required when the session holds more than one device), `intent?` (one sentence on why, shown on the approval panel and in history) and `approval_id?` (to keep waiting on a pending approval).
 

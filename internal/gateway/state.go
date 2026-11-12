@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/DIYgod/pinky/internal/driver"
+	"github.com/DIYgod/pinky/internal/flow"
 	"github.com/DIYgod/pinky/internal/screen"
 )
 
@@ -232,6 +233,27 @@ type task struct {
 	approvals  int
 	next       int  // the next step index
 	readOnly   bool // the agent asked for read-only (TaskView.ReadOnly)
+	// trace holds the task's actions that ran, as flow steps with
+	// selectors and checkpoints, for phone_flow_save (flow.go). traceGap
+	// is set when steps are missing from it: they ran in an app Pinky
+	// keeps no record of, or the task outgrew a flow.
+	trace    []flow.Step
+	traceGap bool
+	// traceAfter holds, for each step of trace, the screen it led to: the
+	// apps' parts are told apart by where a step leads (flowparts.go).
+	traceAfter []*screen.Screen
+	// partsShown lists the apps whose parts the agent was shown.
+	partsShown map[string]bool
+	// byHand counts the traced actions the agent made itself: outside a
+	// replay, or in a replay it put together from parts.
+	// replayed lists the saved flows the task replayed, true for
+	// those that stopped before their end (flowauto.go).
+	byHand   int
+	replayed map[string]bool
+	// brief is what the person asked for (ConnectRequest.Brief), "" when
+	// the agent did not pass it; a kept flow belongs to it, or to the
+	// task's title.
+	brief string
 }
 
 // maxTaskSteps bounds the steps a running task keeps in memory; history

@@ -1441,18 +1441,31 @@ func (g *Gateway) execute(ctx context.Context, l *lease, c Call, a Action, p *pr
 		g.recordStep(l, step, a, c, p, res, start, before, "", "")
 		return res
 	}
-	settled := g.settle(ctx, d)
-	next, err := g.observe(ctx, d, true)
+	var settled bool
+	var next *screen.Screen
+	if c.until != nil {
+		// A flow step with a checkpoint moves on as soon as the expected
+		// screen shows.
+		next, settled, err = g.awaitScreen(ctx, l, c)
+	} else {
+		settled = g.settle(ctx, d)
+		next, err = g.observe(ctx, d, true)
+	}
 	if err != nil {
 		res := statusResult(StatusUncertain, "The action was sent, but the screen could not be read afterwards (%v). Observe before anything else; do not repeat it blindly.", err)
 		g.recordStep(l, step, a, c, p, res, start, before, "", "")
 		return res
 	}
-	if g.leaves(a, p, from) && stillIn(next, from.App) {
+	if c.until == nil && g.leaves(a, p, from) && stillIn(next, from.App) {
 		next, settled = g.awaitLeave(ctx, d, from.App, next, settled)
 	}
 	res := g.screenResult(l, next, false)
 	res.Status = StatusSettled
+	g.traceStep(l, c, a, p, from, next)
+	if a.Tool == "launch" && c.flow == "" {
+		// What earlier tasks found out about the app the agent opened.
+		res = g.offerParts(res, l, appKey(next))
+	}
 	g.mu.Lock()
 	l.after, l.afterAt = nil, time.Time{}
 	if settled {

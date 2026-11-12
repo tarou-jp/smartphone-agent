@@ -6,6 +6,7 @@
 //	pinky mcp        stdio MCP server for agents; forwards to the gateway
 //	pinky devices    list connected phones
 //	pinky token      print the agent token, for agents that connect over HTTP
+//	pinky flow       replay, list, show and check flows
 //	pinky quit       quit the running Pinky
 //	pinky update     install a newer version of Pinky
 //	pinky version    print the version
@@ -56,6 +57,8 @@ func main() {
 		err = runDecide(args)
 	case "token":
 		err = runToken(args)
+	case "flow":
+		err = runFlow(args)
 	case "quit":
 		err = runQuit(args)
 	case "update":
@@ -102,6 +105,14 @@ Commands:
   companion install [phone]
             install or update the Android companion app
   token     print the agent token, which agents connecting over HTTP send
+  flow run [--param name=value] [--device phone] [--junit file] <name or file.yaml>…
+            replay flows on a phone without a model, through the running
+            Pinky and under its rules; for scripts and CI
+  flow list | show <name> | check <file.yaml>…
+            list the saved flows, print one, or validate flow files
+  flow parts [app]
+            list the apps Pinky keeps parts of, or one app's parts: the
+            single steps agents put together into new tasks
   quit      quit the running Pinky (the app or the daemon)
   update [--check]
             say whether a newer Pinky is out and install it (while Pinky
@@ -109,7 +120,7 @@ Commands:
   version   print the version
 
 Flags:
-  --fake    use scripted fake phones (app, daemon, mcp, devices)
+  --fake    use scripted fake phones (app, daemon, mcp, devices, flow)
   --http addr
             daemon: also serve MCP over HTTP at addr (127.0.0.1:7465)
 

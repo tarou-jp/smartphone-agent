@@ -85,7 +85,7 @@ func TestHTTP(t *testing.T) {
 	// client: the phone is free again.
 	cs := httpClient(t, ts.URL, "secret-token", "codex")
 	tools, err := cs.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 14 {
+	if err != nil || len(tools.Tools) != 17 {
 		t.Fatalf("%d tools, %v", len(tools.Tools), err)
 	}
 	text := callText(t, cs, "phone_connect", map[string]any{"task": "Lunch"})

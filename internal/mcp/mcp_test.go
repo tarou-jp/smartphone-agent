@@ -122,7 +122,8 @@ func TestToolList(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"phone_connect", "phone_release", "phone_observe", "phone_tap", "phone_type", "phone_swipe", "phone_key",
-		"phone_launch", "phone_apps", "phone_batch", "phone_wait_for", "phone_files", "phone_request_approval", "phone_handoff"}
+		"phone_launch", "phone_apps", "phone_batch", "phone_wait_for", "phone_files", "phone_request_approval", "phone_handoff",
+		"phone_flow_run", "phone_flow_save", "phone_flow_list"}
 	got := map[string]*sdk.Tool{}
 	for _, tool := range res.Tools {
 		got[tool.Name] = tool
@@ -340,5 +341,84 @@ func TestStatusLine(t *testing.T) {
 	}
 	if got := StatusLine(&gateway.Result{Status: gateway.StatusNeedsSetup, DeviceName: "iPhone 16", Setup: "trust"}); got != "device_needs_setup · iPhone 16 · setup: trust" {
 		t.Fatal(got)
+	}
+}
+
+// An agent does a routine once, saves it, and replays it in one call.
+func TestFlowTools(t *testing.T) {
+	h := newHarness(t, func(o *gateway.Options) { o.FlowPace = time.Millisecond })
+	c := h.connect(t, "claude-code")
+	text, _ := c.call(t, "phone_connect", map[string]any{"task": "Reorder lunch"})
+	text, _ = c.call(t, "phone_launch", map[string]any{"app": "Dinely"})
+	text, _ = c.call(t, "phone_tap", map[string]any{"ref": refOf(t, text, "Orders")})
+	if firstLine(text) != "settled · Pixel 9" {
+		t.Fatalf("tap: %s", text)
+	}
+	text, isErr := c.call(t, "phone_flow_save", map[string]any{"name": "dinely.orders", "description": "Open Dinely's orders"})
+	if isErr || !strings.Contains(text, "flow: dinely.orders") || !strings.Contains(text, "id: dinely:tab:orders") {
+		t.Fatalf("save: %s", text)
+	}
+	text, _ = c.call(t, "phone_flow_list", nil)
+	if !strings.Contains(text, "dinely.orders · version 1 · 2 steps · com.dinely.app · Open Dinely's orders") {
+		t.Fatalf("list: %s", text)
+	}
+	text, _ = c.call(t, "phone_flow_list", map[string]any{"name": "dinely.orders"})
+	if !strings.Contains(text, "steps:") {
+		t.Fatalf("show: %s", text)
+	}
+	c.call(t, "phone_key", map[string]any{"key": "home"})
+
+	res, err := c.cs.CallTool(context.Background(), &sdk.CallToolParams{Name: "phone_flow_run", Arguments: map[string]any{"flow": "dinely.orders"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text = res.Content[0].(*sdk.TextContent).Text
+	for _, want := range []string{"settled · Pixel 9", "The flow “dinely.orders” (version 1) ran: 2 steps", "step 1: ok · open com.dinely.app", "step 2: ok · tap #dinely:tab:orders", `"Reorder · Chicken rice bowl"`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("run misses %q:\n%s", want, text)
+		}
+	}
+	raw, _ := json.Marshal(res.StructuredContent)
+	var out FlowOutput
+	if err := json.Unmarshal(raw, &out); err != nil || out.Status != "settled" || out.Flow != "dinely.orders" || len(out.Steps) != 2 || out.Steps[1].Status != "ok" {
+		t.Fatalf("structured content: %s (%v)", raw, err)
+	}
+
+	text, isErr = c.call(t, "phone_flow_run", map[string]any{"yaml": "flow: x\ntimeout_ms: 50\nsteps:\n  - tap: Checkout\n"})
+	if isErr || !strings.HasPrefix(text, "mismatch · Pixel 9") || !strings.Contains(text, "step 1: mismatch · tap \"Checkout\"") || !strings.Contains(text, "from_step 1") {
+		t.Fatalf("mismatch: %s", text)
+	}
+	if text, isErr = c.call(t, "phone_flow_run", map[string]any{"flow": "nope"}); !isErr || !strings.HasPrefix(text, "error: not_found") {
+		t.Fatalf("unknown flow: %s", text)
+	}
+}
+
+// The parts of an app reach an agent as lines it can pick ids from, and
+// phone_flow_run takes the ids.
+func TestPartsTools(t *testing.T) {
+	h := newHarness(t, func(o *gateway.Options) { o.FlowPace = time.Millisecond; o.AutoFlows = true })
+	c := h.connect(t, "claude-code")
+	c.call(t, "phone_connect", map[string]any{"task": "Reorder lunch"})
+	text, _ := c.call(t, "phone_launch", map[string]any{"app": "Dinely"})
+	c.call(t, "phone_tap", map[string]any{"ref": refOf(t, text, "Orders")})
+	c.call(t, "phone_key", map[string]any{"key": "home"})
+	c.call(t, "phone_release", map[string]any{"outcome": "failed"})
+
+	text, _ = c.call(t, "phone_connect", map[string]any{"task": "Show my orders", "apps": []string{"Dinely"}})
+	re := regexp.MustCompile(`(?m)^(p[0-9a-f]{6}) · (open com\.dinely\.app → app com\.dinely\.app|tap tab "Orders" #dinely:tab:orders → .* · after p[0-9a-f]{6})$`)
+	ids := re.FindAllStringSubmatch(text, -1)
+	if len(ids) != 2 || !strings.Contains(text, "parts of com.dinely.app:") || strings.Contains(text, "press home") {
+		t.Fatalf("connect: %v\n%s", ids, text)
+	}
+	text, isErr := c.call(t, "phone_flow_run", map[string]any{"parts": []string{ids[0][1], ids[1][1]}})
+	if isErr || !strings.HasPrefix(text, "settled · Pixel 9") || !strings.Contains(text, "The 2 parts ran") || !strings.Contains(text, "step 2: ok · tap #dinely:tab:orders") {
+		t.Fatalf("run: %s", text)
+	}
+	if text, isErr = c.call(t, "phone_flow_run", map[string]any{"parts": []string{"pffffff"}}); !isErr || !strings.Contains(text, "pffffff") {
+		t.Fatalf("an unknown part: %s", text)
+	}
+	text, _ = c.call(t, "phone_flow_list", map[string]any{"app": "com.dinely.app"})
+	if !strings.Contains(text, "2 parts of com.dinely.app") || !strings.Contains(text, ids[1][1]) {
+		t.Fatalf("list: %s", text)
 	}
 }

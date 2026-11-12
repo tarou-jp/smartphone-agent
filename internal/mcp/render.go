@@ -101,6 +101,43 @@ func writeResult(b *strings.Builder, res *gateway.Result, indent string) {
 	if len(res.Steps) > 0 {
 		return
 	}
+	if res.Flow != nil {
+		for _, st := range res.Flow.Steps {
+			l := fmt.Sprintf("step %d: %s · %s · %d ms", st.Index, st.Status, st.Text, st.Elapsed.Milliseconds())
+			if st.Detail != "" && st.Status == gateway.FlowStepOK {
+				l += " · " + st.Detail
+			}
+			line(l)
+		}
+	}
+	for _, f := range res.Flows {
+		l := fmt.Sprintf("%s · version %d · %d steps", f.Name, f.Version, f.Steps)
+		if f.App != "" {
+			l += " · " + f.App
+		}
+		if len(f.Params) > 0 {
+			l += " · params: " + strings.Join(f.Params, ", ")
+		}
+		if f.Description != "" {
+			l += " · " + f.Description
+		}
+		line(l)
+	}
+	app := ""
+	for _, p := range res.Parts {
+		if p.App != app {
+			app = p.App
+			line("parts of " + app + ":")
+		}
+		l := p.ID + " · " + p.Text
+		if len(p.After) > 0 {
+			l += " · after " + strings.Join(p.After, ", ")
+		}
+		line(l)
+	}
+	if res.FlowYAML != "" {
+		line(strings.TrimRight(res.FlowYAML, "\n"))
+	}
 	if res.Folder != "" {
 		line("folder: " + res.Folder)
 		for _, f := range res.Files {
