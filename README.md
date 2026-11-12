@@ -143,6 +143,18 @@ No phone at hand? Quit Pinky and start it with two scripted demo phones (a payme
 - **Locked phones:** Pinky never keeps a phone awake. It wakes the screen before a step; save the phone's PIN in Settings › Phones to unlock it from the computer with Touch ID. Agents never see the PIN. On Android this is checked on AOSP-style lock screens (LineageOS on a Mi 10 Pro, the Android 10, 16 and 17 emulators); the lock screens of Xiaomi, Samsung, OPPO, OnePlus, vivo, Honor and Huawei are only covered by tests made from what is known of them, and where Pinky cannot read the PIN pad with confidence it enters nothing ([details](docs/notes/integration.md#unlocking-other-android-phones)).
 - **Removing a phone:** **Remove this phone…** in the phone's ⋯ menu (also on its page while it is offline, on its tile in All phones, in its right-click menu in the sidebar and in Settings › Phones) takes it off the list and deletes its saved PIN and its settings. Its tasks, screenshots and recordings stay in Activity unless you tick the box to delete them too, and a task running on it stops. A phone on a cable comes back at once, as a new phone, until you unplug it. A phone on Wi-Fi is disconnected and stays off the list, even when adb connects it again by itself; to add it back, pair it again in Add phone or plug it in. Pinky does not unpair the phone from your computer: its USB or wireless debugging pairing, or the iPhone's trust, stays for other apps ([details](docs/notes/gateway.md#removing-a-phone)).
 
+### Flows
+
+A flow is a routine that worked once, saved so that it runs again without a model: your agent finds its way through an app, saves the steps, and the next time Pinky replays them in one call, about as fast as the phone allows. That is what makes repeated work, such as automated tests on a real phone, practical: the model is paid for what is new, not for every tap.
+
+- **Nothing to learn:** give your agent the same task again, in your own words. When a task ends well, Pinky keeps its steps by itself, each with a way to find its target again (the element's id, then its role and label) and the screen the step led to; when an agent starts a task, Pinky tells it which flows there are, and the agent replays the one that fits.
+- **New tasks from known steps:** Pinky also keeps every step that worked as a part of its app, with the screen it led to. Give your agent a task it never did in an app it has been in, and it puts the task together from those parts and runs them in one call, instead of finding its way one tap at a time.
+- **Replaying:** each step waits for its target and for the screen the flow expects. When the app does not look as expected, the replay stops and hands the screen to the agent, which goes on by hand; the steps that worked this time become the flow's next version, so a flow follows the app as it changes.
+- **Same rules:** a flow grants nothing. Every step goes through your rules and approvals as if the agent had made it, and shows in Activity; payments still ask, and passwords are never typed.
+- **Without an agent:** `pinkyctl flow run [--param name=value] [--junit report.xml] <name or file.yaml>…` replays flows from a script or CI through the running Pinky, `pinkyctl flow check` validates flow files, and `pinkyctl flow parts [app]` lists the parts Pinky keeps.
+
+Flows are YAML files in Pinky's data folder (`flows/`, with the apps' parts in `flows/parts/`), which you can read, edit and keep in a repository. So far they are checked mostly on Pinky's scripted demo phones: replaying a whole task was tried on one real iPhone with one app (58 s by hand, 24 s replayed), and parts not yet on a real phone. Format and design: [docs/notes/flows.md](docs/notes/flows.md); tools: [docs/mcp.md](docs/mcp.md#phone_flow_run).
+
 ### Updates
 
 Pinky looks for a new version at launch and every few hours, and shows a card with what changed, **Update now** and **Later**. With Settings › Advanced › **Update automatically** (on by default) it installs it by itself once no agent is working and nobody has used Pinky for ten minutes, and it updates Pinky Companion on Android phones that are free; its accessibility service stays off until the next task. A Pinky Companion signed with the public key that its builds had until 8 November 2026 is uninstalled and installed again, signed with Pinky's private key, and Pinky tells you; on a phone that asks before installing apps over USB, the phone's page says why and waits for your **Update**. After an update, **What's new** lists the changes since the version you had (from [CHANGELOG.md](CHANGELOG.md)).
@@ -295,6 +307,7 @@ internal/screen/              the screen format agents read
 internal/driver/              driver interfaces; android/ and ios/ implement them
 internal/gateway/             sessions, leases, the action pipeline, the client API
 internal/policy/, approval/   rules and approvals
+internal/flow/                flows: steps that replay without a model
 internal/history/             task history (SQLite)
 internal/mcp/                 the MCP server
 internal/api/                 the local socket for agents and clients
@@ -317,7 +330,7 @@ docs/                         design, agent guide, MCP reference and notes
 - [Agent guide (SKILL.md)](docs/SKILL.md) and [MCP reference](docs/mcp.md)
 - [Working on Pinky](docs/WORKING.md)
 - [Usage statistics, crash reports and feedback](docs/TELEMETRY.md)
-- Notes: [integration](docs/notes/integration.md), [gateway](docs/notes/gateway.md), [Android](docs/notes/android.md), [companion](docs/notes/companion.md), [iOS](docs/notes/ios.md), [client](docs/notes/client.md), [updates](docs/notes/updates.md), [telemetry](docs/notes/telemetry.md)
+- Notes: [integration](docs/notes/integration.md), [gateway](docs/notes/gateway.md), [Android](docs/notes/android.md), [companion](docs/notes/companion.md), [iOS](docs/notes/ios.md), [client](docs/notes/client.md), [updates](docs/notes/updates.md), [telemetry](docs/notes/telemetry.md), [flows](docs/notes/flows.md)
 - [Changelog](CHANGELOG.md)
 
 ## Community

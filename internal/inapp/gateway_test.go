@@ -22,6 +22,12 @@ import (
 // make one.
 func testGateway(t *testing.T, devs ...*demo.Device) *gateway.Gateway {
 	t.Helper()
+	return testGatewayWith(t, nil, devs...)
+}
+
+// testGatewayWith is testGateway with its options changed by opt.
+func testGatewayWith(t *testing.T, opt func(*gateway.Options), devs ...*demo.Device) *gateway.Gateway {
+	t.Helper()
 	pol := policy.Default()
 	for cat, e := range demo.PolicyApps() {
 		pol.AddApps(cat, e)
@@ -30,13 +36,17 @@ func testGateway(t *testing.T, devs ...*demo.Device) *gateway.Gateway {
 	for _, d := range devs {
 		providers = append(providers, demo.NewProvider(driver.Android, d))
 	}
-	g, err := gateway.New(gateway.Options{
+	o := gateway.Options{
 		Providers: providers, Policy: pol, TrustNewAgents: true, DataDir: t.TempDir(),
 		// A short block per call: the loop must wait for the person over
 		// several calls.
 		ApprovalTimeout: 10 * time.Second, MaxBlock: 300 * time.Millisecond,
 		SettleMax: 200 * time.Millisecond, PollInterval: 5 * time.Millisecond, DiscoverEvery: 20 * time.Millisecond, NoScreenshots: true,
-	})
+	}
+	if opt != nil {
+		opt(&o)
+	}
+	g, err := gateway.New(o)
 	if err != nil {
 		t.Fatal(err)
 	}

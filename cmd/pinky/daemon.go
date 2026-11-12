@@ -165,6 +165,8 @@ func startGateway(c gatewayConfig) (*runningGateway, error) {
 		// and socket clients may answer approvals (for scripted tests).
 		TrustNewAgents: c.Fake,
 		PIN:            c.PIN,
+		// Tasks that worked replay the next time without a model.
+		AutoFlows: true,
 	})
 	if err != nil {
 		ln.Close()

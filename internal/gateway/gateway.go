@@ -13,6 +13,7 @@ import (
 
 	"github.com/DIYgod/pinky/internal/approval"
 	"github.com/DIYgod/pinky/internal/driver"
+	"github.com/DIYgod/pinky/internal/flow"
 	"github.com/DIYgod/pinky/internal/history"
 	"github.com/DIYgod/pinky/internal/policy"
 )
@@ -40,6 +41,14 @@ type Options struct {
 	// RulesEvery is how often the policy's files are checked for hand
 	// edits (policy.Engine.Refresh); default 2 s.
 	RulesEvery time.Duration
+	// FlowPace is the least time between two actions of a flow replay, so
+	// that a replay does not drive a phone faster than a quick person
+	// would; default 300 ms.
+	FlowPace time.Duration
+	// AutoFlows keeps the steps of every task an agent finishes with
+	// outcome done as a flow, by itself, so that the same task replays
+	// the next time without anyone saving or naming anything (flowauto.go).
+	AutoFlows bool
 
 	// NoScreenshots skips the before and after screenshots of each step.
 	NoScreenshots bool
@@ -72,6 +81,7 @@ func (o *Options) defaults() {
 	set(&o.PollInterval, 250*time.Millisecond)
 	set(&o.DiscoverEvery, 2*time.Second)
 	set(&o.RulesEvery, 2*time.Second)
+	set(&o.FlowPace, 300*time.Millisecond)
 	if o.DefaultScope.Mode == "" {
 		o.DefaultScope = Scope{Mode: ScopeEverything}
 	}
@@ -89,6 +99,7 @@ type Gateway struct {
 	store     *history.Store // nil without DataDir
 	approvals *approval.Center
 	rec       *recorder
+	flows     *flow.Store // in DataDir/flows, or in memory without DataDir
 
 	mu       sync.Mutex
 	devices  map[string]*device
@@ -144,6 +155,10 @@ func New(o Options) (*Gateway, error) {
 	}
 	if g.policy == nil {
 		g.policy = policy.Default()
+	}
+	g.flows = flow.NewStore("")
+	if o.DataDir != "" {
+		g.flows = flow.NewStore(filepath.Join(filepath.Clean(o.DataDir), "flows"))
 	}
 	if o.DataDir != "" {
 		st, err := history.Open(filepath.Clean(o.DataDir))

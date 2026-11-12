@@ -274,7 +274,7 @@ func runLoop(ctx context.Context, cfg loopConfig, onEvent func(AgentEvent)) Agen
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			args := map[string]any{"device": d.ID, "task": task}
+			args := map[string]any{"device": d.ID, "task": task, "brief": cfg.Prompt}
 			id := ev.start("", "phone_connect", args)
 			out := cfg.phones.call(ctx, "phone_connect", args, func(s string) { ev.send(AgentEvent{Kind: "tool_progress", ID: id, Device: d.ID, Text: s}) })
 			ev.end(id, "phone_connect", out)

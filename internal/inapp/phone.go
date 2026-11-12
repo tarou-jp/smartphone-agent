@@ -34,9 +34,9 @@ func (p *PhoneTools) call(ctx context.Context, tool string, args map[string]any,
 	var fn gwCall
 	switch tool {
 	case "phone_connect":
-		task, apps, ro := str(args, "task"), strSlice(args, "apps"), boolArg(args, "read_only")
+		task, apps, ro, brief := str(args, "task"), strSlice(args, "apps"), boolArg(args, "read_only"), str(args, "brief")
 		fn = func(ctx context.Context, c gateway.Call) *gateway.Result {
-			return p.Sess.Connect(ctx, gateway.ConnectRequest{Call: c, Task: task, Apps: apps, ReadOnly: ro})
+			return p.Sess.Connect(ctx, gateway.ConnectRequest{Call: c, Task: task, Apps: apps, ReadOnly: ro, Brief: brief})
 		}
 	case "phone_release":
 		out, sum := str(args, "outcome"), str(args, "summary")
@@ -99,6 +99,30 @@ func (p *PhoneTools) call(ctx context.Context, tool string, args map[string]any,
 		timeout := intArg(args, "timeout_ms")
 		fn = func(ctx context.Context, c gateway.Call) *gateway.Result {
 			return p.Sess.WaitFor(ctx, gateway.WaitForRequest{Call: c, Text: text, Gone: gone, TimeoutMS: timeout})
+		}
+	case "phone_flow_run":
+		name, src, params, from := str(args, "flow"), str(args, "yaml"), strMap(args, "params"), intArg(args, "from_step")
+		parts := strSlice(args, "parts")
+		fn = func(ctx context.Context, c gateway.Call) *gateway.Result {
+			req := gateway.FlowRequest{Call: c, Name: name, YAML: src, Parts: parts, Params: params, FromStep: from}
+			res := p.Sess.RunFlow(ctx, req)
+			// callPending repeats the call with the approval's id: the
+			// replay then goes on at the step that waits.
+			if res != nil && res.Status == gateway.StatusPending && res.Flow != nil && len(res.Flow.Steps) > 0 {
+				from = res.Flow.Steps[len(res.Flow.Steps)-1].Index
+			}
+			return res
+		}
+	case "phone_flow_save":
+		req := gateway.FlowSaveRequest{Name: str(args, "name"), Description: str(args, "description"), YAML: str(args, "yaml"), Params: strMap(args, "params")}
+		fn = func(ctx context.Context, c gateway.Call) *gateway.Result {
+			req.Call = c
+			return p.Sess.SaveFlow(ctx, req)
+		}
+	case "phone_flow_list":
+		name, app := str(args, "name"), str(args, "app")
+		fn = func(ctx context.Context, c gateway.Call) *gateway.Result {
+			return p.Sess.ListFlows(ctx, gateway.FlowListRequest{Call: c, Name: name, App: app})
 		}
 	default:
 		return fmt.Sprintf("error: invalid_argument · unknown tool %q", tool)
@@ -200,6 +224,19 @@ func strSlice(m map[string]any, k string) []string {
 	default:
 		return nil
 	}
+}
+
+// strMap reads an object of strings, as phone_flow_run's params.
+func strMap(m map[string]any, k string) map[string]string {
+	sub, ok := m[k].(map[string]any)
+	if !ok || len(sub) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(sub))
+	for name := range sub {
+		out[name] = str(sub, name)
+	}
+	return out
 }
 
 func xy(m map[string]any) (int, int, bool) {

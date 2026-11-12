@@ -7,6 +7,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/DIYgod/pinky/internal/flow"
 	"github.com/DIYgod/pinky/internal/gateway"
 	"github.com/DIYgod/pinky/internal/screen"
 )
@@ -39,7 +40,8 @@ type connectIn struct {
 	Task   string   `json:"task" jsonschema:"One line naming the task, shown to the person, e.g. Reorder last week's lunch."`
 	Apps   []string `json:"apps,omitempty" jsonschema:"Optional: the only apps this task needs, by name or id. Pinky then refuses to launch other apps and asks the person before typing into them."`
 	// ReadOnly lets an agent ask for less than the person gave it.
-	ReadOnly bool `json:"read_only,omitempty" jsonschema:"Run this task read-only, for tasks that only look: you may open apps, read and search, but anything the person's rules would ask about is refused, and typing works only in search fields. A new agent's approval card then offers read-only access."`
+	Brief    string `json:"brief,omitempty" jsonschema:"What the person asked for, in their own words, as they wrote it. Pinky knows a task that ran before by it and then says which saved flow replays it, so pass it whenever the person gave you a task."`
+	ReadOnly bool   `json:"read_only,omitempty" jsonschema:"Run this task read-only, for tasks that only look: you may open apps, read and search, but anything the person's rules would ask about is refused, and typing works only in search fields. A new agent's approval card then offers read-only access."`
 }
 
 type releaseIn struct {
@@ -147,6 +149,31 @@ type handoffIn struct {
 	ApprovalID string `json:"approval_id,omitempty" jsonschema:"From an approval_pending result: repeat the call with this id to keep waiting."`
 }
 
+type flowRunIn struct {
+	Device     string            `json:"device,omitempty" jsonschema:"The phone, by device id or name. Required when this session holds more than one phone."`
+	Flow       string            `json:"flow,omitempty" jsonschema:"The name of a saved flow, as phone_flow_list shows it."`
+	Parts      []string          `json:"parts,omitempty" jsonschema:"Instead of flow: the ids of parts to run, in order, such as [\"p1a2b3c\", \"p4d5e6f\"]. Parts are single steps Pinky kept from earlier tasks, each with the screen it leads to; phone_connect and phone_launch list them."`
+	YAML       string            `json:"yaml,omitempty" jsonschema:"Instead of flow: a flow to run without saving it, in the format phone_flow_save returns. A step may name a part: \"- part: p1a2b3c\"."`
+	Params     map[string]string `json:"params,omitempty" jsonschema:"Values for the flow's parameters, by name."`
+	FromStep   int               `json:"from_step,omitempty" jsonschema:"Start at this step, counted from 1: to go on after a mismatch you fixed by hand, or with approval_id."`
+	Intent     string            `json:"intent,omitempty" jsonschema:"Why, shown to the person on approval panels for steps without their own intent."`
+	ApprovalID string            `json:"approval_id,omitempty" jsonschema:"From an approval_pending result: repeat the call with from_step set to the step that waits, and this id."`
+}
+
+type flowSaveIn struct {
+	Device      string            `json:"device,omitempty" jsonschema:"The phone, by device id or name. Required when this session holds more than one phone."`
+	Name        string            `json:"name,omitempty" jsonschema:"The flow's name: lower-case letters, digits, dots and dashes, such as settings.open-display. Saving under a name that exists replaces that flow as its next version."`
+	Description string            `json:"description,omitempty" jsonschema:"One line on what the flow does and where it starts and ends, for whoever picks it from the list."`
+	YAML        string            `json:"yaml,omitempty" jsonschema:"A flow to save as it is: one you corrected or wrote. Without it, the flow is made of the actions this task ran so far."`
+	Params      map[string]string `json:"params,omitempty" jsonschema:"Text this task typed that the flow should take as a parameter: name to the text as typed."`
+}
+
+type flowListIn struct {
+	Device string `json:"device,omitempty" jsonschema:"The phone, by device id or name. Required when this session holds more than one phone."`
+	Name   string `json:"name,omitempty" jsonschema:"Show this flow's steps instead of the list."`
+	App    string `json:"app,omitempty" jsonschema:"List the parts kept for this app instead, by its id or name: single steps that worked before, to run with phone_flow_run's parts."`
+}
+
 // schema derives the input schema of T and lets patch add enums and limits.
 func schema[T any](patch func(props map[string]*jsonschema.Schema)) *jsonschema.Schema {
 	s, err := jsonschema.For[T](nil)
@@ -209,16 +236,21 @@ func (s *Server) addTools(srv *sdk.Server, remote bool) {
 		Description: "Start a task on a phone: leases the phone to this session and returns its first screen. " +
 			"The task name shows in Pinky, so the person knows what you are doing. The first connection of a new agent waits for the person's approval (approval_pending; repeat with approval_id). " +
 			"Another session's phone returns lease_held. A phone that waits for the person to do a step before Pinky can use it (trust this computer, allow USB debugging, Developer Mode) " +
-			"returns device_needs_setup with the step: ask the person with phone_handoff. Call phone_release when done.",
+			"returns device_needs_setup with the step: ask the person with phone_handoff. Call phone_release when done. " +
+			"The result also lists the flows kept from earlier tasks: when one of them is this task, replay it with phone_flow_run instead of doing its steps by hand. " +
+			"When none is, it lists the parts Pinky knows of the task's apps, single steps with the screen each leads to: run the ones the task needs in one phone_flow_run call (parts) rather than step by step. " +
+			"Pass brief, the person's request in their own words, so that a task that ran before is recognized.",
 		InputSchema: schema[connectIn](nil), Annotations: &sdk.ToolAnnotations{OpenWorldHint: boolp(false)}},
 		func(ctx context.Context, req *sdk.CallToolRequest, in connectIn) (*sdk.CallToolResult, any, error) {
 			return render(s.session(req, remote).Connect(ctx, gateway.ConnectRequest{
 				Call: gateway.Call{Device: strings.TrimSpace(in.Device), Progress: progress(ctx, req)},
-				Task: in.Task, Apps: in.Apps, ReadOnly: in.ReadOnly})), nil, nil
+				Task: in.Task, Apps: in.Apps, ReadOnly: in.ReadOnly, Brief: in.Brief})), nil, nil
 		})
 
 	sdk.AddTool(srv, &sdk.Tool{Name: "phone_release", Title: "Release the phone",
-		Description: "End the task and free the phone, with how it went. Without device, releases every phone this session holds.",
+		Description: "End the task and free the phone, with how it went. Without device, releases every phone this session holds. " +
+			"With outcome done, Pinky keeps the task's steps as a flow, so that the same task replays the next time: say done only when the task did what was asked. " +
+			"Whatever the outcome, the steps that ran are kept as parts of their apps, for other tasks to put together.",
 		InputSchema: schema[releaseIn](func(p map[string]*jsonschema.Schema) { enum(p["outcome"], outcomes...) }),
 		Annotations: &sdk.ToolAnnotations{IdempotentHint: true, OpenWorldHint: boolp(false)}},
 		func(ctx context.Context, req *sdk.CallToolRequest, in releaseIn) (*sdk.CallToolResult, any, error) {
@@ -359,6 +391,44 @@ func (s *Server) addTools(srv *sdk.Server, remote bool) {
 			return render(s.session(req, remote).Handoff(ctx, gateway.HandoffRequest{
 				Call:   gateway.Call{Device: strings.TrimSpace(in.Device), ApprovalID: strings.TrimSpace(in.ApprovalID), Progress: progress(ctx, req)},
 				Reason: in.Reason})), nil, nil
+		})
+
+	sdk.AddTool(srv, &sdk.Tool{Name: "phone_flow_run", Title: "Replay a flow",
+		Description: "Replay a saved flow: steps that worked before, run again in one call without choosing refs, much faster than step by step. " +
+			"phone_connect lists the flows; use one whenever it does what the task needs, without the person asking. Each step finds its target by selector and waits for the screen the flow expects; " +
+			"the person's rules and approvals apply to every step as usual. Returns how each step went and the whole screen at the end. " +
+			"mismatch means the screen was not what the flow expects at that step: the result shows the screen; do that step by hand, then call again with from_step. " +
+			"approval_pending: call again with from_step and approval_id. " +
+			"For a task no flow covers, pass parts instead of flow: the ids of the app's parts the task needs, in order. They run the same way, in one call, and from_step counts in that list.",
+		InputSchema: schema[flowRunIn](func(p map[string]*jsonschema.Schema) { bounds(p["from_step"], 1, flow.MaxSteps) }), Annotations: acting},
+		func(ctx context.Context, req *sdk.CallToolRequest, in flowRunIn) (*sdk.CallToolResult, any, error) {
+			res := s.session(req, remote).RunFlow(ctx, gateway.FlowRequest{
+				Call: gateway.Call{Device: strings.TrimSpace(in.Device), Intent: strings.TrimSpace(in.Intent),
+					ApprovalID: strings.TrimSpace(in.ApprovalID), Progress: progress(ctx, req)},
+				Name: in.Flow, Parts: in.Parts, YAML: in.YAML, Params: in.Params, FromStep: in.FromStep})
+			out := render(res)
+			// Scripts and CI read how each step went without parsing text.
+			out.StructuredContent = FlowOutputOf(res)
+			return out, nil, nil
+		})
+
+	sdk.AddTool(srv, &sdk.Tool{Name: "phone_flow_save", Title: "Save a flow",
+		Description: "Save the actions this task ran so far as a flow under a name of your choice, or a flow you wrote or corrected (yaml). " +
+			"You rarely need it: Pinky keeps a task's steps by itself when the task ends with outcome done. Use it for a part of a task that is worth a flow of its own, or to fix a flow. Returns the flow as YAML. " +
+			"A flow grants nothing: its steps ask the person as yours do.",
+		InputSchema: schema[flowSaveIn](nil), Annotations: &sdk.ToolAnnotations{DestructiveHint: boolp(false), IdempotentHint: true, OpenWorldHint: boolp(false)}},
+		func(ctx context.Context, req *sdk.CallToolRequest, in flowSaveIn) (*sdk.CallToolResult, any, error) {
+			return render(s.session(req, remote).SaveFlow(ctx, gateway.FlowSaveRequest{
+				Call: gateway.Call{Device: strings.TrimSpace(in.Device)},
+				Name: in.Name, Description: in.Description, YAML: in.YAML, Params: in.Params})), nil, nil
+		})
+
+	sdk.AddTool(srv, &sdk.Tool{Name: "phone_flow_list", Title: "List flows",
+		Description: "List the saved flows with what they do and the parameters they take, show one flow's steps (name), or list the parts kept for an app (app).",
+		InputSchema: schema[flowListIn](nil), Annotations: readOnly},
+		func(ctx context.Context, req *sdk.CallToolRequest, in flowListIn) (*sdk.CallToolResult, any, error) {
+			return render(s.session(req, remote).ListFlows(ctx, gateway.FlowListRequest{
+				Call: gateway.Call{Device: strings.TrimSpace(in.Device)}, Name: in.Name, App: in.App})), nil, nil
 		})
 }
 

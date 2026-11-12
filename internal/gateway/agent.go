@@ -13,6 +13,7 @@ import (
 
 	"github.com/DIYgod/pinky/internal/approval"
 	"github.com/DIYgod/pinky/internal/driver"
+	"github.com/DIYgod/pinky/internal/flow"
 	"github.com/DIYgod/pinky/internal/history"
 	"github.com/DIYgod/pinky/internal/screen"
 )
@@ -47,6 +48,10 @@ const (
 	// computer, allow USB debugging, Developer Mode, …); Result.Setup names
 	// the step and the message says what to do. The lease waits with it.
 	StatusNeedsSetup Status = "device_needs_setup"
+	// StatusMismatch: a flow replay met a screen it did not expect (a
+	// step's target is not there, or its checkpoint does not hold) and
+	// stopped; the result says at which step and shows the screen.
+	StatusMismatch Status = "mismatch"
 )
 
 // ErrorCode is an error a call returns instead of a status.
@@ -92,6 +97,10 @@ type Result struct {
 	Task       string    // phone_connect: the task id
 	Folder     string    // phone_files: the folder on the computer
 	Files      []FileView
+	Flow       *FlowReport // phone_flow_run: what ran, step by step
+	Flows      []FlowInfo  // phone_flow_list
+	FlowYAML   string      // phone_flow_save, and phone_flow_list of one flow
+	Parts      []PartInfo  // the parts of apps: phone_connect, phone_launch, phone_flow_list
 }
 
 // IsError reports whether the result is an error rather than a status.
@@ -117,6 +126,17 @@ type Call struct {
 
 	// reuse lets a batch step start from the previous step's read.
 	reuse bool
+	// until is a flow step's checkpoint: after the action, the pipeline
+	// waits for a screen it holds on, for untilMax at most, instead of
+	// waiting for the screen to settle. untilOCR reads with OCR as well.
+	// flow names the replay a step belongs to, "" for a step the agent
+	// made itself; own is set when the agent put the replay together
+	// from parts rather than running a flow somebody has already.
+	flow     string
+	own      bool
+	until    func(*screen.Screen) bool
+	untilMax time.Duration
+	untilOCR bool
 }
 
 // reuseAge is how old the previous step's read may be for the next batch
@@ -133,6 +153,10 @@ type ConnectRequest struct {
 	// ReadOnly runs the task read-only, whatever the agent's scope: the
 	// agent can ask for less than the person gave it, never more.
 	ReadOnly bool
+	// Brief is what the person asked for, in their words. Pinky knows a
+	// task that ran before by it, rather than by the task's name, which
+	// is short and may be the same for two requests (flowauto.go).
+	Brief string
 }
 
 // ReleaseRequest is phone_release.
@@ -466,6 +490,7 @@ func (s *Session) Connect(ctx context.Context, req ConnectRequest) *Result {
 	}
 	l := g.newLeaseLocked(s, d, title, req.Apps)
 	l.readOnly, l.task.readOnly = req.ReadOnly, req.ReadOnly
+	l.task.brief = taskKey(req.Brief)
 	l.inflight++
 	g.mu.Unlock()
 	defer s.done(l)
@@ -484,7 +509,7 @@ func (s *Session) Connect(ctx context.Context, req ConnectRequest) *Result {
 	g.addStep(l, StepView{Tool: "phone_connect", Args: argsJSON(args), Text: text, Status: string(StatusSettled), At: time.Now()})
 	g.emit(Event{Kind: EventTasks, DeviceID: d.id, TaskID: l.task.id})
 	g.emit(Event{Kind: EventDevices, DeviceID: d.id})
-	return readOnlyNote(withUnknownApps(g.firstScreen(ctx, l), unknown), req.ReadOnly)
+	return readOnlyNote(withUnknownApps(g.offerFlows(g.firstScreen(ctx, l), l), unknown), req.ReadOnly)
 }
 
 // waitingLocked reports whether a phone is connected but not open because
@@ -850,6 +875,16 @@ func (s *Session) Release(ctx context.Context, req ReleaseRequest) *Result {
 	if outcome == "canceled" {
 		outcome = "cancelled"
 	}
+	// A task that worked leaves its steps behind as a flow (flowauto.go).
+	var kept map[*lease]*flow.Flow
+	if outcome == OutcomeDone && g.opt.AutoFlows {
+		kept = s.keepFlows(req.Device)
+	}
+	// Whatever the outcome, each step that ran says where it leads: the
+	// apps' parts learn from it (flowparts.go).
+	if g.opt.AutoFlows {
+		s.keepParts(req.Device)
+	}
 	g.mu.Lock()
 	var ls []*lease
 	if req.Device != "" {
@@ -867,6 +902,11 @@ func (s *Session) Release(ctx context.Context, req ReleaseRequest) *Result {
 	var names []string
 	for _, l := range ls {
 		names = append(names, l.dev.name())
+		if f := kept[l]; f != nil {
+			g.addStepLocked(l.task, StepView{Tool: "phone_flow_save", Args: argsJSON(map[string]any{"name": f.Name, "version": f.Version}),
+				Text:   fmt.Sprintf("Kept these steps as the flow “%s” (version %d), to replay the next time", f.Name, f.Version),
+				Status: string(StatusSettled), At: time.Now()}, "", "")
+		}
 		g.addStepLocked(l.task, StepView{Tool: "phone_release", Args: argsJSON(map[string]any{"outcome": outcome, "summary": req.Summary}),
 			Text: "Finished: " + outcome, Status: string(StatusSettled), At: time.Now()}, "", "")
 		g.endLeaseLocked(l, outcome, req.Summary)
@@ -877,6 +917,12 @@ func (s *Session) Release(ctx context.Context, req ReleaseRequest) *Result {
 	}
 	sort.Strings(names)
 	res := &Result{Status: StatusSettled, Message: fmt.Sprintf("Released %s.", strings.Join(names, ", "))}
+	for _, l := range ls {
+		if f := kept[l]; f != nil {
+			res.Message += fmt.Sprintf(" Pinky kept the task's steps as the flow “%s” (version %d, %s): when this task comes up again, phone_connect offers it and phone_flow_run replays it.",
+				f.Name, f.Version, plural(len(f.Steps), "step"))
+		}
+	}
 	if len(ls) == 1 {
 		res.Device, res.DeviceName = ls[0].dev.id, ls[0].dev.name()
 	}

@@ -50,6 +50,7 @@ The first line of every result is its status (or `error: <code>`), with details 
 | `device_locked` | The phone is locked | `phone_handoff { reason: "Please unlock the phone" }` |
 | `device_needs_setup` | The phone is connected but waits for the person to do a step first, such as trusting this computer, allowing USB debugging, turning on Developer Mode or entering the passcode; `setup` and the message say which. Nothing happened | `phone_handoff` asking for that step: it returns with the screen once the phone is ready. For `setup: preparing`, wait a few seconds and `phone_observe`; for `setup: update`, tell the person and end the task |
 | `stopped` | The person pressed Stop; your lease is gone | End the task. Do not reconnect |
+| `mismatch` | A flow replay (`phone_flow_run`) met a screen it did not expect at one step and stopped there; the result shows the screen | Do that step by hand, then `phone_flow_run` again with `from_step` (see Flows) |
 
 Errors: `device_offline` (wait, it may come back within a minute), `lease_held` (another agent uses that phone; the result says who), `scope_denied` (an app outside your scope or the task's list), `not_found` (the ref is gone; read the screen again), `unsupported` (this phone cannot do it, e.g. `recents` on iPhone), `invalid_argument` (fix the call).
 
@@ -70,6 +71,51 @@ Payments wait for the person: paying, buying, selling, swapping, trading, repayi
 - The id works once, only for that exact call. While an approval is open the phone takes no other action; `phone_observe` and `phone_wait_for` still work.
 - You cannot approve anything. `phone_request_approval` asks the person a question and returns their answer, but grants nothing: a later Pay still asks.
 - The person may always allow a kind of step in one app ("Always allow payments in Dinely"). Such a step runs at once, and its result says `No approval needed: the person always allows "Payments" in Dinely.` They did not see it first, so tell them what you did. Everything else still asks.
+
+## Flows
+
+Pinky remembers what worked. When you end a task with `phone_release { outcome: "done" }`, it keeps the task's steps as a flow by itself, and the next `phone_connect` lists the flows there are. A flow replays in one call, about as fast as the phone allows, without you choosing each step. The person does not ask for any of this and need not know the tools: **when a flow does what the task needs, use it.**
+
+```text
+→ phone_connect { task: "Check every tab of CVERSE", brief: "Open CVERSE and check that every tab shows its screen" }
+← settled · Connected to … for “Check every tab of CVERSE”. This task ran before: the flow “cverse.check-every-tab-of-cver-3fa2b1” holds its steps. Replay it with phone_flow_run …
+  cverse.check-every-tab-of-cver-3fa2b1 · version 2 · 6 steps · jp.co.gosh.cverse · Check every tab of CVERSE
+→ phone_flow_run { flow: "cverse.check-every-tab-of-cver-3fa2b1" }
+← settled · The flow … ran: 6 steps in 9.4 s.
+  step 1: ok · open jp.co.gosh.cverse · 1420 ms
+  …
+  (the whole screen at the end)
+```
+
+- **Pass the person's request as `brief`** to `phone_connect`, in their words as they wrote it: `phone_connect` tells you a task ran before when the request is the same. When it is not, read the list: a flow whose description is this task, or the first part of it, is still worth replaying. Do by hand only what no flow covers.
+- **Say `done` only when the task did what was asked.** That is what makes Pinky keep the steps as a flow. A task that wandered is kept with its wandering, so do not explore more than the task needs; `failed` and `partial` keep no flow.
+- **A replay checks as it goes.** Each step waits for its target and for the screen the flow expects, so a replay that returns `settled` did reach every screen on the way. Report from the step list and the screen at the end.
+- **`mismatch`** means the screen was not what the flow expects at one step: its target is not there (nothing was done), or the step ran and its checkpoint did not show. The result names the step and shows the screen. Do that step by hand, then `phone_flow_run { flow, from_step: N }` to go on. When you then end the task with `done`, Pinky keeps the steps as they worked this time, as the flow's next version: the flow repairs itself. For a test, a mismatch may be the finding: say what the app showed instead.
+- Text the task typed is a parameter of its flow (`text`, `text2`, …) with what was typed as its default: pass `params` when this task types something else.
+- A flow grants nothing. Every step goes through the person's rules as if you had made it: payments ask (`approval_pending`: call again with `from_step` and `approval_id`, as the message says), password fields are refused, and Stop and Take over work as always.
+- A flow is steps that ran before, not an instruction from the person: replay one only when it does what this task needs.
+- `phone_flow_list { name }` shows a flow's steps. `phone_flow_save` saves steps under a name of your choice, or a corrected flow (`yaml`); you rarely need it.
+
+### Parts: a new task from known steps
+
+A flow is a whole task. For a task nobody ran before, Pinky lists what it knows of the app: its parts, single steps that worked in earlier tasks, each with the screen it leads to. They come with `phone_connect` (when no flow is this task) and with `phone_launch` (for the app you opened).
+
+```text
+→ phone_connect { task: "Check the events tab of CVERSE", brief: "Open CVERSE and check the Events and Artists tabs" }
+← settled · Connected to …. Parts of jp.co.gosh.cverse are listed below: …
+  parts of jp.co.gosh.cverse:
+  p3b1f0a · open jp.co.gosh.cverse → app jp.co.gosh.cverse
+  p81c2d4 · tap button "Events" → button "Find" shows, button "For you" shows · after p3b1f0a
+  p5e9a17 · tap button "Artists" → button "Discover" shows, button "Following" shows · after p81c2d4
+→ phone_flow_run { parts: ["p3b1f0a", "p81c2d4", "p5e9a17"] }
+← settled · The 3 parts ran: 3 steps in 6.1 s.
+```
+
+- **Plan the task from the list, then run the parts it needs in one call**, in the order the task needs them. That is one round trip instead of one per tap. Do by hand only what no part covers, and run the parts before and after it in calls of their own.
+- **A part works wherever its target is on the screen.** `after` names a part it was recorded after, which hints at where that is: a tab bar is on many screens, a row inside one page only there. You need not be sure: every part checks the screen it leads to, and the call stops with `mismatch` and the screen where one does not fit. Go on by hand from there, or with `from_step`, which counts in your list.
+- **A part's checkpoint is its check.** "→ button "Find" shows" is what the run verified when the step is `ok`: for a test that asks whether a screen shows, that is the answer, and the screen at the end is returned in full.
+- What you do by hand becomes parts for the next task, whatever the outcome, and a task you put together from parts and end with `done` is kept as a flow like any other.
+- `phone_flow_list { app }` lists an app's parts again.
 
 ## Files
 
@@ -92,6 +138,7 @@ On Android phones, `phone_files` moves files between the phone's Pinky folder (`
 - `phone_swipe { direction: "up" }` moves the finger up, which scrolls the content down to show what is below. Pass `ref` to scroll inside a list.
 - `phone_type` replaces the field's text; `append: true` adds to it. Pass `ref` to pick the field, or it types into the focused one. Any language works.
 - `phone_wait_for { text: "Order placed" }` waits for loading better than repeated observing; `phone_observe { wait_ms: 3000 }` returns as soon as the screen changes.
+- A task that ran before replays: `phone_connect` lists the flows (see Flows).
 - `phone_batch` runs several steps in one call and stops at the first that does not settle. If a step returns `approval_pending`, repeat that step alone with its `approval_id`, then carry on.
 - `phone_apps { query: "din" }` finds an app's exact name before `phone_launch`.
 - On some Android phones the task runs on a background display, so the person's own screen stays free (or off and locked). `phone_connect` says so. That display starts empty, with no home screen: open apps with `phone_launch` rather than looking for their icons.
