@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DIYgod/pinky/internal/appicon"
 	"github.com/DIYgod/pinky/internal/approval"
 	"github.com/DIYgod/pinky/internal/driver"
 	"github.com/DIYgod/pinky/internal/flow"
@@ -99,7 +100,8 @@ type Gateway struct {
 	store     *history.Store // nil without DataDir
 	approvals *approval.Center
 	rec       *recorder
-	flows     *flow.Store // in DataDir/flows, or in memory without DataDir
+	flows     *flow.Store    // in DataDir/flows, or in memory without DataDir
+	icons     *appicon.Cache // app icons for the Flows page (appicons.go)
 
 	mu       sync.Mutex
 	devices  map[string]*device
@@ -160,6 +162,7 @@ func New(o Options) (*Gateway, error) {
 	if o.DataDir != "" {
 		g.flows = flow.NewStore(filepath.Join(filepath.Clean(o.DataDir), "flows"))
 	}
+	g.icons = g.newIcons(o.DataDir)
 	if o.DataDir != "" {
 		st, err := history.Open(filepath.Clean(o.DataDir))
 		if err != nil {

@@ -113,6 +113,7 @@ func (s *Server) capabilities() map[string]bool {
 	_, diskImage := a.(diskImageDownloader)
 	_, checkup := a.(checkupRunner)
 	_, remove := a.(phoneRemover)
+	_, library := a.(libraryKeeper)
 	return map[string]bool{
 		"media": media, "agents": agentList, "agentScope": agentScope, "wipeHistory": wipe,
 		"exemptions": exemptions, "rules": rules, "fileProblems": problems, "pairing": pairing,
@@ -120,6 +121,7 @@ func (s *Server) capabilities() map[string]bool {
 		"connections": connections, "agentStream": agentStream, "recordings": recordings, "export": export,
 		"hostChecks": hostChecks, "diskImage": diskImage, "checkup": checkup, "removePhone": remove,
 		"agentSetup": s.opt.AgentSetup != nil,
+		"library":    library,
 	}
 }
 

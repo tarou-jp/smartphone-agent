@@ -261,6 +261,31 @@ func (c *Client) SetText(ctx context.Context, t Target, text string, opt SetText
 	return &r, nil
 }
 
+// AppIcon returns the icon of an installed app as a square PNG of size
+// pixels a side, which the app keeps between 16 and 192; 0 asks for its
+// default, 192. The request shares the connection with tree reads, which
+// wait for it while the phone loads the icon. It needs an app with
+// FeatureAppIcons: an older one answers unknown_command. An app the phone
+// does not have, or does not show the companion (Android 11 and later show
+// it only apps with a launcher entry), gives an *Error with the code
+// not_found, which wraps driver.ErrNotFound.
+func (c *Client) AppIcon(ctx context.Context, pkg string, size int) ([]byte, error) {
+	var r struct {
+		PNG []byte `json:"png"` // base64 on the wire
+	}
+	params := map[string]any{"package": pkg}
+	if size > 0 {
+		params["size"] = size
+	}
+	if err := c.call(ctx, "app_icon", params, &r, true); err != nil {
+		return nil, err
+	}
+	if len(r.PNG) == 0 {
+		return nil, fmt.Errorf("companion: app_icon for %s: empty icon", pkg)
+	}
+	return r.PNG, nil
+}
+
 // WaitIdle waits until no window or content event arrived for quiet, or
 // until max passed, and reports whether the screen settled.
 func (c *Client) WaitIdle(ctx context.Context, quiet, max time.Duration) (bool, error) {

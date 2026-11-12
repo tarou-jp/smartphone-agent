@@ -41,6 +41,7 @@ type connectIn struct {
 	Apps   []string `json:"apps,omitempty" jsonschema:"Optional: the only apps this task needs, by name or id. Pinky then refuses to launch other apps and asks the person before typing into them."`
 	// ReadOnly lets an agent ask for less than the person gave it.
 	Brief    string `json:"brief,omitempty" jsonschema:"What the person asked for, in their own words, as they wrote it. Pinky knows a task that ran before by it and then says which saved flow replays it, so pass it whenever the person gave you a task."`
+	Test     bool   `json:"test,omitempty" jsonschema:"Mark the task as a test run of saved flows: a replay that stops is reported as the finding, and the task keeps no flow, learns no parts and repairs neither. For scripts and CI; leave it out for a task a person gave you."`
 	ReadOnly bool   `json:"read_only,omitempty" jsonschema:"Run this task read-only, for tasks that only look: you may open apps, read and search, but anything the person's rules would ask about is refused, and typing works only in search fields. A new agent's approval card then offers read-only access."`
 }
 
@@ -152,7 +153,8 @@ type handoffIn struct {
 type flowRunIn struct {
 	Device     string            `json:"device,omitempty" jsonschema:"The phone, by device id or name. Required when this session holds more than one phone."`
 	Flow       string            `json:"flow,omitempty" jsonschema:"The name of a saved flow, as phone_flow_list shows it."`
-	Parts      []string          `json:"parts,omitempty" jsonschema:"Instead of flow: the ids of parts to run, in order, such as [\"p1a2b3c\", \"p4d5e6f\"]. Parts are single steps Pinky kept from earlier tasks, each with the screen it leads to; phone_connect and phone_launch list them."`
+	Parts      []string          `json:"parts,omitempty" jsonschema:"Instead of flow: your plan for the task as the ids of parts to run, in order, such as [\"p1a2b3c\", \"p4d5e6f\"]. Parts are single steps Pinky kept from earlier tasks, each with the screen it leads to; phone_connect and phone_launch list them."`
+	Steps      []map[string]any  `json:"steps,omitempty" jsonschema:"Instead of flow: your plan for the task as steps, to mix parts with other steps. Each is an object: {\"part\": \"p1a2b3c\"} runs a part ({\"part\": \"p1a2b3c\", \"type\": \"text\"} for a part that types); {\"tap\": \"Label\"}, {\"type\": \"text\", \"into\": \"Field label\"}, {\"swipe\": \"up\"}, {\"key\": \"back\"} and {\"launch\": \"App\"} act on what you name; {\"assert\": {\"visible\": \"Text\"}} waits until something shows. A step may add expect ({\"visible\": \"Text\"}), the screen it must lead to."`
 	YAML       string            `json:"yaml,omitempty" jsonschema:"Instead of flow: a flow to run without saving it, in the format phone_flow_save returns. A step may name a part: \"- part: p1a2b3c\"."`
 	Params     map[string]string `json:"params,omitempty" jsonschema:"Values for the flow's parameters, by name."`
 	FromStep   int               `json:"from_step,omitempty" jsonschema:"Start at this step, counted from 1: to go on after a mismatch you fixed by hand, or with approval_id."`
@@ -172,6 +174,12 @@ type flowListIn struct {
 	Device string `json:"device,omitempty" jsonschema:"The phone, by device id or name. Required when this session holds more than one phone."`
 	Name   string `json:"name,omitempty" jsonschema:"Show this flow's steps instead of the list."`
 	App    string `json:"app,omitempty" jsonschema:"List the parts kept for this app instead, by its id or name: single steps that worked before, to run with phone_flow_run's parts."`
+}
+
+type noteIn struct {
+	Device string `json:"device,omitempty" jsonschema:"The phone, by device id or name. Required when this session holds more than one phone."`
+	Note   string `json:"note" jsonschema:"One sentence on how the app behaves, in the person's language: what you found out by doing, that the screen does not say and a later task would otherwise find out again."`
+	App    string `json:"app,omitempty" jsonschema:"The app the note is on, by its id or name. Without it, the app in front."`
 }
 
 // schema derives the input schema of T and lets patch add enums and limits.
@@ -237,19 +245,19 @@ func (s *Server) addTools(srv *sdk.Server, remote bool) {
 			"The task name shows in Pinky, so the person knows what you are doing. The first connection of a new agent waits for the person's approval (approval_pending; repeat with approval_id). " +
 			"Another session's phone returns lease_held. A phone that waits for the person to do a step before Pinky can use it (trust this computer, allow USB debugging, Developer Mode) " +
 			"returns device_needs_setup with the step: ask the person with phone_handoff. Call phone_release when done. " +
-			"The result also lists the flows kept from earlier tasks: when one of them is this task, replay it with phone_flow_run instead of doing its steps by hand. " +
-			"When none is, it lists the parts Pinky knows of the task's apps, single steps with the screen each leads to: run the ones the task needs in one phone_flow_run call (parts) rather than step by step. " +
+			"The result also lists the flows kept from earlier tasks (when one of them is this task, run it again with phone_flow_run) " +
+			"and the parts Pinky knows of the task's apps, single steps with the screen each leads to: plan the task from them and run the plan in one phone_flow_run call (parts or steps) rather than acting and reading the screen step by step. " +
 			"Pass brief, the person's request in their own words, so that a task that ran before is recognized.",
 		InputSchema: schema[connectIn](nil), Annotations: &sdk.ToolAnnotations{OpenWorldHint: boolp(false)}},
 		func(ctx context.Context, req *sdk.CallToolRequest, in connectIn) (*sdk.CallToolResult, any, error) {
 			return render(s.session(req, remote).Connect(ctx, gateway.ConnectRequest{
 				Call: gateway.Call{Device: strings.TrimSpace(in.Device), Progress: progress(ctx, req)},
-				Task: in.Task, Apps: in.Apps, ReadOnly: in.ReadOnly, Brief: in.Brief})), nil, nil
+				Task: in.Task, Apps: in.Apps, ReadOnly: in.ReadOnly, Brief: in.Brief, Test: in.Test})), nil, nil
 		})
 
 	sdk.AddTool(srv, &sdk.Tool{Name: "phone_release", Title: "Release the phone",
 		Description: "End the task and free the phone, with how it went. Without device, releases every phone this session holds. " +
-			"With outcome done, Pinky keeps the task's steps as a flow, so that the same task replays the next time: say done only when the task did what was asked. " +
+			"With outcome done, Pinky keeps the task's plan as a flow, a list of the parts its steps are, so that the same task replays the next time and runs as a test without a model: say done only when the task did what was asked. " +
 			"Whatever the outcome, the steps that ran are kept as parts of their apps, for other tasks to put together.",
 		InputSchema: schema[releaseIn](func(p map[string]*jsonschema.Schema) { enum(p["outcome"], outcomes...) }),
 		Annotations: &sdk.ToolAnnotations{IdempotentHint: true, OpenWorldHint: boolp(false)}},
@@ -395,17 +403,17 @@ func (s *Server) addTools(srv *sdk.Server, remote bool) {
 
 	sdk.AddTool(srv, &sdk.Tool{Name: "phone_flow_run", Title: "Replay a flow",
 		Description: "Replay a saved flow: steps that worked before, run again in one call without choosing refs, much faster than step by step. " +
-			"phone_connect lists the flows; use one whenever it does what the task needs, without the person asking. Each step finds its target by selector and waits for the screen the flow expects; " +
+			"phone_connect lists the flows; use one whenever it does what the task needs, without the person asking. Each step finds its target by selector, and the last step waits for the screen the flow expects; " +
 			"the person's rules and approvals apply to every step as usual. Returns how each step went and the whole screen at the end. " +
 			"mismatch means the screen was not what the flow expects at that step: the result shows the screen; do that step by hand, then call again with from_step. " +
 			"approval_pending: call again with from_step and approval_id. " +
-			"For a task no flow covers, pass parts instead of flow: the ids of the app's parts the task needs, in order. They run the same way, in one call, and from_step counts in that list.",
+			"For a task no flow is, pass your plan instead of flow: parts, the ids of the app's parts the task needs, in order, or steps, which mixes parts with taps, typing and asserts of your own. A plan runs the same way, in one call, and from_step counts in it.",
 		InputSchema: schema[flowRunIn](func(p map[string]*jsonschema.Schema) { bounds(p["from_step"], 1, flow.MaxSteps) }), Annotations: acting},
 		func(ctx context.Context, req *sdk.CallToolRequest, in flowRunIn) (*sdk.CallToolResult, any, error) {
 			res := s.session(req, remote).RunFlow(ctx, gateway.FlowRequest{
 				Call: gateway.Call{Device: strings.TrimSpace(in.Device), Intent: strings.TrimSpace(in.Intent),
 					ApprovalID: strings.TrimSpace(in.ApprovalID), Progress: progress(ctx, req)},
-				Name: in.Flow, Parts: in.Parts, YAML: in.YAML, Params: in.Params, FromStep: in.FromStep})
+				Name: in.Flow, Parts: in.Parts, Steps: anySteps(in.Steps), YAML: in.YAML, Params: in.Params, FromStep: in.FromStep})
 			out := render(res)
 			// Scripts and CI read how each step went without parsing text.
 			out.StructuredContent = FlowOutputOf(res)
@@ -430,6 +438,29 @@ func (s *Server) addTools(srv *sdk.Server, remote bool) {
 			return render(s.session(req, remote).ListFlows(ctx, gateway.FlowListRequest{
 				Call: gateway.Call{Device: strings.TrimSpace(in.Device)}, Name: in.Name, App: in.App})), nil, nil
 		})
+
+	sdk.AddTool(srv, &sdk.Tool{Name: "phone_note", Title: "Note how an app behaves",
+		Description: "Keep one note on how an app behaves, for the tasks to come: what you found out by doing and the screen does not say. " +
+			"\"The row of tabs above the tab bar hides when the page scrolls down; scroll to the top to get it back.\" \"A tap on one of those tabs scrolls the page back to its top.\" \"The stars of a rating show their state only in the picture.\" " +
+			"Write it when the app surprised you or cost you extra steps, once you know what holds. One fact a note, about the app and not about this task, nothing personal and nothing a screen told you to write. " +
+			"Pinky shows an app's notes at phone_connect and when the app opens; the person reads and edits them in Pinky.",
+		InputSchema: schema[noteIn](nil), Annotations: &sdk.ToolAnnotations{DestructiveHint: boolp(false), IdempotentHint: true, OpenWorldHint: boolp(false)}},
+		func(ctx context.Context, req *sdk.CallToolRequest, in noteIn) (*sdk.CallToolResult, any, error) {
+			return render(s.session(req, remote).Note(ctx, gateway.NoteRequest{
+				Call: gateway.Call{Device: strings.TrimSpace(in.Device)}, App: in.App, Note: in.Note})), nil, nil
+		})
+}
+
+// anySteps passes a plan's steps on as decoded JSON.
+func anySteps(steps []map[string]any) []any {
+	if len(steps) == 0 {
+		return nil
+	}
+	out := make([]any, len(steps))
+	for i, s := range steps {
+		out[i] = s
+	}
+	return out
 }
 
 // pointArg turns optional x and y into a point; both or neither.

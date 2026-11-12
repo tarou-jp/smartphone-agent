@@ -2,6 +2,7 @@ package inapp
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,11 +18,28 @@ type openAIClient struct {
 	// reasoningOff sends reasoning_effort "none": OpenAI's reasoning
 	// models take tools on Chat Completions only so.
 	reasoningOff bool
+	// images says the model can be shown pictures: a screenshot is sent
+	// to it, and only named to a model that cannot.
+	images bool
 }
 
 func (c *openAIClient) messages(system string, items []item) []map[string]any {
 	msgs := []map[string]any{{"role": "system", "content": system}}
+	// A tool's answer is text only on Chat Completions, and the answers
+	// to one turn's calls must follow each other: the pictures they came
+	// with go in a user message after the last of them.
+	var pics []map[string]any
+	flush := func() {
+		if len(pics) > 0 {
+			content := append([]map[string]any{{"type": "text", "text": "The screenshot the tool result above came with:"}}, pics...)
+			msgs = append(msgs, map[string]any{"role": "user", "content": content})
+			pics = nil
+		}
+	}
 	for _, it := range items {
+		if it.Kind != itemResult {
+			flush()
+		}
 		switch it.Kind {
 		case itemUser:
 			msgs = append(msgs, map[string]any{"role": "user", "content": nonEmpty(it.Text)})
@@ -42,9 +60,18 @@ func (c *openAIClient) messages(system string, items []item) []map[string]any {
 			}
 			msgs = append(msgs, m)
 		case itemResult:
-			msgs = append(msgs, map[string]any{"role": "tool", "tool_call_id": it.CallID, "content": nonEmpty(it.Output)})
+			out := nonEmpty(it.Output)
+			switch {
+			case it.Image != nil && c.images:
+				pics = append(pics, map[string]any{"type": "image_url",
+					"image_url": map[string]string{"url": "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(it.Image)}})
+			case it.Image != nil:
+				out += "\n[this model is not shown pictures: go by the elements and the text above]"
+			}
+			msgs = append(msgs, map[string]any{"role": "tool", "tool_call_id": it.CallID, "content": out})
 		}
 	}
+	flush()
 	return msgs
 }
 

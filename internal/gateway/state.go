@@ -70,6 +70,17 @@ type device struct {
 	// an agent worked on a background display (which does not pause it).
 	personAt time.Time
 	touch    *touchState
+	// The person's input on the mirror while a task holds the phone, to
+	// learn from (person.go): pseq numbers the inputs, pdown is a finger
+	// that is down, pview the screen read after input pviewSeq with no
+	// other input in between, pending the inputs that wait to be
+	// recorded, and recording says a goroutine is at it.
+	pseq      int
+	pdown     *touchState
+	pview     *screen.Screen
+	pviewSeq  int
+	pending   []personEvent
+	recording bool
 	// wake is closed and replaced on every state change, to wake waiting calls.
 	wake chan struct{}
 	// opened is set once the gateway opened the phone. One it never
@@ -167,6 +178,10 @@ type lease struct {
 	endedBy  string // an Outcome
 	// baseline is the last screen the agent received, for diffs.
 	baseline *screen.Screen
+	// drawn holds, per app, the text Pinky learned that the app draws
+	// itself: OCR reads it and the accessibility tree never has it, so it
+	// is no sign of a tree that is behind (reread.go).
+	drawn map[string]map[string]bool
 	// apps is the task's app allow-list, ids and names.
 	apps []string
 	// grants holds the rules the person allowed for the rest of the task,
@@ -242,8 +257,22 @@ type task struct {
 	// traceAfter holds, for each step of trace, the screen it led to: the
 	// apps' parts are told apart by where a step leads (flowparts.go).
 	traceAfter []*screen.Screen
-	// partsShown lists the apps whose parts the agent was shown.
+	// tracePart names, for each step of trace, the part a replay ran it
+	// as ("" for a step that is none), and traceSaved says whether that
+	// replay was of a saved flow rather than a plan the agent made.
+	tracePart  []string
+	traceSaved []bool
+	// traceShot holds, for each step of trace, the history screenshot of
+	// the screen it led to, nil when there is none: a part keeps a small
+	// copy as its picture (flowparts.go).
+	traceShot []*bgShot
+	// test marks a test run (ConnectRequest.Test): what it finds is
+	// reported, and it changes neither flows nor parts.
+	test bool
+	// partsShown lists the apps whose parts the agent was shown, and
+	// notesShown the apps whose notes (notes.go).
 	partsShown map[string]bool
+	notesShown map[string]bool
 	// byHand counts the traced actions the agent made itself: outside a
 	// replay, or in a replay it put together from parts.
 	// replayed lists the saved flows the task replayed, true for

@@ -14,14 +14,19 @@ import (
 var ErrNotFound = errors.New("flow not found")
 
 // Store keeps flows as <name>.yaml files in one folder, which people may
-// edit, copy and keep under version control, and the apps' parts in its
-// parts folder (parts.go). Without a folder it keeps them in memory.
+// edit, copy and keep under version control, the apps' parts in its parts
+// folder (parts.go) and the notes on apps in its notes folder (notes.go).
+// Without a folder it keeps them in memory.
 type Store struct {
 	dir string
 	mu  sync.Mutex
 	mem map[string][]byte
 	// memParts holds the apps' parts (parts.go) of a store in memory.
 	memParts map[string][]byte
+	// memNotes holds the notes on apps (notes.go) of a store in memory.
+	memNotes map[string]string
+	// memShots holds the parts' pictures (shots.go) of a store in memory.
+	memShots map[string][]byte
 }
 
 // NewStore returns a store for the folder, made when the first flow is
@@ -32,6 +37,15 @@ func NewStore(dir string) *Store { return &Store{dir: dir, mem: map[string][]byt
 func (s *Store) Dir() string { return s.dir }
 
 func (s *Store) path(name string) string { return filepath.Join(s.dir, name+".yaml") }
+
+// File is the file a flow of that name is kept in, "" for a store in
+// memory.
+func (s *Store) File(name string) string {
+	if s.dir == "" || !ValidName(name) {
+		return ""
+	}
+	return s.path(name)
+}
 
 func (s *Store) read(name string) ([]byte, error) {
 	if s.dir == "" {

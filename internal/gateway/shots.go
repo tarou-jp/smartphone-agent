@@ -1,14 +1,17 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
+	"image/jpeg"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/DIYgod/pinky/internal/driver"
+	"github.com/DIYgod/pinky/internal/flow"
 	"github.com/DIYgod/pinky/internal/history"
 	"github.com/DIYgod/pinky/internal/screen"
 )
@@ -58,6 +61,7 @@ type bgShot struct {
 	doneAt time.Time
 	expire *time.Timer // drops it after shotWait while it waits
 	img    image.Image // until written to history; at history size
+	thumb  []byte      // a small JPEG of it, for the part a step becomes
 	id     string      // media id once written
 	uses   []shotUse   // step pictures that show it once kept
 }
@@ -129,8 +133,10 @@ func (g *Gateway) takeShot(d *device, dev driver.Device, background bool, p *bgS
 	ctx, cancel := context.WithTimeout(g.ctx, observeTimeout)
 	defer cancel()
 	img, err := g.shotOf(ctx, d, dev, background)
+	var thumb []byte
 	if err == nil && img != nil {
 		img = history.Downscale(img, history.MaxShotSide)
+		thumb = partThumb(img)
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -140,7 +146,7 @@ func (g *Gateway) takeShot(d *device, dev driver.Device, background bool, p *bgS
 	case err != nil || img == nil || d.inputs != p.inputs:
 		g.dropShotLocked(d, p)
 	default:
-		p.img, p.state, p.doneAt = img, shotWaiting, stamp() // ordered against reads (clock.go)
+		p.img, p.thumb, p.state, p.doneAt = img, thumb, shotWaiting, stamp() // ordered against reads (clock.go)
 		p.expire = time.AfterFunc(shotWait, func() {
 			g.mu.Lock()
 			if p.state == shotWaiting {
@@ -188,7 +194,7 @@ func (g *Gateway) keepShotLocked(d *device, p *bgShot) {
 }
 
 func (g *Gateway) dropShotLocked(d *device, p *bgShot) {
-	p.state, p.img, p.uses = shotDropped, nil, nil
+	p.state, p.img, p.thumb, p.uses = shotDropped, nil, nil, nil
 	p.stopExpiry()
 	if d.shot == p {
 		d.shot = nil
@@ -387,5 +393,35 @@ func (r *running) wait() {
 	}
 	for r.n > 0 {
 		r.cond.Wait()
+	}
+}
+
+// partThumbSide is the longest side of a part's picture (flow.SaveShot).
+const partThumbSide = 480
+
+// partThumb is the small JPEG of a screenshot that a part keeps as its
+// picture, nil when it cannot be made.
+func partThumb(img image.Image) []byte {
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, history.Downscale(img, partThumbSide), &jpeg.Options{Quality: 70}); err != nil {
+		return nil
+	}
+	if buf.Len() > flow.MaxShot {
+		return nil
+	}
+	return buf.Bytes()
+}
+
+// traceShotOf notes p as the screenshot of after, the screen the task's
+// last traced step led to, for the part that step becomes.
+func (g *Gateway) traceShotOf(l *lease, after *screen.Screen, p *bgShot) {
+	if p == nil || after == nil {
+		return
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	t := l.task
+	if n := len(t.trace); n > 0 && len(t.traceShot) == n && t.traceAfter[n-1] == after {
+		t.traceShot[n-1] = p
 	}
 }

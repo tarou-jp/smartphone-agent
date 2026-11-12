@@ -93,6 +93,7 @@ func (s *Server) routes() {
 	s.route("PUT /api/settings", s.putSettings)
 
 	s.extraRoutes()
+	s.libraryRoutes()
 	s.modelRoutes()
 }
 
@@ -173,6 +174,9 @@ func (s *Server) openKnown(path string) error {
 		allowed[p] = true
 	}
 	s.mu.Unlock()
+	for _, p := range s.libraryPaths() {
+		allowed[p] = true
+	}
 	if !allowed[path] {
 		return badRequest("not a path Pinky shows")
 	}

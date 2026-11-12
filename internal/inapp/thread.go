@@ -28,10 +28,17 @@ type item struct {
 	Kind  itemKind
 	Text  string     // user and assistant text
 	Calls []toolCall // assistant
+	// Raw is what the provider's model put out in an assistant turn, as
+	// the provider wants it back (OpenAI's Responses API: reasoning next
+	// to the calls it led to). Clients without a use for it ignore it.
+	Raw []json.RawMessage
 	// A result answers the call with this ID.
 	CallID string
 	Tool   string
 	Output string
+	// Image is the picture of the screen a result came with, as JPEG:
+	// the model asked for one (phone_observe with screenshot).
+	Image []byte
 }
 
 // argsJSON is a call's arguments as the APIs want them back.
@@ -54,6 +61,7 @@ func (c toolCall) argsJSON() string {
 // compactAt is summed up by the model and starts again from the summary.
 const (
 	keepWhole   = 3       // tool answers, from the latest, the model sees whole
+	keepImages  = 2       // pictures of the screen, from the latest, the model sees
 	elidedLines = 3       // lines an older answer keeps
 	maxOutput   = 24_000  // characters of any one answer
 	compactAt   = 240_000 // characters of a thread (about 60k tokens)
@@ -65,10 +73,18 @@ const (
 func view(items []item) []item {
 	out := make([]item, len(items))
 	copy(out, items)
-	whole := 0
+	whole, images := 0, 0
 	for i := len(out) - 1; i >= 0; i-- {
 		if out[i].Kind != itemResult {
 			continue
+		}
+		// A picture is large and shows a screen that is gone a few steps
+		// later: only the latest ones stay.
+		if out[i].Image != nil {
+			if images++; images > keepImages {
+				out[i].Image = nil
+				out[i].Output += "\n[older screenshot left out; phone_observe with screenshot takes a new one]"
+			}
 		}
 		o := out[i].Output
 		if whole < keepWhole {

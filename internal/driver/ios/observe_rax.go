@@ -308,7 +308,8 @@ func (d *Device) raxTree(ctx context.Context, rax *raxSession, trace *[]string) 
 		}
 		if !t.first {
 			note("push from %v after the input", t.start.Sub(input).Round(time.Millisecond))
-			return t.els
+			els, _ := rax.fill(t.els) // for what walks said that pushes may not
+			return els
 		}
 		els, known := rax.fill(t.els)
 		if known && !t.unnamed() {
@@ -449,12 +450,19 @@ func raxScreenElements(els []raxElement, scale float64, w, h int, appID string, 
 				offset[pid] = host.Frame
 			}
 			hf, ok := offset[pid]
-			if !ok && !keyboardPID[pid] {
-				continue // no host to place it by
+			switch {
+			case ok:
+				e.Frame.X += hf.X
+				e.Frame.Y += hf.Y
+			case keyboardPID[pid]:
+				placed = false
+			case e.HostPID == appPID:
+				// A web page in the app (WebKit's process): the phone
+				// names the app its host and gives its frames in screen
+				// points already, with no host view before them.
+			default:
+				continue // no host to place it by (a home screen widget)
 			}
-			placed = ok
-			e.Frame.X += hf.X
-			e.Frame.Y += hf.Y
 		}
 		if i == 0 || !e.IsElement || !e.Visible {
 			continue

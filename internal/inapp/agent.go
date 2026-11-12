@@ -193,6 +193,12 @@ type phoneCaller interface {
 	call(ctx context.Context, tool string, args map[string]any, progress func(string)) string
 }
 
+// imageCaller is a phoneCaller that also hands back the picture of the
+// screen a call took (phone_observe with screenshot), as JPEG.
+type imageCaller interface {
+	callImage(ctx context.Context, tool string, args map[string]any, progress func(string)) (string, []byte)
+}
+
 // RunAgent drives the phones through gateway tools until the model stops,
 // releases every phone, or ctx ends.
 func RunAgent(ctx context.Context, cfg AgentConfig, onEvent func(AgentEvent)) AgentOutcome {
@@ -344,7 +350,7 @@ func runLoop(ctx context.Context, cfg loopConfig, onEvent func(AgentEvent)) Agen
 		if err != nil {
 			return outcome("", err)
 		}
-		items = append(items, item{Kind: itemAssistant, Text: res.Text, Calls: res.Calls})
+		items = append(items, item{Kind: itemAssistant, Text: res.Text, Calls: res.Calls, Raw: res.Raw})
 		if len(res.Calls) == 0 {
 			if res.Truncated && strings.TrimSpace(res.Text) == "" {
 				return outcome("", errors.New("inapp: the model's reply was cut off"))
@@ -363,9 +369,9 @@ func runLoop(ctx context.Context, cfg loopConfig, onEvent func(AgentEvent)) Agen
 			ev.send(AgentEvent{Kind: "text", Text: t})
 		}
 
-		results := runCalls(ctx, cfg, ev, res.Calls, released)
+		results, images := runCalls(ctx, cfg, ev, res.Calls, released)
 		for i, c := range res.Calls {
-			items = append(items, item{Kind: itemResult, CallID: c.ID, Tool: c.Name, Output: results[i]})
+			items = append(items, item{Kind: itemResult, CallID: c.ID, Tool: c.Name, Output: results[i], Image: images[i]})
 		}
 		if ctx.Err() != nil {
 			return outcome("", ctx.Err())
@@ -408,9 +414,10 @@ func releaseSummary(_ []toolCall, said []string, _ bool) string {
 
 // runCalls runs one turn's tool calls: calls for different phones side by
 // side, calls for one phone in order. Results come back in the calls'
-// order.
-func runCalls(ctx context.Context, cfg loopConfig, ev *events, calls []toolCall, released map[string]bool) []string {
+// order, each with the picture of the screen it took, if it took one.
+func runCalls(ctx context.Context, cfg loopConfig, ev *events, calls []toolCall, released map[string]bool) ([]string, [][]byte) {
 	results := make([]string, len(calls))
+	images := make([][]byte, len(calls))
 	byDevice := map[string][]int{}
 	var order []string
 	var mu sync.Mutex
@@ -449,7 +456,13 @@ func runCalls(ctx context.Context, cfg loopConfig, ev *events, calls []toolCall,
 					continue
 				}
 				id := ev.start(c.ID, c.Name, c.Args)
-				out := cfg.phones.call(ctx, c.Name, c.Args, func(s string) { ev.send(AgentEvent{Kind: "tool_progress", ID: id, Device: d, Text: s}) })
+				progress := func(s string) { ev.send(AgentEvent{Kind: "tool_progress", ID: id, Device: d, Text: s}) }
+				var out string
+				if ic, ok := cfg.phones.(imageCaller); ok {
+					out, images[i] = ic.callImage(ctx, c.Name, c.Args, progress)
+				} else {
+					out = cfg.phones.call(ctx, c.Name, c.Args, progress)
+				}
 				ev.end(id, c.Name, out)
 				results[i] = out
 				if c.Name == "phone_release" && !strings.HasPrefix(out, "error:") {
@@ -461,7 +474,7 @@ func runCalls(ctx context.Context, cfg loopConfig, ev *events, calls []toolCall,
 		}()
 	}
 	wg.Wait()
-	return results
+	return results, images
 }
 
 // deviceID finds a phone named by id or by name.

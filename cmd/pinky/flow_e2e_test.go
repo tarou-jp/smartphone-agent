@@ -113,11 +113,13 @@ steps:
 	if out = run(t, bin, home, "flow", "list", "--fake"); !strings.Contains(out, "No flows") {
 		t.Fatalf("list:\n%s", out)
 	}
-	// What the runs found out about the app is kept as its parts.
-	if out = run(t, bin, home, "flow", "parts", "--fake"); !strings.Contains(out, "com.dinely.app") {
+	// The runs were test runs: they taught Pinky no parts either.
+	if out = run(t, bin, home, "flow", "parts", "--fake"); !strings.Contains(out, "No parts") {
 		t.Fatalf("parts:\n%s", out)
 	}
-	if out = run(t, bin, home, "flow", "parts", "--fake", "dinely"); !strings.Contains(out, "open com.dinely.app") || !strings.Contains(out, `tap tab "Orders"`) {
-		t.Fatalf("parts of Dinely:\n%s", out)
+	cmd = exec.Command(bin, "flow", "parts", "--fake", "dinely")
+	cmd.Env = env(home)
+	if _, err := cmd.CombinedOutput(); err == nil {
+		t.Fatal("parts of an app that has none: no error")
 	}
 }

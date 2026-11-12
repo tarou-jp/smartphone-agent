@@ -6,6 +6,7 @@ import android.util.Log
 import org.json.JSONException
 import org.json.JSONObject
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -32,8 +33,16 @@ class RequestHandler(
         Thread(null, r, "pinky-a11y", 8L shl 20).apply { isDaemon = true }
     }
 
+    // Icons do not touch the tree, so they load off the worker and never
+    // hold up a tree read.
+    private val icons = AppIcons(service)
+    private val iconWorker = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "pinky-icons").apply { isDaemon = true }
+    }
+
     fun shutdown() {
         worker.shutdownNow()
+        iconWorker.shutdownNow()
     }
 
     /** Runs work that touches the accessibility tree on the worker thread, without a request. */
@@ -64,6 +73,7 @@ class RequestHandler(
                 "events" -> subscribe(id, req, conn)
                 "wait_idle" -> Reply(ok(id, waitIdle(req)))
                 "config" -> Reply(ok(id, service.configure(req)))
+                "app_icon" -> Reply(ok(id, appIcon(req)))
                 else -> throw RequestError("unknown_command", "unknown command: $cmd")
             }
         } catch (e: RequestError) {
@@ -110,6 +120,8 @@ class RequestHandler(
         val f = mutableListOf<String>()
         // tree, set_text, events and wait_idle take a display other than 0.
         if (service.displays.multiDisplay) f += FEATURE_DISPLAYS
+        // app_icon reads installed apps' icons.
+        f += FEATURE_APP_ICONS
         return f
     }
 
@@ -160,9 +172,17 @@ class RequestHandler(
         return service.events.waitIdle(quiet, timeout, displayParam(req))
     }
 
-    private fun <T> onWorker(req: JSONObject?, task: () -> T): T {
+    private fun appIcon(req: JSONObject): String {
+        val pkg = req.optString("package")
+        val size = req.optInt("size", AppIcons.DEFAULT_SIZE).coerceIn(AppIcons.MIN_SIZE, AppIcons.MAX_SIZE)
+        return onExecutor(iconWorker, req) { icons.icon(pkg, size) }
+    }
+
+    private fun <T> onWorker(req: JSONObject?, task: () -> T): T = onExecutor(worker, req, task)
+
+    private fun <T> onExecutor(executor: ExecutorService, req: JSONObject?, task: () -> T): T {
         val timeout = req?.optLong("timeout_ms", DEFAULT_TIMEOUT_MS) ?: DEFAULT_TIMEOUT_MS
-        val f = worker.submit<T> { task() }
+        val f = executor.submit<T> { task() }
         try {
             return f.get(timeout, TimeUnit.MILLISECONDS)
         } catch (e: TimeoutException) {
@@ -205,6 +225,7 @@ class RequestHandler(
         private const val TAG = "PinkyRequests"
         const val PROTOCOL_VERSION = 1
         const val FEATURE_DISPLAYS = "displays"
+        const val FEATURE_APP_ICONS = "app_icons"
         private const val DEFAULT_TIMEOUT_MS = 10_000L
     }
 }

@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -24,10 +25,14 @@ import (
 // FlowRequest is phone_flow_run.
 type FlowRequest struct {
 	Call
-	// Name is a saved flow; YAML is a flow given with the call instead;
-	// Parts are the ids of parts to run in that order (flowparts.go).
+	// Name is a saved flow; YAML is a flow given with the call instead.
+	// Steps is a plan the agent made for this task: steps in the flow
+	// format, as decoded JSON, most of them naming parts
+	// ({"part": "p1a2b3c"}); Parts is the short form for a plan of parts
+	// only, their ids in order (flowparts.go).
 	Name  string
 	YAML  string
+	Steps []any
 	Parts []string
 	// Params are the flow's parameter values.
 	Params map[string]string
@@ -99,6 +104,20 @@ type FlowInfo struct {
 // before skipping the step.
 const optionalWait = time.Second
 
+// fullReadAfter is how long a replay looks for a target, or waits for a
+// checkpoint, with quick reads before it reads the screen the way a step
+// by hand does: settled, and with OCR. Right after an input an iPhone
+// answers with the tree it pushed, which is fast and can lack what sits
+// over the page (a bar of tabs above the tab bar was missing from it for
+// ten seconds, while every read a moment later, by hand, had it). A
+// replay acts at once, so it is the one that meets that tree.
+const fullReadAfter = 1500 * time.Millisecond
+
+// launchWait is how long the step after a launch waits for its target
+// unless it says otherwise: an app that starts cold shows a splash screen
+// and loads for longer than a screen change takes.
+const launchWait = 30 * time.Second
+
 // loadFlow returns the flow a request names or carries, with its
 // parameters bound.
 func (g *Gateway) loadFlow(req FlowRequest) (*flow.Flow, *Result) {
@@ -106,24 +125,34 @@ func (g *Gateway) loadFlow(req FlowRequest) (*flow.Flow, *Result) {
 	var f *flow.Flow
 	var err error
 	given := 0
-	for _, set := range []bool{name != "", src != "", len(req.Parts) > 0} {
+	for _, set := range []bool{name != "", src != "", len(req.Parts) > 0, len(req.Steps) > 0} {
 		if set {
 			given++
 		}
 	}
 	switch {
 	case given != 1:
-		return nil, errResult(ErrInvalidArgument, "Pass one of flow, the name of a saved flow; parts, the ids of parts to run in order; and yaml, a flow itself.")
+		return nil, errResult(ErrInvalidArgument, "Pass one of flow, the name of a saved flow; steps, a plan of parts and other steps; parts, the ids of parts to run in order; and yaml, a flow itself.")
 	case len(req.Parts) > 0:
 		if len(req.Parts) > flow.MaxSteps {
 			return nil, errResult(ErrInvalidArgument, "%d parts; one call runs %d at most.", len(req.Parts), flow.MaxSteps)
 		}
-		f = &flow.Flow{Name: partsFlow}
+		f = &flow.Flow{Name: planFlow}
 		for _, id := range req.Parts {
 			f.Steps = append(f.Steps, flow.Step{Part: strings.TrimSpace(id)})
 		}
 		if err = f.Validate(); err != nil {
 			return nil, errResult(ErrInvalidArgument, "%v.", err)
+		}
+	case len(req.Steps) > 0:
+		// The flow format is YAML, of which JSON is a part: the plan is
+		// read as a flow's steps, with the same checks.
+		data, merr := json.Marshal(map[string]any{"flow": planFlow, "steps": req.Steps})
+		if merr != nil {
+			return nil, errResult(ErrInvalidArgument, "steps cannot be read: %v.", merr)
+		}
+		if f, err = flow.Parse(data); err != nil {
+			return nil, errResult(ErrInvalidArgument, "%v. A step is an object such as {\"part\": \"p1a2b3c\"}, {\"tap\": \"Label\"} or {\"assert\": {\"visible\": \"Text\"}}.", capitalizeErr(err))
 		}
 	case src != "":
 		if f, err = flow.Parse([]byte(src)); err != nil {
@@ -181,18 +210,23 @@ func (s *Session) RunFlow(ctx context.Context, req FlowRequest) *Result {
 	var events []screen.Event
 	var lastAction time.Time
 	stopped := -1
-	// A replay the agent put together from parts is its own work, and
-	// the task's steps are kept like steps made by hand; a saved flow and
-	// a flow run from a file are somebody's flow already.
-	own := false
-	if strings.TrimSpace(req.Name) == "" {
-		for _, st := range f.Steps {
-			own = own || st.PartID != ""
-		}
+	// A replay the agent put together is its own work, and the task's
+	// steps are kept like steps made by hand; a saved flow is somebody's
+	// flow already. (A flow run from a file is a test run, which keeps
+	// nothing.)
+	own := strings.TrimSpace(req.Name) == ""
+	plan := len(req.Parts)+len(req.Steps) > 0
+	g.mu.Lock()
+	test := l.task.test
+	g.mu.Unlock()
+	// want is the app the next step runs in, as far as the flow says.
+	want := f.App
+	for _, st := range f.Steps[:min(first, len(f.Steps))] {
+		want = appAfter(st, want)
 	}
 	for i := first; i < len(f.Steps); i++ {
 		st := f.Steps[i]
-		c := Call{Device: req.Device, Intent: st.Intent, Progress: req.Progress, reuse: true, flow: f.Name, own: own}
+		c := Call{Device: req.Device, Intent: st.Intent, Progress: req.Progress, reuse: true, flow: f.Name, own: own, part: st.PartID}
 		if c.Intent == "" {
 			c.Intent = req.Intent
 		}
@@ -203,7 +237,12 @@ func (s *Session) RunFlow(ctx context.Context, req FlowRequest) *Result {
 			c.ApprovalID = req.ApprovalID
 		}
 		began := time.Now()
-		r, fs := g.flowStep(ctx, l, c, f, st, &lastAction)
+		at := flowPlace{app: want, first: i == first}
+		if i+1 < len(f.Steps) {
+			at.next = &f.Steps[i+1]
+		}
+		r, fs := g.flowStep(ctx, l, c, f, st, at, &lastAction)
+		want = appAfter(st, want)
 		if r != nil {
 			// The person may have pressed Stop meanwhile.
 			if r = g.finish(l, r); r.Status == StatusStopped {
@@ -217,8 +256,10 @@ func (s *Session) RunFlow(ctx context.Context, req FlowRequest) *Result {
 		}
 		fs.Index, fs.Text, fs.Elapsed = i+1, st.Describe(), time.Since(began)
 		report.Steps = append(report.Steps, fs)
-		if fs.acted && st.PartID != "" && g.flows.BreakPart(st.PartID) {
-			g.log.Info("flows: a part broke twice and was dropped", "part", st.PartID)
+		// In a test run a part that leads elsewhere is the finding, not
+		// something to learn from.
+		if fs.acted && st.PartID != "" && !test && g.flows.BreakPart(st.PartID) {
+			g.log.Info("flows: a part led elsewhere twice and is no longer offered", "part", st.PartID)
 		}
 		if fs.Status != FlowStepOK && fs.Status != FlowStepSkipped {
 			stopped = i
@@ -240,8 +281,8 @@ func (s *Session) RunFlow(ctx context.Context, req FlowRequest) *Result {
 	if f.Version > 0 {
 		title += fmt.Sprintf(" (version %d)", f.Version)
 	}
-	if len(req.Parts) > 0 {
-		title = "the " + plural(len(req.Parts), "part")
+	if plan {
+		title = "the plan"
 	}
 	text := "Ran " + title
 	if stopped >= 0 {
@@ -251,7 +292,25 @@ func (s *Session) RunFlow(ctx context.Context, req FlowRequest) *Result {
 		out.Message = fmt.Sprintf("%s stopped at step %d of %d (%s): %s", capitalize(title), stopped+1, len(f.Steps), fs.Text, flowAdvice(out, fs, stopped+1, len(f.Steps)))
 		text = fmt.Sprintf("%s stopped at step %d of %d: %s", capitalize(title), stopped+1, len(f.Steps), fs.Text)
 	} else {
-		out.Message = fmt.Sprintf("%s ran: %s in %s.", capitalize(title), plural(len(report.Steps), "step"), approval.Human(report.Elapsed))
+		out.Message = fmt.Sprintf("%s ran: %s in %s. Every step led where it says below (reached), so the phone is where the last step leads: go on from the screen below, without doing these steps again.", capitalize(title), plural(len(report.Steps), "step"), approval.Human(report.Elapsed))
+	}
+	if shown != nil && (out.Status == StatusSettled || out.Status == StatusMismatch) && !out.IsError() {
+		// A step with a checkpoint ends on the first read the checkpoint
+		// holds on, which may be of a screen that is still coming up: the
+		// rest of it is not there yet, and nothing was read by OCR. The
+		// agent plans its next steps from the screen the replay returns,
+		// so that one is read as after any step of its own.
+		g.settle(ctx, l.dev)
+		if cur, err := g.observe(ctx, l.dev, true); err == nil && cur != nil {
+			cur = g.finishRead(ctx, l, cur)
+			g.mu.Lock()
+			l.after, l.afterAt = cur, time.Now()
+			g.mu.Unlock()
+			if r := g.screenResult(l, cur, true); r.Screen != nil {
+				shown = r.Screen
+				events = append(events, r.Screen.Events...)
+			}
+		}
 	}
 	if shown != nil {
 		// The agent last saw the screen before the replay: send it whole,
@@ -267,6 +326,8 @@ func (s *Session) RunFlow(ctx context.Context, req FlowRequest) *Result {
 	args := map[string]any{"flow": f.Name}
 	if len(req.Parts) > 0 {
 		args = map[string]any{"parts": req.Parts}
+	} else if len(req.Steps) > 0 {
+		args = map[string]any{"steps": req.Steps}
 	}
 	if f.Version > 0 {
 		args["version"] = f.Version
@@ -290,6 +351,16 @@ func flowAdvice(out *Result, fs FlowStep, step, total int) string {
 		next = fmt.Sprintf(" or %d to go on after it", step+1)
 	}
 	switch {
+	case out.Status == StatusMismatch && fs.acted:
+		// The action ran and led somewhere else than the flow says, which
+		// is often the same place looking different (an app that opens
+		// without its splash screen). Repeating the step would act twice.
+		then := "the replay is done"
+		if step < total {
+			then = fmt.Sprintf("call phone_flow_run again with from_step %d to go on with the steps after it", step+1)
+		}
+		return fmt.Sprintf("%s. Earlier steps ran, and so did this step's action: do not repeat it. This is the screen now: when it is where the task should be after this step, %s; otherwise do by hand what is missing first.",
+			detail, then)
 	case out.Status == StatusMismatch:
 		return fmt.Sprintf("%s. Earlier steps ran. This is the screen now: do the step by hand, then call phone_flow_run again with from_step %d to repeat it%s. If the app changed for good, save the corrected flow with phone_flow_save.",
 			detail, step, next)
@@ -310,16 +381,106 @@ func plural(n int, word string) string {
 	return fmt.Sprintf("%d %ss", n, word)
 }
 
+// stepTimeout is how long a step waits for its target and for its
+// checkpoint: what the step says, else what the flow says, else ten
+// seconds, and launchWait for the step right after a launch.
+func stepTimeout(f *flow.Flow, st flow.Step, afterLaunch bool) time.Duration {
+	switch {
+	case st.TimeoutMS > 0:
+		return time.Duration(st.TimeoutMS) * time.Millisecond
+	case f.TimeoutMS > 0:
+		return time.Duration(f.TimeoutMS) * time.Millisecond
+	case afterLaunch:
+		return launchWait
+	}
+	return time.Duration(flow.DefaultTimeoutMS) * time.Millisecond
+}
+
+// flowPlace is where a step of a replay runs: the app the flow says is in
+// front ("" when it does not say), whether the step is the first that
+// runs, and the step after it (nil for the last).
+type flowPlace struct {
+	app   string
+	first bool
+	next  *flow.Step
+}
+
+// checkpoint is what a replay checks after st. A step's checkpoint says
+// what its screen shows, and waiting for that is needed only where nothing
+// else would notice a wrong screen: after the last step, and before a step
+// that acts without looking (a place on the screen, a key). Before a step
+// that looks for its target, finding the target is the check and the wait:
+// the screen shown is checked again only for its app, which every read
+// names. A checkpoint that names what changes from one day to the next (a
+// trending headline) then stops nothing it does not have to.
+func checkpoint(st flow.Step, next *flow.Step) *flow.Condition {
+	if st.Expect == nil || next == nil || !looksFirst(*next) {
+		return st.Expect
+	}
+	if st.Expect.App == "" {
+		return nil
+	}
+	return &flow.Condition{App: st.Expect.App}
+}
+
+// looksFirst reports whether st finds what it acts on on the screen
+// before it acts, and so stops at a screen that is not the one it expects:
+// a target by id or label (with no place on the screen to fall back to),
+// an assert, or a launch, which acts on no screen.
+func looksFirst(st flow.Step) bool {
+	switch st.Kind() {
+	case "assert", "launch":
+		return true
+	}
+	sel := st.Target()
+	return sel != nil && !st.Optional && !hasPoint(sel)
+}
+
+// hasPoint reports whether sel or a fallback of it is a place on the
+// screen, which matches whatever is shown.
+func hasPoint(sel *flow.Selector) bool {
+	if sel.Point != nil {
+		return true
+	}
+	for i := range sel.Or {
+		if hasPoint(&sel.Or[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// appAfter is the app in front after st, as far as the flow says: the app
+// it launches or its checkpoint names, none after a key (home leaves the
+// app), else the app before it.
+func appAfter(st flow.Step, before string) string {
+	switch {
+	case st.Launch != "":
+		return st.Launch
+	case st.Expect != nil && st.Expect.App != "":
+		return st.Expect.App
+	case st.Kind() == "key":
+		return ""
+	}
+	return before
+}
+
+// inApp reports whether app is in front on cur; why says what is instead.
+func inApp(cur *screen.Screen, app string) (ok bool, why string) {
+	if app == "" {
+		return true, ""
+	}
+	return (&flow.Condition{App: app}).Check(cur)
+}
+
 // flowStep runs one step of a replay. It returns the step's result, nil
 // for a step that was skipped, and how the step went.
-func (g *Gateway) flowStep(ctx context.Context, l *lease, c Call, f *flow.Flow, st flow.Step, lastAction *time.Time) (*Result, FlowStep) {
-	timeout := time.Duration(flow.DefaultTimeoutMS) * time.Millisecond
-	if f.TimeoutMS > 0 {
-		timeout = time.Duration(f.TimeoutMS) * time.Millisecond
-	}
-	if st.TimeoutMS > 0 {
-		timeout = time.Duration(st.TimeoutMS) * time.Millisecond
-	}
+func (g *Gateway) flowStep(ctx context.Context, l *lease, c Call, f *flow.Flow, st flow.Step, at flowPlace, lastAction *time.Time) (*Result, FlowStep) {
+	g.mu.Lock()
+	n := len(l.task.trace)
+	afterLaunch := n > 0 && l.task.trace[n-1].Launch != ""
+	g.mu.Unlock()
+	timeout := stepTimeout(f, st, afterLaunch)
 	stop := func(r *Result, detail string) (*Result, FlowStep) {
 		status := string(r.Status)
 		if r.Error != "" {
@@ -329,6 +490,34 @@ func (g *Gateway) flowStep(ctx context.Context, l *lease, c Call, f *flow.Flow, 
 			detail = r.Message
 		}
 		return r, FlowStep{Status: status, Detail: detail}
+	}
+
+	// A flow kept from a task that began in its app has no launch: open
+	// the app when another one is in front, or the first taps land on
+	// whatever that is (the home screen's icons, say).
+	if at.first && at.app != "" && st.Kind() != "launch" {
+		cur, err := g.startScreen(ctx, l, c)
+		if err != nil {
+			return stop(g.readError(l, err), "")
+		}
+		if ok, _ := inApp(cur, at.app); !ok {
+			lc := c
+			lc.Intent = fmt.Sprintf("Open %s, where the flow begins", at.app)
+			lc.part = ""
+			res := g.act(ctx, l, lc, Action{Tool: "launch", App: at.app})
+			if res.IsError() || res.Status != StatusSettled {
+				return stop(res, "")
+			}
+			*lastAction = time.Now()
+			cur, why, r := g.flowAwait(ctx, l, &flow.Condition{App: at.app}, launchWait)
+			if r != nil {
+				return stop(r, "")
+			}
+			if why != "" {
+				return g.flowMismatch(l, cur, st, why+" after opening it")
+			}
+			timeout = stepTimeout(f, st, true)
+		}
 	}
 
 	if st.Kind() == "assert" {
@@ -371,6 +560,12 @@ func (g *Gateway) flowStep(ctx context.Context, l *lease, c Call, f *flow.Flow, 
 			}
 			return g.flowMismatch(l, cur, st, fmt.Sprintf("%v after %s", err, approval.Human(wait)))
 		}
+		if m.Point != nil {
+			// A place on the screen means something only in its app.
+			if ok, why := inApp(cur, at.app); !ok {
+				return g.flowMismatch(l, cur, st, why)
+			}
+		}
 		switch {
 		case m.Point != nil:
 			a.Point = m.Point
@@ -396,14 +591,18 @@ func (g *Gateway) flowStep(ctx context.Context, l *lease, c Call, f *flow.Flow, 
 		if err != nil {
 			return stop(g.readError(l, err), "")
 		}
+		if ok, why := inApp(cur, at.app); !ok {
+			return g.flowMismatch(l, cur, st, why)
+		}
 		a.From = &screen.Point{X: int(st.From.X * float64(cur.Width)), Y: int(st.From.Y * float64(cur.Height))}
 		a.To = &screen.Point{X: int(st.To.X * float64(cur.Width)), Y: int(st.To.Y * float64(cur.Height))}
 	}
 	if res := a.check(); res != nil {
 		return stop(res, "")
 	}
-	if st.Expect != nil {
-		cond := st.Expect
+	expect := checkpoint(st, at.next)
+	if expect != nil {
+		cond := expect
 		c.until = func(view *screen.Screen) bool { ok, _ := cond.Check(view); return ok }
 		c.untilMax, c.untilOCR = timeout, cond.NeedsOCR()
 	}
@@ -416,14 +615,28 @@ func (g *Gateway) flowStep(ctx context.Context, l *lease, c Call, f *flow.Flow, 
 	if res.IsError() || res.Status != StatusSettled {
 		return stop(res, "")
 	}
-	if st.Expect != nil {
-		if ok, why := st.Expect.Check(res.Screen); !ok {
+	if expect != nil {
+		if ok, why := expect.Check(res.Screen); !ok {
 			res.Status, res.Full, res.Diff = StatusMismatch, true, nil
 			g.addStep(l, StepView{Tool: "phone_flow_run", Text: "Not as the flow expects: " + why, Status: string(StatusMismatch), At: time.Now()})
 			r, fs := stop(res, fmt.Sprintf("the step ran, but %s after %s", why, approval.Human(timeout)))
 			fs.acted = true
 			return r, fs
 		}
+	}
+	if expect != nil {
+		// Say what the step was checked against: an agent that reads only
+		// "ok" does not know that the screen it asked for is the one it
+		// got, and goes looking for it.
+		c := *expect
+		if len(c.Visible)+len(c.Gone) > 0 {
+			c.App = ""
+		}
+		reached := "reached: " + c.String()
+		if detail != "" {
+			reached = detail + "; " + reached
+		}
+		detail = reached
 	}
 	return res, FlowStep{Status: FlowStepOK, Detail: detail}
 }
@@ -448,9 +661,16 @@ func (g *Gateway) flowMismatch(l *lease, cur *screen.Screen, st flow.Step, why s
 // person took over, the phone is locked or gone, …).
 func (g *Gateway) flowFind(ctx context.Context, l *lease, sel *flow.Selector, max time.Duration, approvalID string) (flow.Match, *screen.Screen, error, *Result) {
 	g.readyScreen(ctx, l)
-	deadline := time.Now().Add(max)
+	began := time.Now()
+	deadline := began.Add(max)
 	ocr := sel.NeedsOCR()
+	full := false
 	for first := true; ; first = false {
+		if !full && !first && time.Since(began) > fullReadAfter {
+			// Not found in quick reads: look as a step by hand would.
+			full, ocr = true, true
+			g.settle(ctx, l.dev)
+		}
 		if res := g.gate(l, approvalID, true); res != nil {
 			return flow.Match{}, nil, nil, res
 		}
@@ -494,13 +714,19 @@ func (g *Gateway) flowFind(ctx context.Context, l *lease, sel *flow.Selector, ma
 // otherwise it says what does not hold on cur, the last read.
 func (g *Gateway) flowAwait(ctx context.Context, l *lease, cond *flow.Condition, max time.Duration) (cur *screen.Screen, why string, res *Result) {
 	g.readyScreen(ctx, l)
-	deadline := time.Now().Add(max)
+	began := time.Now()
+	deadline := began.Add(max)
+	ocr, full := cond.NeedsOCR(), false
 	for {
 		if res := g.gate(l, "", false); res != nil {
 			return nil, "", res
 		}
+		if !full && time.Since(began) > fullReadAfter {
+			full, ocr = true, true
+			g.settle(ctx, l.dev)
+		}
 		var err error
-		if cur, err = g.observe(ctx, l.dev, cond.NeedsOCR()); err != nil {
+		if cur, err = g.observe(ctx, l.dev, ocr); err != nil {
 			return nil, "", g.readError(l, err)
 		}
 		view, _ := g.agentView(l, cur)
@@ -527,9 +753,17 @@ func (g *Gateway) flowAwait(ctx context.Context, l *lease, cond *flow.Condition,
 // holds on (Call.until). It returns the last read and whether it holds.
 func (g *Gateway) awaitScreen(ctx context.Context, l *lease, c Call) (*screen.Screen, bool, error) {
 	d := l.dev
-	deadline := time.Now().Add(c.untilMax)
+	began := time.Now()
+	deadline := began.Add(c.untilMax)
+	ocr, full := c.untilOCR, false
 	for {
-		cur, err := g.observe(ctx, d, c.untilOCR)
+		if !full && time.Since(began) > fullReadAfter {
+			// The checkpoint does not show in quick reads: read as a step
+			// by hand would before saying it is not there.
+			full, ocr = true, true
+			g.settle(ctx, d)
+		}
+		cur, err := g.observe(ctx, d, ocr)
 		if err != nil {
 			return nil, false, err
 		}
@@ -568,7 +802,17 @@ func (g *Gateway) traceStep(l *lease, c Call, a Action, p *prep, before, after *
 		t.traceGap = true
 		return
 	}
-	t.trace, t.traceAfter = append(t.trace, st), append(t.traceAfter, after)
+	saved := c.flow != "" && !c.own
+	if n := len(t.trace); n > 0 && st.Launch != "" && t.trace[n-1].Launch == st.Launch {
+		// Opening the app that was just opened changes nothing: a replay
+		// that stopped at its launch and was started again is one step.
+		t.trace[n-1], t.traceAfter[n-1], t.tracePart[n-1], t.traceSaved[n-1] = st, after, c.part, saved
+		t.traceShot[n-1] = nil
+	} else {
+		t.trace, t.traceAfter = append(t.trace, st), append(t.traceAfter, after)
+		t.tracePart, t.traceSaved = append(t.tracePart, c.part), append(t.traceSaved, saved)
+		t.traceShot = append(t.traceShot, nil)
+	}
 	if c.flow == "" || c.own {
 		t.byHand++
 	}

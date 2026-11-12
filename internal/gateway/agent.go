@@ -101,6 +101,7 @@ type Result struct {
 	Flows      []FlowInfo  // phone_flow_list
 	FlowYAML   string      // phone_flow_save, and phone_flow_list of one flow
 	Parts      []PartInfo  // the parts of apps: phone_connect, phone_launch, phone_flow_list
+	Notes      []AppNotes  // the notes on apps: phone_connect, phone_launch
 }
 
 // IsError reports whether the result is an error rather than a status.
@@ -132,8 +133,10 @@ type Call struct {
 	// flow names the replay a step belongs to, "" for a step the agent
 	// made itself; own is set when the agent put the replay together
 	// from parts rather than running a flow somebody has already.
-	flow     string
-	own      bool
+	flow string
+	own  bool
+	// part is the part a replayed step was run as, "" for none.
+	part     string
 	until    func(*screen.Screen) bool
 	untilMax time.Duration
 	untilOCR bool
@@ -157,6 +160,10 @@ type ConnectRequest struct {
 	// task that ran before by it, rather than by the task's name, which
 	// is short and may be the same for two requests (flowauto.go).
 	Brief string
+	// Test marks a test run, as pinkyctl flow run makes: a replay that
+	// stops is the finding, so the task keeps no flow, learns no parts
+	// and repairs neither.
+	Test bool
 }
 
 // ReleaseRequest is phone_release.
@@ -491,6 +498,7 @@ func (s *Session) Connect(ctx context.Context, req ConnectRequest) *Result {
 	l := g.newLeaseLocked(s, d, title, req.Apps)
 	l.readOnly, l.task.readOnly = req.ReadOnly, req.ReadOnly
 	l.task.brief = taskKey(req.Brief)
+	l.task.test = req.Test
 	l.inflight++
 	g.mu.Unlock()
 	defer s.done(l)
@@ -876,14 +884,15 @@ func (s *Session) Release(ctx context.Context, req ReleaseRequest) *Result {
 		outcome = "cancelled"
 	}
 	// A task that worked leaves its steps behind as a flow (flowauto.go).
-	var kept map[*lease]*flow.Flow
-	if outcome == OutcomeDone && g.opt.AutoFlows {
-		kept = s.keepFlows(req.Device)
-	}
 	// Whatever the outcome, each step that ran says where it leads: the
-	// apps' parts learn from it (flowparts.go).
+	// apps' parts learn from it (flowparts.go), and a flow is kept as the
+	// parts its steps are.
+	var kept map[*lease]*flow.Flow
 	if g.opt.AutoFlows {
-		s.keepParts(req.Device)
+		parts := s.keepParts(req.Device, outcome == OutcomeDone)
+		if outcome == OutcomeDone {
+			kept = s.keepFlows(req.Device, parts)
+		}
 	}
 	g.mu.Lock()
 	var ls []*lease
@@ -953,6 +962,7 @@ func (s *Session) Observe(ctx context.Context, req ObserveRequest) *Result {
 	if err != nil {
 		return g.finish(l, g.readError(l, err))
 	}
+	cur = g.finishRead(ctx, l, cur)
 	res = g.screenResult(l, cur, true)
 	res.Status = StatusSettled
 	if cur.Locked {
@@ -975,6 +985,11 @@ func (s *Session) Observe(ctx context.Context, req ObserveRequest) *Result {
 				res.Screenshot = img
 				// Checked against reads on both sides: steps may reuse it.
 				g.keepImage(l.dev, cur, img)
+				// A look with a picture is in the task's history: whether an
+				// agent looked, and when, is what tells a misread screen from
+				// one it never saw.
+				g.addStep(l, StepView{Tool: "phone_observe", Args: argsJSON(map[string]any{"screenshot": true}),
+					Text: "Looked at the screen, with a picture", Status: string(StatusSettled), At: time.Now()})
 			case errors.Is(err, driver.ErrUnsupported):
 				res.Message = strings.TrimSpace(res.Message + " This phone cannot take screenshots.")
 			case errors.Is(err, errLockedShot):
@@ -1371,6 +1386,9 @@ func (s *Session) Handoff(ctx context.Context, req HandoffRequest) *Result {
 			Title: reason, Detail: fmt.Sprintf("%s · %s", s.agent.Name, l.task.title), Agent: s.agent.Name,
 			TaskID: l.task.id, DeviceName: l.dev.name(), App: g.appName(l.dev), Timeout: g.opt.HandoffTimeout})
 		g.mu.Lock()
+		// Read the screen the person starts from: what they do on the
+		// mirror next is a step to learn (person.go).
+		g.personInputLocked(l.dev, personEvent{kind: "look"})
 		if endsOnUnlock {
 			l.unlockHandoffs = append(l.unlockHandoffs, info.ID)
 		}

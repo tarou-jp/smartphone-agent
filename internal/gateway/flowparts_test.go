@@ -64,7 +64,7 @@ func TestPartsPutTogether(t *testing.T) {
 	inputs := len(dev.Inputs())
 	res = runFlow(s, FlowRequest{Parts: []string{open, orders}})
 	mustStatus(t, res, StatusSettled)
-	if got := flowStatuses(res); got != "ok ok" || !strings.Contains(res.Message, "The 2 parts ran") {
+	if got := flowStatuses(res); got != "ok ok" || !strings.Contains(res.Message, "The plan ran") {
 		t.Fatalf("steps: %s\n%s", got, res.Message)
 	}
 	if dev.Current() != "orders" || len(dev.Inputs())-inputs != 2 {
@@ -73,11 +73,25 @@ func TestPartsPutTogether(t *testing.T) {
 	if !res.Full || res.Screen == nil || !strings.Contains(res.Screen.Render(), "Reorder") {
 		t.Fatalf("the run returns the screen it ended on: %+v", res)
 	}
-	// The task the agent put together is kept as a flow of its own, and
-	// its steps were seen once more.
+	// The task the agent put together is kept as a flow of its own: a
+	// list of the parts it ran, by name. Its steps were seen once more.
 	res = s.Release(ctx, ReleaseRequest{})
 	if flows := g.Flows(); len(flows) != 2 || !strings.Contains(res.Message, "kept the task's steps") {
 		t.Fatalf("flows: %+v\n%s", flows, res.Message)
+	}
+	for _, fi := range g.Flows() {
+		f, err := g.flows.Load(fi.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, st := range f.Steps {
+			if st.Part == "" || st.Tap != nil || st.Launch != "" || st.Name == "" {
+				t.Errorf("%s step %d is a copy, not a part by name: %+v", f.Name, i+1, st)
+			}
+		}
+		if f.Task == taskKey("Open Dinely and show me my orders") && (len(f.Steps) != 2 || f.Steps[0].Part != open || f.Steps[1].Part != orders) {
+			t.Errorf("the kept plan: %+v", f.Steps)
+		}
 	}
 	ps, _ = g.flows.Parts(dinely)
 	if len(ps.Parts) != 4 {
@@ -89,12 +103,38 @@ func TestPartsPutTogether(t *testing.T) {
 		}
 	}
 
-	// The same request again is that flow: the parts are not listed.
+	// The same request again: its flow is named, and the parts are
+	// listed all the same, for a task that differs a little.
 	s = g.OpenSession(agent)
 	t.Cleanup(s.Close)
 	res = s.Connect(ctx, ConnectRequest{Task: "Orders", Brief: "open Dinely and show me my orders"})
-	if !strings.Contains(res.Message, "This task ran before") || len(res.Parts) != 0 {
+	if !strings.Contains(res.Message, "This task ran before") || len(res.Parts) != 4 {
 		t.Fatalf("connect: %d parts: %s", len(res.Parts), res.Message)
+	}
+	// The kept flow runs as the parts it names.
+	mustStatus(t, s.Act(ctx, Call{}, Action{Tool: "key", Key: "home"}), StatusSettled)
+	for _, fi := range g.Flows() {
+		if f, _ := g.flows.Load(fi.Name); len(f.Steps) == 2 {
+			res = runFlow(s, FlowRequest{Name: f.Name})
+			mustStatus(t, res, StatusSettled)
+			if dev.Current() != "orders" || !strings.Contains(res.Flow.Steps[1].Text, "Orders") {
+				t.Fatalf("the kept flow: on %q, %+v", dev.Current(), res.Flow.Steps)
+			}
+		}
+	}
+	// A plan mixes parts with steps of the agent's own.
+	mustStatus(t, s.Act(ctx, Call{}, Action{Tool: "key", Key: "home"}), StatusSettled)
+	res = runFlow(s, FlowRequest{Steps: []any{
+		map[string]any{"part": open},
+		map[string]any{"tap": map[string]any{"role": "tab", "label": "Orders"}},
+		map[string]any{"assert": map[string]any{"visible": map[string]any{"contains": "Reorder"}}},
+	}})
+	mustStatus(t, res, StatusSettled)
+	if got := flowStatuses(res); got != "ok ok ok" || dev.Current() != "orders" {
+		t.Fatalf("mixed plan: %s on %q\n%s", got, dev.Current(), res.Message)
+	}
+	if res = runFlow(s, FlowRequest{Steps: []any{map[string]any{"press": "Orders"}}}); res.Error != ErrInvalidArgument {
+		t.Fatalf("a step of no kind: %s %s", res.Status, res.Message)
 	}
 	// phone_flow_list shows an app's parts on request.
 	res = s.ListFlows(ctx, FlowListRequest{App: "Dinely"})
@@ -118,8 +158,9 @@ func TestPartsPutTogether(t *testing.T) {
 	}
 }
 
-// A part whose action stops leading where it did is dropped after two
-// replays; a part that does not fit the screen is not the part's fault.
+// A part whose action stops leading where it did is no longer offered
+// after two replays; a part that does not fit the screen is not the
+// part's fault.
 func TestPartsBreak(t *testing.T) {
 	g, _ := newTestGateway(t, func(o *Options) { o.FlowPace = time.Millisecond; o.AutoFlows = true })
 	ctx := context.Background()
@@ -129,7 +170,7 @@ func TestPartsBreak(t *testing.T) {
 	// The app changed: Orders is said to lead to a screen it does not.
 	wrong := flow.Step{Tap: &flow.Selector{Role: "tab", Label: "Orders"},
 		Expect: &flow.Condition{App: dinely, Visible: flow.Selectors{{ID: "dinely:gone"}}}}
-	if n, err := g.flows.LearnParts([]flow.Step{wrong}, nil, time.Now()); err != nil || n != 1 {
+	if _, n, err := g.flows.LearnParts([]flow.Ran{{Step: wrong}}, time.Now()); err != nil || n != 1 {
 		t.Fatalf("%d %v", n, err)
 	}
 	bad := flow.PartID(dinely, wrong)
@@ -143,15 +184,18 @@ func TestPartsBreak(t *testing.T) {
 	if got := flowStatuses(res); got != "ok mismatch" || !strings.Contains(res.Message, "the step ran, but") {
 		t.Fatalf("steps: %s\n%s", got, res.Message)
 	}
-	if _, _, ok := g.flows.Part(bad); !ok {
-		t.Fatal("dropped at the first break")
+	if _, p, _ := g.flows.Part(bad); p.Broke != 1 {
+		t.Fatalf("broke %d times", p.Broke)
 	}
 	mustStatus(t, runFlow(s, FlowRequest{YAML: src}), StatusMismatch)
-	if _, _, ok := g.flows.Part(bad); ok {
-		t.Fatal("still there after breaking twice")
+	if _, p, ok := g.flows.Part(bad); !ok || p.Broke != 2 {
+		t.Fatalf("a part that broke twice stays for the flows that name it: %+v", p)
 	}
-	if res = runFlow(s, FlowRequest{YAML: src}); res.Error != ErrInvalidArgument || !strings.Contains(res.Message, bad) {
-		t.Fatalf("a flow naming a part that is gone: %s %s", res.Status, res.Message)
+	if res = s.ListFlows(ctx, FlowListRequest{App: dinely}); len(res.Parts) != 4 {
+		t.Fatalf("a part that broke twice is still offered: %+v", res.Parts)
+	}
+	if res = runFlow(s, FlowRequest{Parts: []string{"pffffff"}}); res.Error != ErrInvalidArgument || !strings.Contains(res.Message, "pffffff") {
+		t.Fatalf("a plan naming a part that is not there: %s %s", res.Status, res.Message)
 	}
 	// A part whose target is not on the screen stops the run, and stays.
 	cart := ""
@@ -183,7 +227,7 @@ func TestPartsOfferedAtLaunch(t *testing.T) {
 	ctx := context.Background()
 	s, _ := connect(t, g, "Look around")
 	step := flow.Step{Launch: dinely, Expect: &flow.Condition{App: dinely}}
-	if _, err := g.flows.LearnParts([]flow.Step{step}, nil, time.Now()); err != nil {
+	if _, _, err := g.flows.LearnParts([]flow.Ran{{Step: step}}, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	res := s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"})
@@ -206,5 +250,155 @@ func TestPartsOfferedAtLaunch(t *testing.T) {
 	}
 	if res = s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"}); len(res.Parts) != 0 {
 		t.Fatalf("listed again at launch: %s", res.Message)
+	}
+}
+
+// A flow whose launch expects a screen the app does not open on any more
+// (a splash screen, when the app was already running): the step ran, so
+// the agent is told to go on after it, and when it starts the replay over
+// instead, the kept steps still open the app once.
+func TestFlowLaunchRanElsewhere(t *testing.T) {
+	g, _ := newTestGateway(t, func(o *Options) { o.FlowPace = time.Millisecond; o.AutoFlows = true })
+	ctx := context.Background()
+	s, _ := connect(t, g, "Look at my orders")
+	res := s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"})
+	mustStatus(t, tap(s, ref(t, res, "Orders")), StatusSettled)
+	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	name := g.Flows()[0].Name
+	f, err := g.flows.Load(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The flow is two parts by name. The one that opens the app says, as
+	// flows kept before did, that a splash screen shows.
+	launch, orders := f.Steps[0].Part, f.Steps[1].Part
+	ps, _ := g.flows.Parts(dinely)
+	for _, p := range ps.Parts {
+		if p.ID == launch {
+			p.Expect.Visible = flow.Selectors{{Role: "image", Label: "Splash"}}
+		}
+	}
+	if launch == "" || orders == "" || g.flows.SaveParts(ps) != nil {
+		t.Fatalf("the kept flow: %+v", f.Steps)
+	}
+	f.Steps[0].TimeoutMS = 60
+	if _, err := g.flows.Save(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// The next step looks for Orders: finding it is the check, and the
+	// splash screen the launch expects stops nothing.
+	s, _ = connect(t, g, "Look at my orders")
+	res = runFlow(s, FlowRequest{Name: name})
+	mustStatus(t, res, StatusSettled)
+	mustStatus(t, s.Release(ctx, ReleaseRequest{Outcome: "cancelled"}), StatusSettled)
+
+	// A next step that does not look first (here, one that may be left
+	// out) needs the launch's checkpoint.
+	f.Steps[1].Optional = true
+	if _, err := g.flows.Save(f); err != nil {
+		t.Fatal(err)
+	}
+	s, _ = connect(t, g, "Look at my orders")
+	res = runFlow(s, FlowRequest{Name: name})
+	mustStatus(t, res, StatusMismatch)
+	if !strings.Contains(res.Message, "do not repeat it") || !strings.Contains(res.Message, "from_step 2") || strings.Contains(res.Message, "from_step 1") {
+		t.Fatalf("advice after a step that ran: %s", res.Message)
+	}
+	// The agent starts over all the same, then goes on by hand.
+	res = runFlow(s, FlowRequest{Name: name, FromStep: 1})
+	mustStatus(t, res, StatusMismatch)
+	mustStatus(t, tap(s, ref(t, res, "Orders")), StatusSettled)
+	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	// The task went on and ended well: the part that opens the app says
+	// where it leads now, under the id it had, and the flow names the
+	// same two parts.
+	// (Version 3 is the one saved with the optional step above.)
+	f, err = g.flows.Load(name)
+	if err != nil || f.Version != 4 || len(f.Steps) != 2|| f.Steps[0].Part != launch || f.Steps[1].Part != orders {
+		t.Fatalf("the repaired flow: %+v %v", f, err)
+	}
+	if _, p, _ := g.flows.Part(launch); len(p.Expect.Visible) != 0 || p.Expect.App != dinely || p.Broke != 0 {
+		t.Fatalf("the part was not repaired in place: %+v", p.Expect)
+	}
+	// And it replays whole the next time.
+	s, _ = connect(t, g, "Look at my orders")
+	mustStatus(t, runFlow(s, FlowRequest{Name: name}), StatusSettled)
+}
+
+// A test run reports what it finds and changes nothing: a part that leads
+// elsewhere is the finding, not something to learn from, and the run
+// keeps no flow.
+func TestTestRunsChangeNothing(t *testing.T) {
+	g, _ := newTestGateway(t, func(o *Options) { o.FlowPace = time.Millisecond; o.AutoFlows = true })
+	ctx := context.Background()
+	s, _ := connect(t, g, "Look at my orders")
+	res := s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"})
+	mustStatus(t, tap(s, ref(t, res, "Orders")), StatusSettled)
+	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	name := g.Flows()[0].Name
+	f, _ := g.flows.Load(name)
+	orders := f.Steps[1].Part
+	// The app has a bug today: Orders leads somewhere else.
+	ps, _ := g.flows.Parts(dinely)
+	for _, p := range ps.Parts {
+		if p.ID == orders {
+			p.Expect.Visible = flow.Selectors{{ID: "dinely:gone"}}
+		}
+	}
+	if err := g.flows.SaveParts(ps); err != nil {
+		t.Fatal(err)
+	}
+	f.Steps[1].TimeoutMS = 60
+	g.flows.Save(f)
+	before, _ := g.flows.Parts(dinely)
+
+	s = g.OpenSession(agent)
+	t.Cleanup(s.Close)
+	mustStatus(t, s.Connect(ctx, ConnectRequest{Task: "Run the tests", Test: true}), StatusSettled)
+	for range 3 {
+		mustStatus(t, runFlow(s, FlowRequest{Name: name}), StatusMismatch)
+	}
+	// Steps of its own do not make it a task to keep either.
+	mustStatus(t, s.Act(ctx, Call{}, Action{Tool: "key", Key: "back"}), StatusSettled)
+	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	after, _ := g.flows.Parts(dinely)
+	if len(after.Parts) != len(before.Parts) || len(g.Flows()) != 1 {
+		t.Fatalf("a test run left %d parts (were %d) and %d flows", len(after.Parts), len(before.Parts), len(g.Flows()))
+	}
+	for i, p := range after.Parts {
+		if p.Broke != 0 || p.Seen != before.Parts[i].Seen {
+			t.Errorf("a test run changed %s: seen %d, broke %d", p.Text(), p.Seen, p.Broke)
+		}
+	}
+	if f, _ := g.flows.Load(name); f.Version != 2 {
+		t.Fatalf("a test run made version %d of the flow", f.Version)
+	}
+}
+
+// An app that starts cold takes longer than a screen change: the step
+// after a launch waits longer for it, unless the step or the flow says
+// how long to wait.
+func TestStepTimeout(t *testing.T) {
+	plain, quick := &flow.Flow{}, &flow.Flow{TimeoutMS: 100}
+	tap, own := flow.Step{Tap: &flow.Selector{Label: "Orders"}}, flow.Step{Tap: &flow.Selector{Label: "Orders"}, TimeoutMS: 500}
+	for _, c := range []struct {
+		f           *flow.Flow
+		st          flow.Step
+		afterLaunch bool
+		want        time.Duration
+	}{
+		{plain, tap, false, 10 * time.Second},
+		{plain, tap, true, launchWait},
+		{quick, tap, true, 100 * time.Millisecond},
+		{plain, own, true, 500 * time.Millisecond},
+		{quick, own, false, 500 * time.Millisecond},
+	} {
+		if got := stepTimeout(c.f, c.st, c.afterLaunch); got != c.want {
+			t.Errorf("flow %d ms, step %d ms, after a launch %v: %s, want %s", c.f.TimeoutMS, c.st.TimeoutMS, c.afterLaunch, got, c.want)
+		}
+	}
+	if launchWait <= time.Duration(flow.DefaultTimeoutMS)*time.Millisecond {
+		t.Errorf("the wait after a launch (%s) is no longer than any other", launchWait)
 	}
 }

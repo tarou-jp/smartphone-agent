@@ -3,9 +3,11 @@ package gateway
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/DIYgod/pinky/internal/demo"
 	"github.com/DIYgod/pinky/internal/flow"
 )
 
@@ -397,12 +399,25 @@ func TestFlowsByThemselves(t *testing.T) {
 		t.Fatalf("a failed task was kept: %+v", g.Flows())
 	}
 
-	// The app changes: the flow's second step no longer finds its target.
+	// The app changes: the part that is the flow's second step no longer
+	// finds its target.
 	f, err := g.flows.Load(name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Steps[1].Tap = &flow.Selector{Role: "tab", Label: "Order history"}
+	ps, err := g.flows.Parts("com.dinely.app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := f.Steps[1].Part
+	for _, p := range ps.Parts {
+		if p.ID == old {
+			p.Tap = &flow.Selector{Role: "tab", Label: "Order history"}
+		}
+	}
+	if err := g.flows.SaveParts(ps); err != nil {
+		t.Fatal(err)
+	}
 	f.Steps[1].TimeoutMS = 60
 	if _, err := g.flows.Save(f); err != nil {
 		t.Fatal(err)
@@ -418,8 +433,11 @@ func TestFlowsByThemselves(t *testing.T) {
 		t.Fatalf("the repaired flow was not kept: %s", res.Message)
 	}
 	f, err = g.flows.Load(name)
-	if err != nil || f.Version != 3 || len(f.Steps) != 4 || f.Steps[1].Tap.ID != "dinely:tab:orders" || f.Task != taskKey("Reorder last week's lunch") || strings.Contains(f.Steps[0].Intent, "Flow") {
+	if err != nil || f.Version != 3 || len(f.Steps) != 4 || f.Steps[1].Part == "" || f.Steps[1].Part == old || f.Task != taskKey("Reorder last week's lunch") {
 		t.Fatalf("the flow did not repair itself: %+v %v", f, err)
+	}
+	if _, p, ok := g.flows.Part(f.Steps[1].Part); !ok || p.Tap.ID != "dinely:tab:orders" || strings.Contains(p.Intent, "Flow") {
+		t.Fatalf("the step done by hand is not the flow's part now: %+v", p)
 	}
 	if len(g.Flows()) != 1 {
 		t.Fatalf("the repair made another flow: %+v", g.Flows())
@@ -497,6 +515,126 @@ func TestKeptFlowsGoByTheBrief(t *testing.T) {
 	for _, f := range flows {
 		if f.Steps == 4 && !strings.Contains(res.Message, f.Name) {
 			t.Fatalf("the hint names another flow than %s: %s", f.Name, res.Message)
+		}
+	}
+}
+
+func inputKinds(in []demo.Input) string {
+	var out []string
+	for _, i := range in {
+		out = append(out, i.Kind)
+	}
+	return strings.Join(out, " ")
+}
+
+// A flow kept from a task that began in its app has no launch: replayed
+// from another app, it opens its app first instead of tapping its places
+// on whatever is in front.
+func TestFlowOpensItsApp(t *testing.T) {
+	g, dev := newTestGateway(t, func(o *Options) { o.FlowPace = time.Millisecond })
+	s, _ := connect(t, g, "Tabs")
+	dev.Show("home")
+	src := `
+flow: dinely.tabs
+app: ` + demo.Dinely + `
+timeout_ms: 2000
+steps:
+  - tap: { point: { x: 0.5, y: 0.5 } }
+  - tap: { point: { x: 0.5, y: 0.5 } }
+`
+	inputs := len(dev.Inputs())
+	res := runFlow(s, FlowRequest{YAML: src})
+	mustStatus(t, res, StatusSettled)
+	if got := inputKinds(dev.Inputs()[inputs:]); got != "launch tap tap" {
+		t.Fatalf("inputs %q; the replay should open the app before its taps", got)
+	}
+
+	// Already in the app, it just runs.
+	dev.Show("dinely")
+	inputs = len(dev.Inputs())
+	mustStatus(t, runFlow(s, FlowRequest{YAML: src}), StatusSettled)
+	if got := inputKinds(dev.Inputs()[inputs:]); got != "tap tap" {
+		t.Fatalf("inputs %q", got)
+	}
+}
+
+// A place on the screen means something only in its app: a step that
+// taps one while another app is in front stops without tapping.
+func TestFlowPointNeedsItsApp(t *testing.T) {
+	g, dev := newTestGateway(t, func(o *Options) { o.FlowPace = time.Millisecond })
+	s, _ := connect(t, g, "Tabs")
+	dev.Show("dinely")
+	// The first tap opens another app, which the flow does not know of.
+	var once sync.Once
+	dev.OnInput(func(in demo.Input) {
+		if in.Kind == "tap" {
+			once.Do(func() { go dev.Show("chats") })
+		}
+	})
+	inputs := len(dev.Inputs())
+	res := runFlow(s, FlowRequest{YAML: `
+flow: b
+app: ` + demo.Dinely + `
+steps:
+  - tap: { point: { x: 0.5, y: 0.5 } }
+  - tap: { point: { x: 0.5, y: 0.5 } }
+`})
+	mustStatus(t, res, StatusMismatch)
+	if got := inputKinds(dev.Inputs()[inputs:]); got != "tap" {
+		t.Errorf("inputs %q; the second tap should not run in another app", got)
+	}
+	if got := flowStatuses(res); got != "ok mismatch" || !strings.Contains(res.Message, "app in front") {
+		t.Errorf("steps %q: %s", got, res.Message)
+	}
+}
+
+// A checkpoint is checked where nothing else would notice a wrong screen:
+// after the last step and before a step that acts without looking. Before
+// a step that looks for its target, the target is the check, and a
+// checkpoint that names what changed (a trending headline) stops nothing.
+func TestFlowCheckpointsWhereNeeded(t *testing.T) {
+	g, dev := newTestGateway(t, func(o *Options) { o.FlowPace = time.Millisecond })
+	s, _ := connect(t, g, "Orders")
+	stale := `{ app: ` + demo.Dinely + `, visible: "Yesterday's headline" }`
+
+	dev.Show("dinely")
+	res := runFlow(s, FlowRequest{YAML: `
+flow: a
+timeout_ms: 60
+steps:
+  - assert: { visible: Orders }
+  - tap: Orders
+    expect: ` + stale + `
+  - tap: { contains: beef }
+`})
+	mustStatus(t, res, StatusSettled)
+	if dev.Cart() != 1 {
+		t.Errorf("cart %d; the replay should have reached the reorder", dev.Cart())
+	}
+
+	// The app is still checked: the next step's target is in Dinely.
+	dev.Show("dinely")
+	res = runFlow(s, FlowRequest{YAML: `
+flow: a
+timeout_ms: 60
+steps:
+  - tap: Orders
+    expect: { app: ` + demo.Chatter + ` }
+  - tap: { contains: beef }
+`})
+	mustStatus(t, res, StatusMismatch)
+
+	for _, c := range []struct{ name, next string }{
+		{"the last step", ""},
+		{"before a place on the screen", "  - tap: { point: { x: 0.5, y: 0.5 } }\n"},
+		{"before a key", "  - key: back\n"},
+	} {
+		dev.Show("dinely")
+		inputs := len(dev.Inputs())
+		res = runFlow(s, FlowRequest{YAML: "flow: a\ntimeout_ms: 60\nsteps:\n  - tap: Orders\n    expect: " + stale + "\n" + c.next})
+		mustStatus(t, res, StatusMismatch)
+		if n := len(dev.Inputs()) - inputs; n != 1 {
+			t.Errorf("%s: %d inputs; the replay should stop after the tap", c.name, n)
 		}
 	}
 }

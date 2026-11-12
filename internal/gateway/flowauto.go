@@ -23,8 +23,10 @@ import (
 //     keeps its steps as that flow's next version: the flow follows the
 //     app without anyone repairing it.
 //
-// A task that no flow replays is put together from the apps' parts; see
-// flowparts.go.
+// A kept flow is a list of parts: its steps name the parts of the app
+// they are (flowparts.go) instead of copying them, so that a part that is
+// repaired repairs every flow that uses it. Any task, also one no flow
+// replays, is put together from the same parts.
 
 // offeredFlows bounds the flows a connect result lists.
 const offeredFlows = 20
@@ -54,15 +56,14 @@ func (g *Gateway) offerFlows(res *Result, l *lease) *Result {
 		res.Flows = append(res.Flows, flowInfo(f))
 	}
 	if same != nil {
-		res.Message += fmt.Sprintf(" This task ran before: the flow “%s” holds its steps. Replay it with phone_flow_run { flow: %q } instead of doing the steps by hand; it checks each screen on the way.",
+		res.Message += fmt.Sprintf(" This task ran before: the flow “%s” holds its plan. When the task is the same, run it again with phone_flow_run { flow: %q } instead of doing the steps by hand; it checks each screen on the way.",
 			same.Name, same.Name)
 	} else {
-		res.Message += " Flows kept from earlier tasks are listed below. If one does what this task needs, replay it with phone_flow_run instead of doing its steps by hand, and do by hand only what it does not cover."
-		// No flow is this task: the apps' parts are what it can be put
-		// together from.
-		res = g.offerParts(res, l)
+		res.Message += " Flows kept from earlier tasks are listed below. If one does what this task needs, replay it with phone_flow_run instead of doing its steps by hand."
 	}
-	return res
+	// The apps' parts are what any task can be put together from, also
+	// one that differs a little from a flow.
+	return g.offerParts(res, l)
 }
 
 // taskKeyRunes bounds what a task is known by.
@@ -92,7 +93,7 @@ func flowKey(t *task) string {
 // what it saved per lease. A task is kept when the agent made steps of its
 // own in it, at least two steps ran, and none are missing; a task that
 // only replayed a flow leaves the flow as it is.
-func (s *Session) keepFlows(device string) map[*lease]*flow.Flow {
+func (s *Session) keepFlows(device string, parts map[*lease][]string) map[*lease]*flow.Flow {
 	g := s.g
 	type job struct {
 		l        *lease
@@ -110,7 +111,7 @@ func (s *Session) keepFlows(device string) map[*lease]*flow.Flow {
 			}
 		}
 		t := l.task
-		if t.byHand == 0 || len(t.trace) < 2 || t.traceGap {
+		if t.test || t.byHand == 0 || len(t.trace) < 2 || t.traceGap {
 			continue
 		}
 		j := job{l: l, title: t.title, key: flowKey(t), steps: append([]flow.Step(nil), t.trace...), replayed: map[string]bool{}}
@@ -123,7 +124,7 @@ func (s *Session) keepFlows(device string) map[*lease]*flow.Flow {
 
 	kept := map[*lease]*flow.Flow{}
 	for _, j := range jobs {
-		f := autoFlow(j.title, j.key, j.steps)
+		f := autoFlow(j.title, j.key, j.steps, parts[j.l], g.flows)
 		// One flow replayed, stopped, and the agent finished by hand: the
 		// task's steps are that flow as it works now.
 		repair := false
@@ -158,19 +159,27 @@ func (s *Session) keepFlows(device string) map[*lease]*flow.Flow {
 // autoFlow makes a flow of a task's steps without anyone naming anything:
 // it is named after the app and the task, described by the task's name,
 // and takes the text the task typed as parameters, with the typed text as
-// their defaults, so that a replay can type something else.
-func autoFlow(title, key string, steps []flow.Step) *flow.Flow {
+// their defaults, so that a replay can type something else. A step that
+// is a part of its app (parts[i], as keepParts returns them) is kept as
+// the part's name, not as a copy: when the app changes and the part is
+// repaired, the flow follows, and so does every other flow that names it.
+func autoFlow(title, key string, steps []flow.Step, parts []string, store *flow.Store) *flow.Flow {
 	f := &flow.Flow{Description: title, Task: key, App: flowApp(steps)}
 	f.Name = autoFlowName(f.App, title, key)
 	n := 0
-	for _, st := range steps {
+	for i, st := range steps {
+		var part *flow.Part
+		if i < len(parts) && parts[i] != "" {
+			_, part, _ = store.Part(parts[i])
+		}
+		typed := ""
 		if st.Type != nil && *st.Type != "" {
 			n++
 			name := "text"
 			if n > 1 {
 				name = fmt.Sprintf("text%d", n)
 			}
-			typed := *st.Type
+			typed = *st.Type
 			where := "the focused field"
 			if st.Into != nil {
 				where = st.Into.String()
@@ -178,9 +187,17 @@ func autoFlow(title, key string, steps []flow.Step) *flow.Flow {
 			if f.Params == nil {
 				f.Params = map[string]flow.Param{}
 			}
-			f.Params[name] = flow.Param{Description: "Text typed into " + where, Default: &typed}
+			text := typed
+			f.Params[name] = flow.Param{Description: "Text typed into " + where, Default: &text}
 			ref := "${" + name + "}"
 			st.Type = &ref
+		}
+		if part != nil {
+			ref := flow.Step{Part: part.ID, Name: part.Does()}
+			if part.Type != nil {
+				ref.Type = st.Type
+			}
+			st = ref
 		}
 		f.Steps = append(f.Steps, st)
 	}

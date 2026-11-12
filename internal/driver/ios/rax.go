@@ -71,6 +71,7 @@ const (
 	axpAttrValue            = 53
 	axpAttrAutomationType   = 61 // XCUIElementType
 	axpAttrValueDescription = 64
+	axpAttrHostPID          = 65 // the process of the app that shows the element
 	axpAttrIsRemoteElement  = 66
 	axpAttrRemoteElementPID = 69 // the process a remote element shows
 	axpAttrTraits           = 77 // UIAccessibilityTraits, private bits included
@@ -82,6 +83,7 @@ var raxWalkAttrs = []int{
 	axpAttrIdentifier, axpAttrAutomationType, axpAttrTraits, axpAttrIsEnabled,
 	axpAttrIsSelected, axpAttrIsFocused, axpAttrPlaceholder, axpAttrValueDescription,
 	axpAttrIsVisible, axpAttrIsRemoteElement, axpAttrRemoteElementPID, axpAttrRole,
+	axpAttrHostPID,
 }
 
 var errRAXTimeout = errors.New("remote accessibility: no answer")
@@ -107,10 +109,11 @@ type raxSession struct {
 	meta map[[2]uint64]objMeta
 }
 
-// objMeta is what a first push leaves out of an element.
+// objMeta is what a push may leave out of an element.
 type objMeta struct {
-	Type  int
-	Ident string
+	Type    int
+	Ident   string
+	HostPID int
 }
 
 // maxMeta bounds the elements a session remembers.
@@ -125,7 +128,7 @@ func (s *raxSession) learn(els []raxElement) {
 		s.meta = make(map[[2]uint64]objMeta, len(els))
 	}
 	for _, e := range els {
-		s.meta[[2]uint64{uint64(e.Object.PID), e.Object.ID}] = objMeta{Type: e.Type, Ident: e.Ident}
+		s.meta[[2]uint64{uint64(e.Object.PID), e.Object.ID}] = objMeta{Type: e.Type, Ident: e.Ident, HostPID: e.HostPID}
 	}
 }
 
@@ -152,6 +155,9 @@ func (s *raxSession) fill(els []raxElement) ([]raxElement, bool) {
 		}
 		if e.Ident == "" {
 			e.Ident = m.Ident
+		}
+		if e.HostPID == 0 {
+			e.HostPID = m.HostPID
 		}
 	}
 	return out, known
@@ -486,7 +492,10 @@ type raxElement struct {
 	Visible     bool
 	Remote      bool // a view showing another process's elements
 	RemotePID   int  // that process
-	Children    int
+	// HostPID is the app that shows the element, by its process: for a web
+	// page in an app, the app, while the page's elements are WebKit's.
+	HostPID  int
+	Children int
 }
 
 func raxElementFrom(o *axpObject, ad axpDict, parent, depth int) (raxElement, []*axpObject) {
@@ -524,6 +533,7 @@ func raxElementFrom(o *axpObject, ad axpDict, parent, depth int) (raxElement, []
 	}
 	e.Remote, _ = ad[axpAttrIsRemoteElement].(bool)
 	e.RemotePID = toInt(ad[axpAttrRemoteElementPID])
+	e.HostPID = toInt(ad[axpAttrHostPID])
 	var kids []*axpObject
 	list, ok := ad[axpAttrNavigationOrder].([]any)
 	if !ok {

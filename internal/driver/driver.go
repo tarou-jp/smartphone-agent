@@ -232,6 +232,18 @@ type LockReporter interface {
 	Locked(ctx context.Context) (bool, error)
 }
 
+// AppIconer returns the icon of an app installed on the phone, for the
+// desktop to show next to the app's name. app is the app's id (an Android
+// package). The icon is PNG, square, at most MaxAppIconSide pixels a side.
+// It returns ErrNotFound when the app is not installed and ErrUnsupported
+// when the backend cannot read icons (an older companion app).
+type AppIconer interface {
+	AppIcon(ctx context.Context, app string) ([]byte, error)
+}
+
+// MaxAppIconSide bounds the side of an icon AppIconer returns.
+const MaxAppIconSide = 192
+
 // Clipboard reads and writes the phone's clipboard.
 type Clipboard interface {
 	SetClipboard(ctx context.Context, text string) error

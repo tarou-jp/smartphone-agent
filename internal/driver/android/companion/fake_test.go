@@ -3,6 +3,7 @@ package companion
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -144,11 +145,19 @@ func (p *fakePhone) answer(req map[string]any) (any, *Error) {
 		return map[string]any{"settled": true, "waited_ms": 300}, nil
 	case "config":
 		return map[string]any{}, nil
+	case "app_icon":
+		if req["package"] != "com.example.app" {
+			return nil, &Error{Code: "not_found", Message: fmt.Sprintf("no app with package %v", req["package"])}
+		}
+		return map[string]any{"png": base64.StdEncoding.EncodeToString(fakeIcon)}, nil
 	case "events":
 		return map[string]any{"kinds": req["kinds"]}, nil
 	}
 	return nil, &Error{Code: "unknown_command", Message: fmt.Sprint(req["cmd"])}
 }
+
+// fakeIcon is the fake's app_icon answer: a PNG signature and some bytes.
+var fakeIcon = []byte("\x89PNG\r\n\x1a\nicon")
 
 func (p *fakePhone) lastRequest(cmd string) map[string]any {
 	p.mu.Lock()

@@ -109,10 +109,13 @@ const checkpointMarks = 2
 
 // Checkpoint describes the screen a step led to, for the step's expect:
 // the app in front and a few elements that the screen before did not
-// have. Elements whose text varies from run to run (digits: prices,
-// times, counts) are named by id or left out. It returns nil when nothing
-// tells the two screens apart, and the replay then waits for the screen
-// to settle instead.
+// have. It names what belongs to the screen rather than what the screen
+// happens to show: ids first, then the labels of controls (buttons,
+// tabs, switches), and plain text only when the screen has neither, and
+// then only short text that is no sentence. A feed's posts and a list's
+// rows change from run to run, as do digits (prices, times, counts). It
+// returns nil when nothing tells the two screens apart, and the replay
+// then waits for the screen to settle instead.
 func Checkpoint(before, after *screen.Screen) *Condition {
 	if after == nil {
 		return nil
@@ -149,8 +152,12 @@ func Checkpoint(before, after *screen.Screen) *Condition {
 			continue
 		case e.Role == screen.RoleInput:
 			continue // a field's label is what was typed into it
-		case label != "" && !hadLabel[labelKey(e)] && !volatile(label) && len([]rune(label)) <= 60:
+		case label == "" || hadLabel[labelKey(e)] || volatile(label) || len([]rune(label)) > markRunes:
+			continue
+		case Control(e.Role):
 			m = mark{Selector{Role: e.Role, Label: label}, 1}
+		case !prose(label):
+			m = mark{Selector{Role: e.Role, Label: label}, 2}
 		default:
 			continue
 		}
@@ -160,6 +167,16 @@ func Checkpoint(before, after *screen.Screen) *Condition {
 		}
 	}
 	sort.SliceStable(marks, func(i, j int) bool { return marks[i].rank < marks[j].rank })
+	// Text is what a screen shows, which may be someone's post: it marks
+	// a screen only when nothing of the screen's own does.
+	if len(marks) > 0 && marks[0].rank < 2 {
+		for i, m := range marks {
+			if m.rank == 2 {
+				marks = marks[:i]
+				break
+			}
+		}
+	}
 	if len(marks) > checkpointMarks {
 		marks = marks[:checkpointMarks]
 	}
@@ -190,6 +207,26 @@ func countID(sc *screen.Screen, id string) int {
 		}
 	}
 	return n
+}
+
+// markRunes bounds the label of an element a checkpoint names: longer
+// labels are content, not names of things.
+const markRunes = 30
+
+// Control reports whether a role is something an app's screen is made of
+// (a button, a tab, a switch, a checkbox, a link) rather than something
+// it shows (text, an image).
+func Control(role string) bool {
+	switch role {
+	case screen.RoleButton, screen.RoleTab, screen.RoleSwitch, screen.RoleCheckbox, screen.RoleLink:
+		return true
+	}
+	return false
+}
+
+// prose reports whether a label reads like a sentence somebody wrote.
+func prose(label string) bool {
+	return strings.ContainsAny(label, "。、！？!?,;:…\n") || strings.Count(label, " ") > 3
 }
 
 // volatile reports whether a label looks like it changes between runs.

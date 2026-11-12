@@ -2,6 +2,7 @@ package inapp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -43,6 +44,9 @@ func (u *usage) add(o usage) {
 type turnResult struct {
 	Text  string
 	Calls []toolCall
+	// Raw is the turn as the provider put it out, to send back as it is
+	// (item.Raw).
+	Raw []json.RawMessage
 	// Truncated is set when the reply hit MaxTokens.
 	Truncated bool
 	Usage     usage
@@ -60,7 +64,15 @@ func newClient(p Provider, model, apiKey, ollamaBase string) (modelClient, error
 		if strings.TrimSpace(apiKey) == "" {
 			return nil, errors.New("inapp: empty API key")
 		}
-		return &openAIClient{url: openAIBase() + "/v1/chat/completions", key: apiKey, model: model, reasoningOff: true}, nil
+		// The Responses API: a tool's answer may hold the picture of the
+		// screen, and the model reasons while it uses tools. Chat
+		// Completions stays as the way back, without pictures: there a
+		// picture has to come as a user message after the tool's answer,
+		// with a model that does not reason, and the runs with that went
+		// badly (the agent lost its way to a screen it had reached an hour
+		// before).
+		chat := &openAIClient{url: openAIBase() + "/v1/chat/completions", key: apiKey, model: model, reasoningOff: true}
+		return &openAIResponsesClient{url: openAIBase() + "/v1/responses", key: apiKey, model: model, fallback: chat}, nil
 	case Ollama:
 		name := strings.TrimPrefix(model, ollamaModelPrefix)
 		if name == "" {

@@ -1,9 +1,11 @@
 package inapp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"image/jpeg"
 	"strings"
 	"time"
 
@@ -27,16 +29,25 @@ func (p *PhoneTools) Call(ctx context.Context, tool string, args map[string]any)
 // call is Call that reports what a blocking call waits for (the person's
 // approval, a handoff) to progress.
 func (p *PhoneTools) call(ctx context.Context, tool string, args map[string]any, progress func(string)) string {
+	out, _ := p.callImage(ctx, tool, args, progress)
+	return out
+}
+
+// callImage is call that also returns the picture of the screen the call
+// took, as JPEG: the model is shown it with the result, as an MCP agent
+// is. Only phone_observe with screenshot takes one.
+func (p *PhoneTools) callImage(ctx context.Context, tool string, args map[string]any, progress func(string)) (string, []byte) {
 	if p == nil || p.Sess == nil {
-		return "error: session · in-app agent not connected"
+		return "error: session · in-app agent not connected", nil
 	}
 	tool = strings.TrimSpace(tool)
 	var fn gwCall
 	switch tool {
 	case "phone_connect":
 		task, apps, ro, brief := str(args, "task"), strSlice(args, "apps"), boolArg(args, "read_only"), str(args, "brief")
+		test := boolArg(args, "test")
 		fn = func(ctx context.Context, c gateway.Call) *gateway.Result {
-			return p.Sess.Connect(ctx, gateway.ConnectRequest{Call: c, Task: task, Apps: apps, ReadOnly: ro, Brief: brief})
+			return p.Sess.Connect(ctx, gateway.ConnectRequest{Call: c, Task: task, Apps: apps, ReadOnly: ro, Brief: brief, Test: test})
 		}
 	case "phone_release":
 		out, sum := str(args, "outcome"), str(args, "summary")
@@ -103,8 +114,9 @@ func (p *PhoneTools) call(ctx context.Context, tool string, args map[string]any,
 	case "phone_flow_run":
 		name, src, params, from := str(args, "flow"), str(args, "yaml"), strMap(args, "params"), intArg(args, "from_step")
 		parts := strSlice(args, "parts")
+		steps, _ := args["steps"].([]any)
 		fn = func(ctx context.Context, c gateway.Call) *gateway.Result {
-			req := gateway.FlowRequest{Call: c, Name: name, YAML: src, Parts: parts, Params: params, FromStep: from}
+			req := gateway.FlowRequest{Call: c, Name: name, YAML: src, Parts: parts, Steps: steps, Params: params, FromStep: from}
 			res := p.Sess.RunFlow(ctx, req)
 			// callPending repeats the call with the approval's id: the
 			// replay then goes on at the step that waits.
@@ -124,10 +136,24 @@ func (p *PhoneTools) call(ctx context.Context, tool string, args map[string]any,
 		fn = func(ctx context.Context, c gateway.Call) *gateway.Result {
 			return p.Sess.ListFlows(ctx, gateway.FlowListRequest{Call: c, Name: name, App: app})
 		}
+	case "phone_note":
+		note, app := str(args, "note"), str(args, "app")
+		fn = func(ctx context.Context, c gateway.Call) *gateway.Result {
+			return p.Sess.Note(ctx, gateway.NoteRequest{Call: c, App: app, Note: note})
+		}
 	default:
-		return fmt.Sprintf("error: invalid_argument · unknown tool %q", tool)
+		return fmt.Sprintf("error: invalid_argument · unknown tool %q", tool), nil
 	}
-	return mcp.FormatResult(p.callPending(ctx, args, fn, progress))
+	res := p.callPending(ctx, args, fn, progress)
+	out := mcp.FormatResult(res)
+	if res == nil || res.Screenshot == nil {
+		return out, nil
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, res.Screenshot, &jpeg.Options{Quality: 75}); err != nil {
+		return out + "\n[the screenshot could not be encoded]", nil
+	}
+	return out + "\nscreenshot: attached", buf.Bytes()
 }
 
 // callPending waits out an approval the call opened: the gateway blocks a
@@ -240,9 +266,10 @@ func strMap(m map[string]any, k string) map[string]string {
 }
 
 func xy(m map[string]any) (int, int, bool) {
-	_, xok := m["x"]
-	_, yok := m["y"]
-	if !xok || !yok {
+	// A model may send an argument it does not use as null (OpenAI's
+	// strict tool calls send every one): null is not a coordinate, or a
+	// tap by ref would name a ref and the point 0,0, and be refused.
+	if m["x"] == nil || m["y"] == nil {
 		return 0, 0, false
 	}
 	return intArg(m, "x"), intArg(m, "y"), true

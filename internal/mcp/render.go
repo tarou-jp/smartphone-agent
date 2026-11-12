@@ -135,6 +135,12 @@ func writeResult(b *strings.Builder, res *gateway.Result, indent string) {
 		}
 		line(l)
 	}
+	for _, n := range res.Notes {
+		line("notes on " + n.App + ":")
+		for _, l := range strings.Split(n.Text, "\n") {
+			line("  " + l)
+		}
+	}
 	if res.FlowYAML != "" {
 		line(strings.TrimRight(res.FlowYAML, "\n"))
 	}

@@ -219,6 +219,50 @@ func TestRAXScreenElements(t *testing.T) {
 	}
 }
 
+// A web page in an app (Yahoo!'s news, seen on an iPhone 13 on iOS 27.2):
+// WebKit's process gives its elements as children of the app, with no host
+// view before them, frames in screen points, and the app as their host.
+// They are the app's. An element of another process the app does not host
+// (a home screen widget, whose frames are its own) stays out.
+func TestRAXScreenElementsWebPage(t *testing.T) {
+	const app, web, widget = 2581, 2591, 564
+	el := func(pid, host int, label string, f axpRect, visible bool) raxElement {
+		return raxElement{Object: &axpObject{PID: pid, ID: uint64(f.Y)}, Parent: 0, Type: xcStaticText, Label: label,
+			Frame: f, HasFrame: true, IsElement: true, Enabled: true, Visible: visible, HostPID: host}
+	}
+	els := []raxElement{
+		{Object: &axpObject{PID: app, IsApp: true}, Parent: -1, Label: "Yahoo!", Frame: axpRect{0, 0, 390, 844}, HasFrame: true, Type: xcOther},
+		el(app, 0, "ニュース", axpRect{247, 102, 71, 44}, true),
+		el(web, app, "初代「長嶋茂雄賞」は佐藤輝明", axpRect{68, 2, 210, 20}, false), // under the header
+		el(web, app, "藤青雲 豊昇龍破り初金星挙げる", axpRect{68, 307, 215, 20}, true),
+		el(web, app, "AIトピはAIが選定し、見出しを生成しています。", axpRect{8, 358, 218, 13}, true),
+		el(widget, 0, "八潮市、現在地", axpRect{18, 18, 307, 58}, true),
+	}
+	got, _ := raxScreenElements(els, 3, 1170, 2532, "jp.co.yahoo.ipn.appli")
+	var labels []string
+	for _, e := range got {
+		labels = append(labels, e.Label)
+	}
+	want := []string{"ニュース", "藤青雲 豊昇龍破り初金星挙げる", "AIトピはAIが選定し、見出しを生成しています。"}
+	if !reflect.DeepEqual(labels, want) {
+		t.Fatalf("labels %q, want %q", labels, want)
+	}
+	if b := got[1].Bounds; b != (screen.Rect{X: 204, Y: 921, W: 645, H: 60}) {
+		t.Errorf("the headline at %+v; its frame is in screen points", b)
+	}
+}
+
+// A push may leave out what a walk read: the app that hosts an element.
+func TestRAXFillHostPID(t *testing.T) {
+	s := &raxSession{}
+	o := &axpObject{PID: 2591, ID: 7}
+	s.learn([]raxElement{{Object: o, Type: xcStaticText, HostPID: 2581}})
+	out, known := s.fill([]raxElement{{Object: o}})
+	if !known || out[0].HostPID != 2581 || out[0].Type != xcStaticText {
+		t.Errorf("filled %+v, known %v", out[0], known)
+	}
+}
+
 func TestRAXRole(t *testing.T) {
 	for _, c := range []struct {
 		e      raxElement

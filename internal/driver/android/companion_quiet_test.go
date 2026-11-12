@@ -3,6 +3,7 @@ package android
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -128,7 +129,18 @@ func (p *quietPhone) handle(c net.Conn) {
 			n := len(p.conns) + p.others
 			p.mu.Unlock()
 			result = map[string]any{"protocol": companion.ProtocolVersion, "version": "2026.1108.9", "connections": n,
-				"idle_disable_ms": 60000, "time": time.Now().UnixMilli(), "displays": []int{0}}
+				"idle_disable_ms": 60000, "time": time.Now().UnixMilli(), "displays": []int{0},
+				"features": []string{companion.FeatureAppIcons}}
+		case "app_icon":
+			if req["package"] != "com.example.app" {
+				b, _ := json.Marshal(map[string]any{"id": req["id"], "ok": false,
+					"error": map[string]any{"code": "not_found", "message": "no app with package"}})
+				if _, err := c.Write(append(b, '\n')); err != nil {
+					return
+				}
+				continue
+			}
+			result = map[string]any{"png": base64.StdEncoding.EncodeToString([]byte("\x89PNG icon"))}
 		case "events":
 			result = map[string]any{"kinds": req["kinds"]}
 		case "tree":

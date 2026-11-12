@@ -10,6 +10,7 @@ Changes since the first version, all additive:
 | --- | --- | --- |
 | 2026-11-07, round 3 | `display` on `set_text`, `events` and `wait_idle`; `display` on every event; `features` in `ping`; `tree` fails clearly for a display it cannot read | `displays` (Android 11+) |
 | 2026-11-07, round 3 | `config` values are kept until the service is turned off, across restarts | none: an older app forgets them when its service restarts; `ping` shows the current values |
+| 2026-11-12 | `app_icon` returns an installed app's icon | `app_icons` (every phone) |
 | 2026-11-07, round 3 | `region` on windows; `tree` walks an input method window that covers the screen like a sheet even without `ime` | none: an older app leaves `region` out, and a client that reads it treats its absence as "the bounds" |
 
 ## Transport
@@ -51,7 +52,7 @@ Every command that reads or writes the screen takes `display`, an Android displa
 | Field | Meaning |
 | --- | --- |
 | `protocol` | Protocol version (1) |
-| `features` | Additions this app supports on this phone, beyond protocol 1 as it first shipped: `displays` (Android 11+) means `tree`, `set_text`, `events` and `wait_idle` take displays other than 0, and events name their display. Absent in apps built before 2026-11-07. |
+| `features` | Additions this app supports on this phone, beyond protocol 1 as it first shipped: `displays` (Android 11+) means `tree`, `set_text`, `events` and `wait_idle` take displays other than 0, and events name their display; `app_icons` (every phone, apps from 2026-11-12) means the app answers `app_icon`. Absent in apps built before 2026-11-07. |
 | `version`, `version_code` | The app's version name (Pinky's version, from `cmd/pinky/mygo.json`) and code (the number of commits up to the one built); see [companion.md](companion.md#versions-and-signing) |
 | `sdk`, `release` | Android API level and version string |
 | `manufacturer`, `model` | `Build.MANUFACTURER`, `Build.MODEL` |
@@ -193,6 +194,28 @@ Blocks until no change event (window state, windows, content, scroll, text) arri
 
 Result: `settled` (false when the timeout came first), `waited_ms`, and `last_change_ms_ago` when any change was seen since the service started.
 
+### `app_icon`
+
+Returns the icon of an installed app as a square PNG, for the desktop to show next to the app's name. It does not touch the accessibility tree and runs on a thread of its own, so on the phone it never waits for a tree read, nor a tree read for it (a client that sends both on one connection still gets the answers in turn). Apps with `app_icons` in `features` have it; an older app answers `unknown_command`.
+
+```json
+{"id":6,"cmd":"app_icon","package":"com.android.settings","size":96}
+```
+
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `package` | required | The app's package; empty or missing gives `bad_request` |
+| `size` | 192 | Side of the icon in pixels, kept between 16 and 192 |
+| `timeout_ms` | 10000 | As for `tree` |
+
+Result: `png`, the PNG in base64 (standard alphabet, no line breaks).
+
+```json
+{"id":6,"ok":true,"result":{"png":"iVBORw0KGgo..."}}
+```
+
+The app draws what `PackageManager.getApplicationIcon` returns into a transparent bitmap of `size` by `size`; an adaptive icon comes out clipped to the phone's icon mask, as the launcher shows it. A package the phone does not have gives `not_found`. So does one Android hides from the app: on Android 11 and later the app sees only packages that have a launcher entry (its manifest's `<queries>`, the same that lets trees name apps), which covers every app a person opens from the app drawer.
+
 ### `config`
 
 Changes the service's settings until the service is turned off. The app saves them, so they survive the service restarting while it stays on: a reboot, an app update, a `uiautomator dump`. When the service is turned off, by the person in Android Settings, by Pinky or by its own idle watchdog, the app forgets them and the next start begins from the defaults. It tells the two apart by reading `enabled_accessibility_services` when Android unbinds it: still listed means a restart.
@@ -210,7 +233,7 @@ The result holds the current values.
 | --- | --- |
 | `bad_request` | Malformed JSON, a missing parameter, an unknown event kind or a negative display id |
 | `unknown_command` | No such `cmd` |
-| `not_found` | No node matches the target, the node is gone, or the display does not exist |
+| `not_found` | No node matches the target, the node is gone, the display does not exist, or (`app_icon`) the app is not installed or not visible to the companion |
 | `not_editable` | The target node is not editable |
 | `disabled` | The target node is disabled |
 | `unsupported` | The request cannot work here: append to a password field, a display other than 0 before Android 11, or a display Android keeps from accessibility services |

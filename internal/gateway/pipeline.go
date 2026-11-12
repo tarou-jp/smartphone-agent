@@ -1459,6 +1459,12 @@ func (g *Gateway) execute(ctx context.Context, l *lease, c Call, a Action, p *pr
 	if c.until == nil && g.leaves(a, p, from) && stillIn(next, from.App) {
 		next, settled = g.awaitLeave(ctx, d, from.App, next, settled)
 	}
+	if c.until == nil {
+		// The agent reads this screen: its elements should all be there.
+		// A replay's step goes by its checkpoint, and the next step waits
+		// for its own target.
+		next = g.finishRead(ctx, l, next)
+	}
 	res := g.screenResult(l, next, false)
 	res.Status = StatusSettled
 	g.traceStep(l, c, a, p, from, next)
@@ -1479,6 +1485,8 @@ func (g *Gateway) execute(ctx context.Context, l *lease, c Call, a Action, p *pr
 		res.Message = strings.TrimSpace(res.Message + " The phone is locked now.")
 	}
 	shot := g.startShot(d, next)
+	g.traceShotOf(l, next, shot)
+	g.warmIcon(d, next)
 	text := body(res.Screen)
 	if _, blocked := g.policy.Blocked(next.App); blocked {
 		text = "" // allowed for the task: history keeps the steps only
