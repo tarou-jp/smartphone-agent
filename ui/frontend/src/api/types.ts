@@ -76,6 +76,8 @@ export interface Task {
   ended?: string;
   steps: Step[];
   readOnly?: boolean;
+  /** The suggested flow the task's steps are, while nobody decided on it. */
+  suggestion?: string;
 }
 
 export type NeedKind = 'approval' | 'unlock' | 'handoff';
@@ -321,6 +323,8 @@ export interface LibraryApp {
   app: string;
   notes: string;
   flows: LibraryFlow[];
+  /** Tasks' steps Pinky suggests keeping as flows, the newest first. */
+  suggestions: LibraryFlow[];
   parts: LibraryPart[];
 }
 
@@ -329,6 +333,11 @@ export interface LibraryFlow {
   description?: string;
   /** The request the flow was kept from. */
   task?: string;
+  /** Other requests tasks ran the same steps for. */
+  asks?: string[];
+  /** How many tasks ran its steps to a good end, and the day of the newest. */
+  runs?: number;
+  last?: string;
   version: number;
   file?: string;
   steps: LibraryStep[];
@@ -366,4 +375,6 @@ export interface LibraryPart {
   flows?: string[];
   /** It has a picture of where it leads (api.partShotURL). */
   shot?: boolean;
+  /** It worked once and no flow uses it: agents are not offered it yet. */
+  learning?: boolean;
 }

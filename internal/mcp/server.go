@@ -27,9 +27,10 @@ Statuses: settled = done; uncertain = it may have happened, observe before anyth
 approval_pending = the person is deciding, repeat the same call with the approval_id; approval_denied, blocked_by_policy,
 stale = nothing was done; user_took_over, paused, device_locked = call phone_handoff; device_needs_setup = the phone waits
 for the person to do a step first (the result says which; usually call phone_handoff); stopped = end the task.
-Pinky keeps the steps of every task you end with phone_release outcome done as a flow, by itself, and phone_connect lists
-the flows there are. When one of them is the task at hand (the result says so when the person asked for the same before; pass
-their request as brief to phone_connect), replay it with phone_flow_run instead of doing its steps by hand:
+When you end a task with phone_release outcome done, Pinky offers its steps to the person to keep as a flow (you need not
+ask them), and phone_connect lists the flows they kept. When one of them, or what a task ran for the same request before, is
+the task at hand (the result says so; pass the person's request as brief to phone_connect), replay it with phone_flow_run
+instead of doing its steps by hand:
 that is much faster, and the person need not ask for it. mismatch = the screen was not what the flow expects at that
 step: do that step by hand from the screen shown, then phone_flow_run with from_step; ending the task with done then
 keeps the corrected steps.

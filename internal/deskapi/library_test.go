@@ -80,8 +80,19 @@ func TestLibrary(t *testing.T) {
 		t.Fatalf("library: %+v", lib)
 	}
 	a := lib.Apps[0]
-	if a.App != app || !strings.Contains(a.Notes, "scrolls back to its top") || len(a.Flows) != 1 || len(a.Parts) == 0 {
+	if a.App != app || !strings.Contains(a.Notes, "scrolls back to its top") || len(a.Flows) != 0 || len(a.Suggestions) != 1 || len(a.Parts) == 0 {
 		t.Fatalf("app: %+v", a)
+	}
+	// The person keeps the suggested flow under a name of their own.
+	if code := h.do("POST", "/api/library/suggestions/"+a.Suggestions[0].Name+"/keep", `{"description":"Settings, once"}`, &lib); code != http.StatusOK {
+		t.Fatalf("keep: %d", code)
+	}
+	a = lib.Apps[0]
+	if len(a.Flows) != 1 || len(a.Suggestions) != 0 || a.Flows[0].Description != "Settings, once" || a.Flows[0].Runs != 1 {
+		t.Fatalf("after keeping: %+v", a)
+	}
+	if code := h.do("DELETE", "/api/library/suggestions/nope", "", nil); code != http.StatusNotFound {
+		t.Fatalf("turning down a suggestion that is not there: %d", code)
 	}
 	f := a.Flows[0]
 	if len(f.Steps) != 2 || f.Steps[0].Kind != "launch" || f.Steps[0].Part == "" || f.File == "" {

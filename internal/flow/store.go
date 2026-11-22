@@ -27,6 +27,9 @@ type Store struct {
 	memNotes map[string]string
 	// memShots holds the parts' pictures (shots.go) of a store in memory.
 	memShots map[string][]byte
+	// memDismissed holds the turned-down suggestions (suggest.go) of a
+	// store in memory.
+	memDismissed []string
 }
 
 // NewStore returns a store for the folder, made when the first flow is
@@ -90,7 +93,6 @@ func (s *Store) Save(f *Flow) (*Flow, error) {
 		return nil, err
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	out := f.clone()
 	out.Version = 1
 	if old, err := s.read(f.Name); err == nil {
@@ -99,12 +101,23 @@ func (s *Store) Save(f *Flow) (*Flow, error) {
 			out.Version = prev.Version + 1
 		}
 	}
+	s.mu.Unlock()
+	return s.write(out)
+}
+
+// write writes the flow as it is under its name.
+func (s *Store) write(out *Flow) (*Flow, error) {
+	if err := out.Validate(); err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	data, err := out.Marshal()
 	if err != nil {
 		return nil, err
 	}
 	if s.dir == "" {
-		s.mem[f.Name] = data
+		s.mem[out.Name] = data
 		return out, nil
 	}
 	if err := os.MkdirAll(s.dir, 0o700); err != nil {
@@ -122,7 +135,7 @@ func (s *Store) Save(f *Flow) (*Flow, error) {
 	if err := tmp.Close(); err != nil {
 		return nil, err
 	}
-	if err := os.Rename(tmp.Name(), s.path(f.Name)); err != nil {
+	if err := os.Rename(tmp.Name(), s.path(out.Name)); err != nil {
 		return nil, err
 	}
 	return out, nil

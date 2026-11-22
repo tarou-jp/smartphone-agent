@@ -336,8 +336,16 @@ func TestFlowArguments(t *testing.T) {
 	}
 }
 
-// Nobody saves or names anything: a task that worked replays the next
-// time the same task comes up, and a flow that broke repairs itself.
+// suggestions lists the suggested flows.
+func suggestions(g *Gateway) []*flow.Flow {
+	list, _ := g.suggested.List()
+	return list
+}
+
+// Nobody has to save or name anything: a task that worked becomes a
+// suggestion, which replays the next time the same task comes up; the
+// person keeps it as a flow with one click, and a flow that broke repairs
+// itself.
 func TestFlowsByThemselves(t *testing.T) {
 	g, dev := newTestGateway(t, func(o *Options) { o.FlowPace = time.Millisecond; o.AutoFlows = true })
 	ctx := context.Background()
@@ -348,16 +356,23 @@ func TestFlowsByThemselves(t *testing.T) {
 	toCart(t, s)
 	res := s.Release(ctx, ReleaseRequest{})
 	mustStatus(t, res, StatusSettled)
-	flows := g.Flows()
-	if len(flows) != 1 || flows[0].Steps != 4 || flows[0].Description != "Reorder last week's lunch" {
-		t.Fatalf("flows after the first task: %+v", flows)
+	if flows := g.Flows(); len(flows) != 0 {
+		t.Fatalf("a task made a flow by itself: %+v", flows)
 	}
-	name := flows[0].Name
-	if !strings.HasPrefix(name, "app.reorder-last-week-s-lunc-") || !strings.Contains(res.Message, name) {
+	sugg := suggestions(g)
+	if len(sugg) != 1 || len(sugg[0].Steps) != 4 || sugg[0].Description != "Reorder last week's lunch" || sugg[0].Runs != 1 {
+		t.Fatalf("suggestions after the first task: %+v", sugg)
+	}
+	name := sugg[0].Name
+	if !strings.HasPrefix(name, "app.reorder-last-week-s-lunc-") || !strings.Contains(res.Message, name) || !strings.Contains(res.Message, "suggests") {
 		t.Fatalf("name %q; release said: %s", name, res.Message)
 	}
+	if tasks := g.Tasks(); len(tasks) == 0 || tasks[0].Suggestion != name {
+		t.Fatalf("the ended task does not show the suggestion: %+v", tasks)
+	}
 
-	// The same task again: connecting says which flow replays it.
+	// The same task again: connecting says which suggestion replays it,
+	// and lists no flows (the person kept none).
 	open := func(task string) (*Session, *Result) {
 		s := g.OpenSession(agent)
 		t.Cleanup(s.Close)
@@ -366,24 +381,40 @@ func TestFlowsByThemselves(t *testing.T) {
 		return s, res
 	}
 	s, res = open("reorder last  week's lunch")
-	if len(res.Flows) != 1 || !strings.Contains(res.Message, "This task ran before") || !strings.Contains(res.Message, name) {
+	if len(res.Flows) != 0 || !strings.Contains(res.Message, "This task ran before") || !strings.Contains(res.Message, name) {
 		t.Fatalf("connect: %+v\n%s", res.Flows, res.Message)
 	}
 	mustStatus(t, runFlow(s, FlowRequest{Name: name}), StatusSettled)
 	if dev.Current() != "cart" {
 		t.Fatalf("on %q", dev.Current())
 	}
-	// A task that only replayed leaves the flow as it is.
-	if res = s.Release(ctx, ReleaseRequest{}); strings.Contains(res.Message, "kept") || g.Flows()[0].Version != 1 {
-		t.Fatalf("a replay alone made a new version: %s", res.Message)
+	// A replay counts as a run and leaves the steps as they are.
+	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	if sugg = suggestions(g); len(sugg) != 1 || sugg[0].Runs != 2 || sugg[0].Version != 1 {
+		t.Fatalf("after a replay: %+v", sugg)
 	}
 
-	// The same task done by hand once more does not replace the flow.
+	// The same request done another way leaves the suggestion alone.
 	s, _ = open("Reorder last week's lunch")
 	mustStatus(t, s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"}), StatusSettled)
 	mustStatus(t, s.Act(ctx, Call{}, Action{Tool: "key", Key: "home"}), StatusSettled)
-	if res = s.Release(ctx, ReleaseRequest{}); strings.Contains(res.Message, "kept") || g.Flows()[0].Version != 1 || g.Flows()[0].Steps != 4 {
-		t.Fatalf("a run by hand replaced the flow: %s %+v", res.Message, g.Flows())
+	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	if sugg = suggestions(g); len(sugg) != 1 || len(sugg[0].Steps) != 4 {
+		t.Fatalf("a run by hand replaced the suggestion: %+v", sugg)
+	}
+
+	// The person keeps it, under a name of their own.
+	kept, err := g.KeepSuggestion(name, "Lunch again")
+	if err != nil || kept.Name != name || kept.Description != "Lunch again" || kept.Version != 1 || kept.Runs != 2 {
+		t.Fatalf("keep: %+v %v", kept, err)
+	}
+	if len(suggestions(g)) != 0 || len(g.Flows()) != 1 {
+		t.Fatalf("after keeping: %+v %+v", suggestions(g), g.Flows())
+	}
+	for _, task := range g.Tasks() {
+		if task.Suggestion != "" {
+			t.Fatalf("a task still shows the kept suggestion: %+v", task)
+		}
 	}
 
 	// Another task sees the flow in the list, without the hint.
@@ -391,12 +422,12 @@ func TestFlowsByThemselves(t *testing.T) {
 	if len(res.Flows) != 1 || strings.Contains(res.Message, "ran before") || !strings.Contains(res.Message, "listed below") {
 		t.Fatalf("connect for another task: %s", res.Message)
 	}
-	// It fails: nothing is kept.
+	// It fails: nothing is kept or suggested.
 	mustStatus(t, s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"}), StatusSettled)
 	mustStatus(t, s.Act(ctx, Call{}, Action{Tool: "key", Key: "home"}), StatusSettled)
 	mustStatus(t, s.Release(ctx, ReleaseRequest{Outcome: "failed"}), StatusSettled)
-	if len(g.Flows()) != 1 {
-		t.Fatalf("a failed task was kept: %+v", g.Flows())
+	if len(g.Flows()) != 1 || len(suggestions(g)) != 0 {
+		t.Fatalf("a failed task was kept: %+v %+v", g.Flows(), suggestions(g))
 	}
 
 	// The app changes: the part that is the flow's second step no longer
@@ -433,18 +464,75 @@ func TestFlowsByThemselves(t *testing.T) {
 		t.Fatalf("the repaired flow was not kept: %s", res.Message)
 	}
 	f, err = g.flows.Load(name)
-	if err != nil || f.Version != 3 || len(f.Steps) != 4 || f.Steps[1].Part == "" || f.Steps[1].Part == old || f.Task != taskKey("Reorder last week's lunch") {
+	if err != nil || f.Version != 3 || len(f.Steps) != 4 || f.Steps[1].Part == "" || f.Steps[1].Part == old || f.Task != taskKey("Reorder last week's lunch") || f.Description != "Lunch again" {
 		t.Fatalf("the flow did not repair itself: %+v %v", f, err)
 	}
 	if _, p, ok := g.flows.Part(f.Steps[1].Part); !ok || p.Tap.ID != "dinely:tab:orders" || strings.Contains(p.Intent, "Flow") {
 		t.Fatalf("the step done by hand is not the flow's part now: %+v", p)
 	}
-	if len(g.Flows()) != 1 {
+	if len(g.Flows()) != 1 || len(suggestions(g)) != 0 {
 		t.Fatalf("the repair made another flow: %+v", g.Flows())
 	}
 	// And it replays again.
 	s, _ = open("Reorder last week's lunch")
 	mustStatus(t, runFlow(s, FlowRequest{Name: name}), StatusSettled)
+}
+
+// Two tasks are the same when they did the same steps, whatever they were
+// asked in: the second request joins the suggestion or flow instead of
+// making another, and steps the person turned down are not suggested
+// again.
+func TestSameStepsAreOneFlow(t *testing.T) {
+	g, _ := newTestGateway(t, func(o *Options) { o.FlowPace = time.Millisecond; o.AutoFlows = true })
+	ctx := context.Background()
+	do := func(task string, steps func(*Session)) *Result {
+		s := g.OpenSession(agent)
+		t.Cleanup(s.Close)
+		res := s.Connect(ctx, ConnectRequest{Task: task})
+		mustStatus(t, res, StatusSettled)
+		steps(s)
+		mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+		return res
+	}
+	orders := func(s *Session) {
+		r := s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"})
+		mustStatus(t, tap(s, ref(t, r, "Orders")), StatusSettled)
+	}
+	do("Open my orders", orders)
+	do("Show me my orders", orders)
+	sugg := suggestions(g)
+	if len(sugg) != 1 || sugg[0].Runs != 2 || len(sugg[0].Asks) != 1 || !sugg[0].Asked(taskKey("Show me my orders")) {
+		t.Fatalf("two wordings of one task: %+v", sugg)
+	}
+	if _, err := g.KeepSuggestion(sugg[0].Name, ""); err != nil {
+		t.Fatal(err)
+	}
+	// A third wording joins the kept flow, and is recognized afterwards.
+	do("Orders please", orders)
+	if flows, _ := g.flows.List(); len(flows) != 1 || len(suggestions(g)) != 0 || !flows[0].Asked(taskKey("Orders please")) || flows[0].Runs != 3 {
+		t.Fatalf("a third wording: %+v %+v", flows, suggestions(g))
+	}
+	if res := do("orders please", orders); !strings.Contains(res.Message, "This task ran before") {
+		t.Fatalf("the new wording was not recognized: %s", res.Message)
+	}
+
+	// Turned down, the same steps are not suggested again.
+	account := func(s *Session) {
+		r := s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"})
+		mustStatus(t, tap(s, ref(t, r, "Account")), StatusSettled)
+	}
+	do("Open the account page", account)
+	sugg = suggestions(g)
+	if len(sugg) != 1 {
+		t.Fatalf("suggestions: %+v", sugg)
+	}
+	if err := g.DismissSuggestion(sugg[0].Name); err != nil {
+		t.Fatal(err)
+	}
+	do("Go to my account", account)
+	if sugg = suggestions(g); len(sugg) != 0 {
+		t.Fatalf("turned-down steps were suggested again: %+v", sugg)
+	}
 }
 
 // What a task typed becomes a parameter of the flow kept from it, with the
@@ -457,14 +545,11 @@ func TestKeptFlowParams(t *testing.T) {
 	cart := toCart(t, s)
 	mustStatus(t, s.Act(ctx, Call{}, Action{Tool: "type", Ref: ref(t, cart, "Note for the restaurant"), Text: "no cilantro"}), StatusSettled)
 	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
-	flows := g.Flows()
-	if len(flows) != 1 || !strings.HasPrefix(flows[0].Name, "app.") || len(flows[0].Params) != 1 || flows[0].Params[0] != `text (default "no cilantro")` {
-		t.Fatalf("flows: %+v", flows)
+	sugg := suggestions(g)
+	if len(sugg) != 1 || !strings.HasPrefix(sugg[0].Name, "app.") || flowInfo(sugg[0]).Params[0] != `text (default "no cilantro")` {
+		t.Fatalf("suggestions: %+v", sugg)
 	}
-	f, err := g.flows.Load(flows[0].Name)
-	if err != nil {
-		t.Fatal(err)
-	}
+	f := sugg[0]
 	if last := f.Steps[len(f.Steps)-1]; last.Type == nil || *last.Type != "${text}" {
 		t.Fatalf("last step: %+v", last)
 	}
@@ -503,17 +588,17 @@ func TestKeptFlowsGoByTheBrief(t *testing.T) {
 	if strings.Contains(res.Message, "ran before") {
 		t.Fatalf("another request counted as the same task: %s", res.Message)
 	}
-	flows := g.Flows()
-	if len(flows) != 2 || flows[0].Name == flows[1].Name || flows[0].Steps+flows[1].Steps != 6 {
-		t.Fatalf("flows: %+v", flows)
+	flows := suggestions(g)
+	if len(flows) != 2 || flows[0].Name == flows[1].Name || len(flows[0].Steps)+len(flows[1].Steps) != 6 {
+		t.Fatalf("suggestions: %+v", flows)
 	}
 	// The first request again, spaced and cased differently.
 	res = run("test dinely:  open the cart with last week's lunch", nil)
-	if !strings.Contains(res.Message, "This task ran before") || len(res.Flows) != 2 {
+	if !strings.Contains(res.Message, "This task ran before") {
 		t.Fatalf("the same request was not recognized: %s", res.Message)
 	}
 	for _, f := range flows {
-		if f.Steps == 4 && !strings.Contains(res.Message, f.Name) {
+		if len(f.Steps) == 4 && !strings.Contains(res.Message, f.Name) {
 			t.Fatalf("the hint names another flow than %s: %s", f.Name, res.Message)
 		}
 	}

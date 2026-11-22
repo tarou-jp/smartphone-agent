@@ -159,7 +159,7 @@ func (g *Gateway) loadFlow(req FlowRequest) (*flow.Flow, *Result) {
 			return nil, errResult(ErrInvalidArgument, "%v.", err)
 		}
 	default:
-		f, err = g.flows.Load(name)
+		f, _, err = g.loadAnyFlow(name)
 		if errors.Is(err, flow.ErrNotFound) {
 			return nil, errResult(ErrNotFound, "No flow is named %q. phone_flow_list lists the saved flows.", name)
 		}
@@ -807,11 +807,11 @@ func (g *Gateway) traceStep(l *lease, c Call, a Action, p *prep, before, after *
 		// Opening the app that was just opened changes nothing: a replay
 		// that stopped at its launch and was started again is one step.
 		t.trace[n-1], t.traceAfter[n-1], t.tracePart[n-1], t.traceSaved[n-1] = st, after, c.part, saved
-		t.traceShot[n-1] = nil
+		t.traceShot[n-1], t.traceTaught[n-1] = nil, c.taught
 	} else {
 		t.trace, t.traceAfter = append(t.trace, st), append(t.traceAfter, after)
 		t.tracePart, t.traceSaved = append(t.tracePart, c.part), append(t.traceSaved, saved)
-		t.traceShot = append(t.traceShot, nil)
+		t.traceShot, t.traceTaught = append(t.traceShot, nil), append(t.traceTaught, c.taught)
 	}
 	if c.flow == "" || c.own {
 		t.byHand++
@@ -986,7 +986,7 @@ func (s *Session) ListFlows(ctx context.Context, req FlowListRequest) *Result {
 		return g.finish(l, g.listParts(req.App))
 	}
 	if name := strings.TrimSpace(req.Name); name != "" {
-		f, err := g.flows.Load(name)
+		f, _, err := g.loadAnyFlow(name)
 		if errors.Is(err, flow.ErrNotFound) {
 			return g.finish(l, errResult(ErrNotFound, "No flow is named %q.", name))
 		}

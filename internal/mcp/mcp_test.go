@@ -398,11 +398,15 @@ func TestFlowTools(t *testing.T) {
 func TestPartsTools(t *testing.T) {
 	h := newHarness(t, func(o *gateway.Options) { o.FlowPace = time.Millisecond; o.AutoFlows = true })
 	c := h.connect(t, "claude-code")
-	c.call(t, "phone_connect", map[string]any{"task": "Reorder lunch"})
-	text, _ := c.call(t, "phone_launch", map[string]any{"app": "Dinely"})
-	c.call(t, "phone_tap", map[string]any{"ref": refOf(t, text, "Orders")})
-	c.call(t, "phone_key", map[string]any{"key": "home"})
-	c.call(t, "phone_release", map[string]any{"outcome": "failed"})
+	// Twice: a step is offered as a part once it worked again.
+	var text string
+	for range 2 {
+		c.call(t, "phone_connect", map[string]any{"task": "Reorder lunch"})
+		text, _ = c.call(t, "phone_launch", map[string]any{"app": "Dinely"})
+		c.call(t, "phone_tap", map[string]any{"ref": refOf(t, text, "Orders")})
+		c.call(t, "phone_key", map[string]any{"key": "home"})
+		c.call(t, "phone_release", map[string]any{"outcome": "failed"})
+	}
 
 	text, _ = c.call(t, "phone_connect", map[string]any{"task": "Show my orders", "apps": []string{"Dinely"}})
 	re := regexp.MustCompile(`(?m)^(p[0-9a-f]{6}) · (open com\.dinely\.app → app com\.dinely\.app|tap tab "Orders" #dinely:tab:orders → .* · after p[0-9a-f]{6})$`)

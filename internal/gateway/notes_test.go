@@ -77,6 +77,10 @@ func TestLibrary(t *testing.T) {
 	res := s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"})
 	mustStatus(t, tap(s, ref(t, res, "Orders")), StatusSettled)
 	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	if lib := g.Library(); len(lib.Apps) != 1 || len(lib.Apps[0].Suggestions) != 1 || len(lib.Apps[0].Flows) != 0 {
+		t.Fatalf("the task's steps are a suggestion: %+v", lib.Apps)
+	}
+	keepAll(t, g)
 	if err := g.SetNotes(dinely, "Orders take a moment to load.\n"); err != nil {
 		t.Fatal(err)
 	}

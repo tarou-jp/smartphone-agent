@@ -107,6 +107,9 @@ type TaskView struct {
 	// ReadOnly is set when the agent asked to run the task read-only
 	// (phone_connect read_only), whatever its scope.
 	ReadOnly bool
+	// Suggestion names the suggested flow the task's steps are, while the
+	// person has not kept or turned it down (Gateway.KeepSuggestion).
+	Suggestion string
 }
 
 // StepView is one step of a task.

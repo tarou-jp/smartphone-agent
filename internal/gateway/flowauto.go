@@ -3,33 +3,44 @@ package gateway
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/DIYgod/pinky/internal/flow"
 )
 
-// This file makes flows happen by themselves (Options.AutoFlows), so that
-// nobody has to know about them: a person gives an agent the same task
-// twice, and the second time it replays.
+// This file makes flows happen without anyone having to know about them,
+// and without making more of them than the person wants
+// (Options.AutoFlows):
 //
-//   - When an agent ends a task with outcome done, the task's steps are
-//     kept as a flow named after the task (keepFlows).
-//   - When an agent connects, the result lists the flows there are and
-//     says which one was recorded from a task of the same name
-//     (offerFlows). Matching a task to a flow whose name differs is the
-//     agent's part: it reads the list.
+//   - When an agent ends a task with outcome done, its steps are not a
+//     flow yet: Pinky suggests keeping them (in the suggested store), and
+//     the person keeps the suggestion as a flow or turns it down, in
+//     Pinky's window. A suggestion replays like a flow while it waits, so
+//     the same request is fast the second time either way.
+//   - Two tasks did the same when their steps are the same actions
+//     (flow.Signature), whatever words they were asked in. A task whose
+//     steps a kept flow has adds its request to that flow; one whose
+//     steps a suggestion has counts as another run of it. Steps the
+//     person turned down are not suggested again.
+//   - When an agent connects, the result lists the kept flows and says
+//     which flow or suggestion answers the same request (offerFlows).
 //   - A task that replayed one flow, hit a mismatch and finished by hand
 //     keeps its steps as that flow's next version: the flow follows the
 //     app without anyone repairing it.
 //
-// A kept flow is a list of parts: its steps name the parts of the app
-// they are (flowparts.go) instead of copying them, so that a part that is
-// repaired repairs every flow that uses it. Any task, also one no flow
-// replays, is put together from the same parts.
+// A flow is a list of parts: its steps name the parts of the app they are
+// (flowparts.go) instead of copying them, so that a part that is repaired
+// repairs every flow that uses it.
 
 // offeredFlows bounds the flows a connect result lists.
 const offeredFlows = 20
+
+// suggestionDays is how long a suggestion waits without running again.
+const suggestionDays = 30
 
 // offerFlows adds the saved flows to the result of a new connection.
 func (g *Gateway) offerFlows(res *Result, l *lease) *Result {
@@ -37,16 +48,22 @@ func (g *Gateway) offerFlows(res *Result, l *lease) *Result {
 		return res
 	}
 	flows, _ := g.flows.List()
-	if len(flows) == 0 {
-		return g.offerParts(res, l)
-	}
 	g.mu.Lock()
 	key := flowKey(l.task)
 	g.mu.Unlock()
 	var same *flow.Flow
 	for _, f := range flows {
-		if f.Task != "" && taskKey(f.Task) == key {
+		if f.Asked(key) {
 			same = f
+		}
+	}
+	if same == nil {
+		// A suggestion the person has not decided on yet replays too.
+		sugg, _ := g.suggested.List()
+		for _, f := range sugg {
+			if f.Asked(key) {
+				same = f
+			}
 		}
 	}
 	if len(flows) > offeredFlows {
@@ -55,15 +72,27 @@ func (g *Gateway) offerFlows(res *Result, l *lease) *Result {
 	for _, f := range flows {
 		res.Flows = append(res.Flows, flowInfo(f))
 	}
-	if same != nil {
+	switch {
+	case same != nil:
 		res.Message += fmt.Sprintf(" This task ran before: the flow “%s” holds its plan. When the task is the same, run it again with phone_flow_run { flow: %q } instead of doing the steps by hand; it checks each screen on the way.",
 			same.Name, same.Name)
-	} else {
-		res.Message += " Flows kept from earlier tasks are listed below. If one does what this task needs, replay it with phone_flow_run instead of doing its steps by hand."
+	case len(flows) > 0:
+		res.Message += " Flows the person kept are listed below. If one does what this task needs, replay it with phone_flow_run instead of doing its steps by hand."
 	}
 	// The apps' parts are what any task can be put together from, also
 	// one that differs a little from a flow.
 	return g.offerParts(res, l)
+}
+
+// loadAnyFlow loads a kept flow or, when none has the name, a suggestion.
+func (g *Gateway) loadAnyFlow(name string) (*flow.Flow, *flow.Store, error) {
+	f, err := g.flows.Load(name)
+	if errors.Is(err, flow.ErrNotFound) {
+		if s, serr := g.suggested.Load(name); serr == nil || !errors.Is(serr, flow.ErrNotFound) {
+			return s, g.suggested, serr
+		}
+	}
+	return f, g.flows, err
 }
 
 // taskKeyRunes bounds what a task is known by.
@@ -79,8 +108,8 @@ func taskKey(s string) string {
 	return s
 }
 
-// flowKey is what a task's kept flow belongs to: what the person asked
-// for when the agent passed it, else the task's name.
+// flowKey is what a task's flow belongs to: what the person asked for
+// when the agent passed it, else the task's name.
 func flowKey(t *task) string {
 	if t.brief != "" {
 		return t.brief
@@ -88,18 +117,71 @@ func flowKey(t *task) string {
 	return taskKey(t.title)
 }
 
-// keepFlows saves the steps of the session's tasks that are about to end
-// well (all of them, or the one on the named device) as flows, and returns
-// what it saved per lease. A task is kept when the agent made steps of its
-// own in it, at least two steps ran, and none are missing; a task that
-// only replayed a flow leaves the flow as it is.
-func (s *Session) keepFlows(device string, parts map[*lease][]string) map[*lease]*flow.Flow {
+// How a task that ended well left its steps (keptFlow.how).
+const (
+	keptSuggested = "suggested" // a new suggestion
+	keptAgain     = "again"     // another run of a suggestion
+	keptAsked     = "asked"     // a kept flow's steps, for another request
+	keptRan       = "ran"       // a replay of a flow or suggestion, as it is
+	keptRepaired  = "repaired"  // a flow's corrected steps, as its next version
+)
+
+// keptFlow is what keepFlows did with a task's steps.
+type keptFlow struct {
+	f   *flow.Flow
+	how string
+	// suggestion is set when f waits for the person in the suggested
+	// store.
+	suggestion bool
+}
+
+// stepText is the task's step that says what became of its steps, for
+// the person; "" when there is nothing to say.
+func (k keptFlow) stepText() string {
+	name := k.f.Description
+	if name == "" {
+		name = k.f.Name
+	}
+	switch k.how {
+	case keptSuggested:
+		return "Suggested keeping these steps as a flow"
+	case keptAgain:
+		return fmt.Sprintf("Did the same steps as a suggested flow (%s)", plural(k.f.Runs, "run"))
+	case keptAsked:
+		return fmt.Sprintf("Did the steps of the flow “%s”", name)
+	case keptRepaired:
+		return fmt.Sprintf("Updated the flow “%s” with the steps that work now (version %d)", name, k.f.Version)
+	}
+	return ""
+}
+
+// agentText tells the agent what became of the task's steps.
+func (k keptFlow) agentText() string {
+	switch k.how {
+	case keptSuggested, keptAgain:
+		return fmt.Sprintf(" Pinky suggests to the person to keep the task's steps as a flow (“%s”, %s); the same request replays them meanwhile. You need not ask the person about it.",
+			k.f.Name, plural(len(k.f.Steps), "step"))
+	case keptAsked:
+		return fmt.Sprintf(" The task's steps are those of the flow “%s”, which now answers this request too: phone_flow_run replays it the next time.", k.f.Name)
+	case keptRepaired:
+		return fmt.Sprintf(" Pinky updated the flow “%s” with the task's steps (version %d).", k.f.Name, k.f.Version)
+	}
+	return ""
+}
+
+// keepFlows takes the steps of the session's tasks that are about to end
+// well (all of them, or the one on the named device) into the flows and
+// suggestions, and returns what it did per lease. A task's steps count
+// when none are missing; a new suggestion needs at least two steps the
+// agent made itself or put together.
+func (s *Session) keepFlows(device string, parts map[*lease][]string) map[*lease]keptFlow {
 	g := s.g
 	type job struct {
 		l        *lease
 		title    string
 		key      string
 		steps    []flow.Step
+		byHand   int
 		replayed map[string]bool
 	}
 	var jobs []job
@@ -111,10 +193,10 @@ func (s *Session) keepFlows(device string, parts map[*lease][]string) map[*lease
 			}
 		}
 		t := l.task
-		if t.test || t.byHand == 0 || len(t.trace) < 2 || t.traceGap {
+		if t.test || t.traceGap {
 			continue
 		}
-		j := job{l: l, title: t.title, key: flowKey(t), steps: append([]flow.Step(nil), t.trace...), replayed: map[string]bool{}}
+		j := job{l: l, title: t.title, key: flowKey(t), steps: append([]flow.Step(nil), t.trace...), byHand: t.byHand, replayed: map[string]bool{}}
 		for name, broke := range t.replayed {
 			j.replayed[name] = broke
 		}
@@ -122,38 +204,147 @@ func (s *Session) keepFlows(device string, parts map[*lease][]string) map[*lease
 	}
 	g.mu.Unlock()
 
-	kept := map[*lease]*flow.Flow{}
+	day := time.Now().Format("2006-01-02")
+	kept := map[*lease]keptFlow{}
 	for _, j := range jobs {
-		f := autoFlow(j.title, j.key, j.steps, parts[j.l], g.flows)
+		if k, ok := g.keepTaskFlow(j.title, j.key, j.steps, parts[j.l], j.byHand, j.replayed, day); ok {
+			kept[j.l] = k
+			if k.suggestion {
+				g.mu.Lock()
+				j.l.task.suggestion = k.f.Name
+				g.mu.Unlock()
+			}
+		}
+	}
+	g.trimSuggestions(time.Now())
+	return kept
+}
+
+// keepTaskFlow does what keepFlows does for one task.
+func (g *Gateway) keepTaskFlow(title, key string, steps []flow.Step, parts []string, byHand int, replayed map[string]bool, day string) (keptFlow, bool) {
+	// The flow the task replayed, when it replayed one.
+	var old *flow.Flow
+	var oldStore *flow.Store
+	broke := false
+	if len(replayed) == 1 {
+		for name, b := range replayed {
+			if f, st, err := g.loadAnyFlow(name); err == nil {
+				old, oldStore, broke = f, st, b
+			}
+		}
+	}
+	note := func(f *flow.Flow) {
+		f.AddAsk(key)
+		f.Runs++
+		f.Last = day
+	}
+	if byHand == 0 {
+		// The task only replayed: a flow that ran to its end ran once
+		// more, and answers this request too.
+		if old == nil || broke {
+			return keptFlow{}, false
+		}
+		note(old)
+		saved, err := oldStore.Put(old)
+		if err != nil {
+			g.log.Warn("flows: noting a replay", "flow", old.Name, "err", err)
+			return keptFlow{}, false
+		}
+		return keptFlow{f: saved, how: keptRan, suggestion: oldStore == g.suggested}, true
+	}
+	if len(steps) < 2 {
+		return keptFlow{}, false
+	}
+	f := autoFlow(title, key, steps, parts, g.flows)
+	if err := f.Validate(); err != nil {
+		g.log.Warn("flows: a task's steps do not make a flow", "task", title, "err", err)
+		return keptFlow{}, false
+	}
+	if old != nil && broke {
 		// One flow replayed, stopped, and the agent finished by hand: the
 		// task's steps are that flow as it works now.
-		repair := false
-		if len(j.replayed) == 1 {
-			for name, broke := range j.replayed {
-				if old, err := g.flows.Load(name); err == nil && broke {
-					f.Name, f.Description, f.Task = old.Name, old.Description, old.Task
-					repair = true
+		f.Name, f.Description, f.Task, f.Asks, f.Runs, f.Last = old.Name, old.Description, old.Task, old.Asks, old.Runs, old.Last
+		note(f)
+		saved, err := oldStore.Save(f)
+		if err != nil {
+			g.log.Warn("flows: repairing a flow", "flow", old.Name, "err", err)
+			return keptFlow{}, false
+		}
+		return keptFlow{f: saved, how: keptRepaired, suggestion: oldStore == g.suggested}, true
+	}
+	sig := f.Signature()
+	for _, st := range []*flow.Store{g.flows, g.suggested} {
+		list, _ := st.List()
+		for _, same := range list {
+			if same.Signature() != sig {
+				continue
+			}
+			note(same)
+			saved, err := st.Put(same)
+			if err != nil {
+				g.log.Warn("flows: noting a run", "flow", same.Name, "err", err)
+				return keptFlow{}, false
+			}
+			how := keptAsked
+			if st == g.suggested {
+				how = keptAgain
+			}
+			return keptFlow{f: saved, how: how, suggestion: st == g.suggested}, true
+		}
+	}
+	if g.suggested.Dismissed(sig) {
+		return keptFlow{}, false
+	}
+	// The same request with other steps: a suggestion of it stays (the
+	// person may keep it or turn it down), and next to a kept flow the
+	// suggestion gets a name of its own.
+	if _, err := g.suggested.Load(f.Name); err == nil {
+		return keptFlow{}, false
+	}
+	base := f.Name
+	for n := 2; ; n++ {
+		if _, err := g.flows.Load(f.Name); err != nil {
+			break
+		}
+		f.Name = fmt.Sprintf("%s-%d", base, n)
+	}
+	f.Runs, f.Last = 1, day
+	saved, err := g.suggested.Save(f)
+	if err != nil {
+		g.log.Warn("flows: suggesting a task's steps", "task", title, "err", err)
+		return keptFlow{}, false
+	}
+	return keptFlow{f: saved, how: keptSuggested, suggestion: true}, true
+}
+
+// trimSuggestions drops the suggestions that did not run again for
+// suggestionDays, and the oldest past flow.MaxSuggestions.
+func (g *Gateway) trimSuggestions(now time.Time) {
+	list, _ := g.suggested.List()
+	cutoff := now.AddDate(0, 0, -suggestionDays).Format("2006-01-02")
+	sort.SliceStable(list, func(i, j int) bool { return list[i].Last > list[j].Last })
+	for i, f := range list {
+		if i >= flow.MaxSuggestions || f.Last != "" && f.Last < cutoff {
+			_ = g.suggested.Remove(f.Name)
+			g.clearSuggestion(f.Name)
+		}
+	}
+}
+
+// usedParts lists the parts that kept flows and suggestions name.
+func (g *Gateway) usedParts() map[string]bool {
+	used := map[string]bool{}
+	for _, st := range []*flow.Store{g.flows, g.suggested} {
+		list, _ := st.List()
+		for _, f := range list {
+			for _, s := range f.Steps {
+				if s.Part != "" {
+					used[s.Part] = true
 				}
 			}
 		}
-		// A flow that is there and was not tried stays: the same task on
-		// two phones at once, or done by hand once more, must not replace
-		// steps that work with another run's. Only a repair replaces.
-		if _, err := g.flows.Load(f.Name); err == nil && !repair {
-			continue
-		}
-		if err := f.Validate(); err != nil {
-			g.log.Warn("flows: a task's steps do not make a flow", "task", j.title, "err", err)
-			continue
-		}
-		saved, err := g.flows.Save(f)
-		if err != nil {
-			g.log.Warn("flows: keeping a task's steps", "task", j.title, "err", err)
-			continue
-		}
-		kept[j.l] = saved
 	}
-	return kept
+	return used
 }
 
 // autoFlow makes a flow of a task's steps without anyone naming anything:
@@ -241,4 +432,91 @@ func autoFlowName(app, title, key string) string {
 		name += t + "-"
 	}
 	return name + hex.EncodeToString(sum[:3])
+}
+
+// clearSuggestion forgets, on the tasks that show it, a suggestion that
+// is no longer one.
+func (g *Gateway) clearSuggestion(name string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	clear := func(t *task) {
+		if t != nil && t.suggestion == name {
+			t.suggestion = ""
+		}
+	}
+	for _, t := range g.ended {
+		clear(t)
+	}
+	for _, d := range g.devices {
+		if d.lease != nil {
+			clear(d.lease.task)
+		}
+	}
+}
+
+// KeepSuggestion keeps a suggested flow as a flow, under the description
+// the person gave it ("" keeps the suggested one), and returns it.
+func (g *Gateway) KeepSuggestion(name, description string) (*flow.Flow, error) {
+	name = strings.TrimSpace(name)
+	f, err := g.suggested.Load(name)
+	if err != nil {
+		return nil, err
+	}
+	if d := strings.TrimSpace(description); d != "" {
+		f.Description = d
+	}
+	// A flow kept meanwhile with the same steps takes the suggestion's
+	// requests instead.
+	sig := f.Signature()
+	flows, _ := g.flows.List()
+	var out *flow.Flow
+	for _, same := range flows {
+		if same.Signature() == sig {
+			for _, a := range append([]string{f.Task}, f.Asks...) {
+				same.AddAsk(a)
+			}
+			same.Runs += f.Runs
+			out, err = g.flows.Put(same)
+			break
+		}
+	}
+	if out == nil && err == nil {
+		base := f.Name
+		for n := 2; ; n++ {
+			if _, lerr := g.flows.Load(f.Name); lerr != nil {
+				break
+			}
+			f.Name = fmt.Sprintf("%s-%d", base, n)
+		}
+		f.Version = 0
+		out, err = g.flows.Save(f)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := g.suggested.Remove(name); err != nil && !errors.Is(err, flow.ErrNotFound) {
+		return nil, err
+	}
+	g.clearSuggestion(name)
+	g.emit(Event{Kind: EventTasks})
+	return out, nil
+}
+
+// DismissSuggestion turns a suggestion down: it goes, and the same steps
+// are not suggested again.
+func (g *Gateway) DismissSuggestion(name string) error {
+	name = strings.TrimSpace(name)
+	f, err := g.suggested.Load(name)
+	if err != nil {
+		return err
+	}
+	if err := g.suggested.Dismiss(f.Signature()); err != nil {
+		return err
+	}
+	if err := g.suggested.Remove(name); err != nil {
+		return err
+	}
+	g.clearSuggestion(name)
+	g.emit(Event{Kind: EventTasks})
+	return nil
 }

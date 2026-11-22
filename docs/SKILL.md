@@ -74,7 +74,7 @@ Payments wait for the person: paying, buying, selling, swapping, trading, repayi
 
 ## Flows
 
-Pinky remembers what worked. When you end a task with `phone_release { outcome: "done" }`, it keeps the task's steps as a flow by itself (a list of the app's parts, see below), and the next `phone_connect` lists the flows there are. A flow replays in one call, about as fast as the phone allows, without you choosing each step. The person does not ask for any of this and need not know the tools: **when a flow does what the task needs, use it.**
+Pinky remembers what worked. When you end a task with `phone_release { outcome: "done" }`, it offers the task's steps to the person to keep as a flow (a list of the app's parts, see below); you need not ask them about it. The next `phone_connect` lists the flows they kept, and names the flow, or the steps an earlier task ran, when the same request comes back, in whatever words. A flow replays in one call, about as fast as the phone allows, without you choosing each step. The person does not ask for any of this and need not know the tools: **when a flow does what the task needs, use it.**
 
 ```text
 → phone_connect { task: "Check every tab of CVERSE", brief: "Open CVERSE and check that every tab shows its screen" }
@@ -117,7 +117,7 @@ Acting, reading the screen and thinking again for every step is the slow way. Pi
 - **What you cannot do, the person can show you.** When a step does not work for you (a control you cannot read or hit), `phone_handoff` with what you need: the steps the person makes on the mirror in Pinky's window are kept as parts too, so the next task runs them. Ask them to do it there rather than on the phone itself, which Pinky cannot see.
 - **A part works wherever its target is on the screen.** `after` names a part it was recorded after, which hints at where that is: a tab bar is on many screens, a row inside one page only there. You need not be sure: every part checks the screen it leads to, and the call stops with `mismatch` and the screen where one does not fit. Go on by hand from there, or with `from_step`, which counts in your list.
 - **A part's checkpoint is its check.** "→ button "Find" shows" is what the run verified when the step is `ok`: for a test that asks whether a screen shows, that is the answer, and the screen at the end is returned in full.
-- A task you ran as a plan and end with `done` is kept as a flow: the list of its parts under a name, which `phone_connect` names when the same request comes back, and which runs as a test without a model. When the request is the same, run that flow; when it differs a little, plan again from the parts.
+- A task you ran as a plan and end with `done` is offered to the person as a flow: the list of its parts under a name, which `phone_connect` names when the same request comes back, and which runs as a test without a model. Parts are offered once a step worked twice, the person showed it, or a flow uses it. When the request is the same, run that flow; when it differs a little, plan again from the parts.
 - A flow that stops because the app changed repairs itself when you go on and end the task with `done`. Do that only when the app is right and the flow was out of date; when the app is wrong, that is the finding: end the task with `failed` and say what the app showed.
 - `phone_flow_list { app }` lists an app's parts again.
 

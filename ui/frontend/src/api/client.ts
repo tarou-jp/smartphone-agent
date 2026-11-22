@@ -156,6 +156,9 @@ export const api = {
   setNotes: (app: string, text: string) => put<Library>('/api/library/notes', { app, text }),
   removeFlow: (name: string) => del<Library>(`/api/library/flows/${enc(name)}`),
   removePart: (id: string) => del<Library>(`/api/library/parts/${enc(id)}`),
+  keepSuggestion: (name: string, description: string) =>
+    post<Library>(`/api/library/suggestions/${enc(name)}/keep`, { description }),
+  dismissSuggestion: (name: string) => del<Library>(`/api/library/suggestions/${enc(name)}`),
   /** The picture of the screen a part leads to (LibraryPart.shot). */
   partShotURL: (id: string) => authURL(`/api/library/parts/${enc(id)}/shot`),
   /** An app's icon; 404 when no phone and no store has it. */

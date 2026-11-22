@@ -44,6 +44,13 @@ const (
 	PartText = "${text}"
 	// partAfter bounds the parts a part remembers being recorded after.
 	partAfter = 3
+	// partProven is how often a step must have worked before agents are
+	// offered it as a part: once may have been luck, or the screen of one
+	// day.
+	partProven = 2
+	// partUnprovenDays is how long a part that worked once is kept
+	// without working again.
+	partUnprovenDays = 30
 )
 
 // Part is a step with its checkpoint and what Pinky knows about it.
@@ -63,6 +70,8 @@ type Part struct {
 	Broke int `yaml:"broke,omitempty"`
 	// Last is the day the part was last seen, as 2006-01-02.
 	Last string `yaml:"last,omitempty"`
+	// Taught is set when the person showed the step on the mirror.
+	Taught bool `yaml:"taught,omitempty"`
 }
 
 // Parts are the parts of one app.
@@ -157,9 +166,25 @@ func Partable(s Step) bool {
 	case "key":
 		return s.Key != "home"
 	case "tap":
-		return s.Tap.Point == nil && (s.Tap.ID != "" || Control(s.Tap.Role))
+		return s.Tap.Point == nil && (s.Tap.ID != "" || lastingControl(s.Tap))
 	}
 	return false
+}
+
+// lastingControl reports whether a target found without an id is a
+// control of the app rather than something it shows today: a button, tab,
+// switch or checkbox whose label is a name, not a sentence or a count.
+// A link without an id is what a page links to (a headline, a post), and
+// a label with digits or a sentence in it changes from day to day.
+func lastingControl(s *Selector) bool {
+	if s == nil || s.Role == screen.RoleLink || !Control(s.Role) {
+		return false
+	}
+	label := s.Label
+	if label == "" && len(s.Or) > 0 {
+		label = s.Or[0].Label
+	}
+	return label == "" || !prose(label) && !volatile(label)
 }
 
 // partApp is the app a recorded step's part belongs to: the app the step
@@ -194,6 +219,9 @@ type Ran struct {
 	App string
 	// Part is the part the step was run as, when a replay ran it.
 	Part string
+	// Taught is set for a step the person showed: a person's own way
+	// through the app counts as proven at once.
+	Taught bool
 	// Repair lets the step say where Part leads now when it led elsewhere
 	// than the part says: the step ran in a saved flow, and the task that
 	// replayed it went on and ended well.
@@ -248,6 +276,7 @@ func (ps *Parts) learn(r Ran, prev, day string) (p *Part, added bool) {
 	}
 	p.Seen++
 	p.Broke, p.Last = 0, day
+	p.Taught = p.Taught || r.Taught
 	if prev != "" && prev != p.ID {
 		list := []string{prev}
 		for _, id := range p.After {
@@ -305,6 +334,37 @@ func (ps *Parts) Sorted() []*Part {
 		return out[i].Last > out[j].Last
 	})
 	return out
+}
+
+// Proven reports whether the part may be offered: it worked often
+// enough, the person showed it, or it opens an app, which leads to the
+// app whatever the day.
+func (p *Part) Proven() bool { return p.Seen >= partProven || p.Taught || p.Kind() == "launch" }
+
+// PruneParts drops the parts that worked once and not again for
+// partUnprovenDays, but for those keep names (the parts flows use).
+func (s *Store) PruneParts(keep map[string]bool, now time.Time) (dropped int) {
+	cutoff := now.AddDate(0, 0, -partUnprovenDays).Format("2006-01-02")
+	for _, app := range s.PartApps() {
+		s.mu.Lock()
+		ps, err := s.readParts(app)
+		if err == nil {
+			kept := ps.Parts[:0]
+			for _, p := range ps.Parts {
+				if !p.Proven() && !keep[p.ID] && p.Last != "" && p.Last < cutoff {
+					dropped++
+					continue
+				}
+				kept = append(kept, p)
+			}
+			if len(kept) != len(ps.Parts) {
+				ps.Parts = kept
+				_ = s.writeParts(ps)
+			}
+		}
+		s.mu.Unlock()
+	}
+	return dropped
 }
 
 // Text says what the part does and where it leads: "tap button “Orders” →

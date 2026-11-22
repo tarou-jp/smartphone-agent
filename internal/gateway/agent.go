@@ -13,7 +13,6 @@ import (
 
 	"github.com/DIYgod/pinky/internal/approval"
 	"github.com/DIYgod/pinky/internal/driver"
-	"github.com/DIYgod/pinky/internal/flow"
 	"github.com/DIYgod/pinky/internal/history"
 	"github.com/DIYgod/pinky/internal/screen"
 )
@@ -140,6 +139,8 @@ type Call struct {
 	until    func(*screen.Screen) bool
 	untilMax time.Duration
 	untilOCR bool
+	// taught is set for a step the person did on the mirror (person.go).
+	taught bool
 }
 
 // reuseAge is how old the previous step's read may be for the next batch
@@ -883,15 +884,18 @@ func (s *Session) Release(ctx context.Context, req ReleaseRequest) *Result {
 	if outcome == "canceled" {
 		outcome = "cancelled"
 	}
-	// A task that worked leaves its steps behind as a flow (flowauto.go).
 	// Whatever the outcome, each step that ran says where it leads: the
-	// apps' parts learn from it (flowparts.go), and a flow is kept as the
-	// parts its steps are.
-	var kept map[*lease]*flow.Flow
+	// apps' parts learn from it (flowparts.go). A task that worked leaves
+	// its steps as a suggested flow, or adds them to the flow they are
+	// (flowauto.go).
+	var kept map[*lease]keptFlow
 	if g.opt.AutoFlows {
 		parts := s.keepParts(req.Device, outcome == OutcomeDone)
 		if outcome == OutcomeDone {
 			kept = s.keepFlows(req.Device, parts)
+		}
+		if n := g.flows.PruneParts(g.usedParts(), time.Now()); n > 0 {
+			g.log.Info("flows: dropped parts that worked once long ago", "parts", n)
 		}
 	}
 	g.mu.Lock()
@@ -911,10 +915,11 @@ func (s *Session) Release(ctx context.Context, req ReleaseRequest) *Result {
 	var names []string
 	for _, l := range ls {
 		names = append(names, l.dev.name())
-		if f := kept[l]; f != nil {
-			g.addStepLocked(l.task, StepView{Tool: "phone_flow_save", Args: argsJSON(map[string]any{"name": f.Name, "version": f.Version}),
-				Text:   fmt.Sprintf("Kept these steps as the flow “%s” (version %d), to replay the next time", f.Name, f.Version),
-				Status: string(StatusSettled), At: time.Now()}, "", "")
+		if k := kept[l]; k.f != nil {
+			if text := k.stepText(); text != "" {
+				g.addStepLocked(l.task, StepView{Tool: "phone_flow_save", Args: argsJSON(map[string]any{"name": k.f.Name, "version": k.f.Version, "kept": k.how}),
+					Text: text, Status: string(StatusSettled), At: time.Now()}, "", "")
+			}
 		}
 		g.addStepLocked(l.task, StepView{Tool: "phone_release", Args: argsJSON(map[string]any{"outcome": outcome, "summary": req.Summary}),
 			Text: "Finished: " + outcome, Status: string(StatusSettled), At: time.Now()}, "", "")
@@ -927,9 +932,8 @@ func (s *Session) Release(ctx context.Context, req ReleaseRequest) *Result {
 	sort.Strings(names)
 	res := &Result{Status: StatusSettled, Message: fmt.Sprintf("Released %s.", strings.Join(names, ", "))}
 	for _, l := range ls {
-		if f := kept[l]; f != nil {
-			res.Message += fmt.Sprintf(" Pinky kept the task's steps as the flow “%s” (version %d, %s): when this task comes up again, phone_connect offers it and phone_flow_run replays it.",
-				f.Name, f.Version, plural(len(f.Steps), "step"))
+		if k := kept[l]; k.f != nil {
+			res.Message += k.agentText()
 		}
 	}
 	if len(ls) == 1 {

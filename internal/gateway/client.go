@@ -149,7 +149,8 @@ func (g *Gateway) Tasks() []TaskView {
 
 func taskView(t *task) TaskView {
 	return TaskView{ID: t.id, DeviceID: t.deviceID, DeviceName: t.deviceName, Agent: t.agent, Title: t.title,
-		State: t.state, Started: t.started, Ended: t.ended, Steps: append([]StepView(nil), t.steps...), ReadOnly: t.readOnly}
+		State: t.state, Started: t.started, Ended: t.ended, Steps: append([]StepView(nil), t.steps...), ReadOnly: t.readOnly,
+		Suggestion: t.suggestion}
 }
 
 // Needs implements API.

@@ -40,8 +40,15 @@ type Flow struct {
 	App     string `yaml:"app,omitempty"`
 	Version int    `yaml:"version,omitempty"`
 	// Task is the name of the task the flow was recorded from, when Pinky
-	// kept a finished task's steps by itself: the same task replays it.
+	// suggested keeping a finished task's steps: the same task replays it.
 	Task string `yaml:"task,omitempty"`
+	// Asks lists the other requests a task ran these same steps for:
+	// people ask for one thing in many words, and each is the flow's.
+	Asks []string `yaml:"asks,omitempty"`
+	// Runs counts the tasks that ran the flow's steps to a good end, and
+	// Last is the day of the newest, as 2006-01-02.
+	Runs int    `yaml:"runs,omitempty"`
+	Last string `yaml:"last,omitempty"`
 	// Params are the values a run may pass; steps use them as ${name}.
 	Params map[string]Param `yaml:"params,omitempty"`
 	// TimeoutMS is the default for steps without their own.
@@ -486,6 +493,10 @@ func (f *Flow) Bind(values map[string]string) (*Flow, error) {
 // clone copies the flow deeply enough for Bind to change its strings.
 func (f *Flow) clone() *Flow {
 	out := *f
+	out.Asks = append([]string(nil), f.Asks...)
+	if len(out.Asks) == 0 {
+		out.Asks = nil
+	}
 	out.Steps = make([]Step, len(f.Steps))
 	for i, s := range f.Steps {
 		s.Tap, s.Into, s.In = s.Tap.clone(), s.Into.clone(), s.In.clone()

@@ -46,9 +46,10 @@ type Options struct {
 	// that a replay does not drive a phone faster than a quick person
 	// would; default 300 ms.
 	FlowPace time.Duration
-	// AutoFlows keeps the steps of every task an agent finishes with
-	// outcome done as a flow, by itself, so that the same task replays
-	// the next time without anyone saving or naming anything (flowauto.go).
+	// AutoFlows suggests to the person to keep the steps of every task an
+	// agent finishes with outcome done as a flow, replays them for the
+	// same request meanwhile, and learns the apps' parts as tasks run
+	// (flowauto.go, flowparts.go).
 	AutoFlows bool
 
 	// NoScreenshots skips the before and after screenshots of each step.
@@ -101,6 +102,7 @@ type Gateway struct {
 	approvals *approval.Center
 	rec       *recorder
 	flows     *flow.Store    // in DataDir/flows, or in memory without DataDir
+	suggested *flow.Store    // suggestions (flowauto.go), in flows/suggested
 	icons     *appicon.Cache // app icons for the Flows page (appicons.go)
 
 	mu       sync.Mutex
@@ -158,9 +160,10 @@ func New(o Options) (*Gateway, error) {
 	if g.policy == nil {
 		g.policy = policy.Default()
 	}
-	g.flows = flow.NewStore("")
+	g.flows, g.suggested = flow.NewStore(""), flow.NewStore("")
 	if o.DataDir != "" {
 		g.flows = flow.NewStore(filepath.Join(filepath.Clean(o.DataDir), "flows"))
+		g.suggested = flow.NewStore(filepath.Join(filepath.Clean(o.DataDir), "flows", flow.SuggestedDir))
 	}
 	g.icons = g.newIcons(o.DataDir)
 	if o.DataDir != "" {

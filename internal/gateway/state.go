@@ -266,6 +266,9 @@ type task struct {
 	// the screen it led to, nil when there is none: a part keeps a small
 	// copy as its picture (flowparts.go).
 	traceShot []*bgShot
+	// traceTaught says, for each step of trace, whether the person did
+	// it on the mirror (person.go).
+	traceTaught []bool
 	// test marks a test run (ConnectRequest.Test): what it finds is
 	// reported, and it changes neither flows nor parts.
 	test bool
@@ -283,6 +286,9 @@ type task struct {
 	// the agent did not pass it; a kept flow belongs to it, or to the
 	// task's title.
 	brief string
+	// suggestion names the suggestion the task's steps are (flowauto.go)
+	// while the person has not decided on it.
+	suggestion string
 }
 
 // maxTaskSteps bounds the steps a running task keeps in memory; history

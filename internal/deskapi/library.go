@@ -20,6 +20,8 @@ type libraryKeeper interface {
 	RemoveFlow(name string) error
 	RemovePart(id string) error
 	PartShot(id string) ([]byte, error)
+	KeepSuggestion(name, description string) (*flow.Flow, error)
+	DismissSuggestion(name string) error
 }
 
 // appIconer is the extra a gateway that finds app icons has.
@@ -39,10 +41,11 @@ type Library struct {
 // LibraryApp is what Pinky keeps of one app; App is "" for the flows of
 // no app.
 type LibraryApp struct {
-	App   string        `json:"app"`
-	Notes string        `json:"notes"`
-	Flows []LibraryFlow `json:"flows"`
-	Parts []LibraryPart `json:"parts"`
+	App         string        `json:"app"`
+	Notes       string        `json:"notes"`
+	Flows       []LibraryFlow `json:"flows"`
+	Suggestions []LibraryFlow `json:"suggestions"`
+	Parts       []LibraryPart `json:"parts"`
 }
 
 // LibraryFlow is a saved flow.
@@ -50,6 +53,9 @@ type LibraryFlow struct {
 	Name        string        `json:"name"`
 	Description string        `json:"description,omitempty"`
 	Task        string        `json:"task,omitempty"`
+	Asks        []string      `json:"asks,omitempty"`
+	Runs        int           `json:"runs,omitempty"`
+	Last        string        `json:"last,omitempty"`
 	Version     int           `json:"version"`
 	File        string        `json:"file,omitempty"`
 	Steps       []LibraryStep `json:"steps"`
@@ -69,29 +75,29 @@ type LibraryStep struct {
 
 // LibraryPart is a part of an app.
 type LibraryPart struct {
-	ID     string   `json:"id"`
-	Kind   string   `json:"kind"`
-	Text   string   `json:"text"`
-	Leads  string   `json:"leads,omitempty"`
-	Intent string   `json:"intent,omitempty"`
-	After  []string `json:"after,omitempty"`
-	Seen   int      `json:"seen"`
-	Last   string   `json:"last,omitempty"`
-	Broken bool     `json:"broken,omitempty"`
-	Flows  []string `json:"flows,omitempty"`
-	Shot   bool     `json:"shot,omitempty"`
+	ID       string   `json:"id"`
+	Kind     string   `json:"kind"`
+	Text     string   `json:"text"`
+	Leads    string   `json:"leads,omitempty"`
+	Intent   string   `json:"intent,omitempty"`
+	After    []string `json:"after,omitempty"`
+	Seen     int      `json:"seen"`
+	Last     string   `json:"last,omitempty"`
+	Broken   bool     `json:"broken,omitempty"`
+	Flows    []string `json:"flows,omitempty"`
+	Shot     bool     `json:"shot,omitempty"`
+	Learning bool     `json:"learning,omitempty"`
 }
 
 func libraryOf(v gateway.LibraryView) Library {
 	out := Library{Dir: v.Dir, Apps: []LibraryApp{}, Broken: v.Broken, MaxNotes: flow.MaxNotes}
 	for _, a := range v.Apps {
-		la := LibraryApp{App: a.App, Notes: a.Notes, Flows: []LibraryFlow{}, Parts: []LibraryPart{}}
+		la := LibraryApp{App: a.App, Notes: a.Notes, Flows: []LibraryFlow{}, Suggestions: []LibraryFlow{}, Parts: []LibraryPart{}}
 		for _, f := range a.Flows {
-			lf := LibraryFlow{Name: f.Name, Description: f.Description, Task: f.Task, Version: f.Version, File: f.File, Steps: []LibraryStep{}}
-			for _, st := range f.Steps {
-				lf.Steps = append(lf.Steps, LibraryStep(st))
-			}
-			la.Flows = append(la.Flows, lf)
+			la.Flows = append(la.Flows, libraryFlowOf(f))
+		}
+		for _, f := range a.Suggestions {
+			la.Suggestions = append(la.Suggestions, libraryFlowOf(f))
 		}
 		for _, p := range a.Parts {
 			la.Parts = append(la.Parts, LibraryPart(p))
@@ -99,6 +105,15 @@ func libraryOf(v gateway.LibraryView) Library {
 		out.Apps = append(out.Apps, la)
 	}
 	return out
+}
+
+func libraryFlowOf(f gateway.LibraryFlow) LibraryFlow {
+	lf := LibraryFlow{Name: f.Name, Description: f.Description, Task: f.Task, Asks: f.Asks, Runs: f.Runs, Last: f.Last,
+		Version: f.Version, File: f.File, Steps: []LibraryStep{}}
+	for _, st := range f.Steps {
+		lf.Steps = append(lf.Steps, LibraryStep(st))
+	}
+	return lf
 }
 
 // libraryPaths lists the files and the folder of the library, which the
@@ -168,6 +183,34 @@ func (s *Server) libraryRoutes() {
 			return nil, err
 		}
 		if err := k.RemoveFlow(r.PathValue("name")); err != nil {
+			return nil, libraryError(err)
+		}
+		return libraryOf(k.Library()), nil
+	})
+	// Keeping a suggestion as a flow, under a description the person
+	// gave it ("" keeps the suggested one), and turning one down.
+	s.route("POST /api/library/suggestions/{name}/keep", func(r *http.Request) (any, error) {
+		k, err := keeper()
+		if err != nil {
+			return nil, err
+		}
+		var b struct{ Description string }
+		if r.ContentLength != 0 {
+			if err := decode(r, &b); err != nil {
+				return nil, err
+			}
+		}
+		if _, err := k.KeepSuggestion(r.PathValue("name"), b.Description); err != nil {
+			return nil, libraryError(err)
+		}
+		return libraryOf(k.Library()), nil
+	})
+	s.route("DELETE /api/library/suggestions/{name}", func(r *http.Request) (any, error) {
+		k, err := keeper()
+		if err != nil {
+			return nil, err
+		}
+		if err := k.DismissSuggestion(r.PathValue("name")); err != nil {
 			return nil, libraryError(err)
 		}
 		return libraryOf(k.Library()), nil

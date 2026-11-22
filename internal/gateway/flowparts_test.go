@@ -28,6 +28,16 @@ func partID(t *testing.T, parts []PartInfo, words ...string) string {
 	return ""
 }
 
+// keepAll keeps every suggestion as a flow, as the person would.
+func keepAll(t *testing.T, g *Gateway) {
+	t.Helper()
+	for _, f := range suggestions(g) {
+		if _, err := g.KeepSuggestion(f.Name, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // One task by hand teaches Pinky the app's parts; another task, which no
 // flow replays, is put together from them and runs in one call.
 func TestPartsPutTogether(t *testing.T) {
@@ -39,6 +49,7 @@ func TestPartsPutTogether(t *testing.T) {
 	}
 	toCart(t, s)
 	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	keepAll(t, g)
 	ps, err := g.flows.Parts(dinely)
 	if err != nil || len(ps.Parts) != 4 {
 		t.Fatalf("parts after the first task: %+v %v", ps, err)
@@ -76,8 +87,12 @@ func TestPartsPutTogether(t *testing.T) {
 	// The task the agent put together is kept as a flow of its own: a
 	// list of the parts it ran, by name. Its steps were seen once more.
 	res = s.Release(ctx, ReleaseRequest{})
-	if flows := g.Flows(); len(flows) != 2 || !strings.Contains(res.Message, "kept the task's steps") {
-		t.Fatalf("flows: %+v\n%s", flows, res.Message)
+	if !strings.Contains(res.Message, "suggests") {
+		t.Fatalf("the plan was not suggested: %s", res.Message)
+	}
+	keepAll(t, g)
+	if flows := g.Flows(); len(flows) != 2 {
+		t.Fatalf("flows: %+v", flows)
 	}
 	for _, fi := range g.Flows() {
 		f, err := g.flows.Load(fi.Name)
@@ -167,6 +182,7 @@ func TestPartsBreak(t *testing.T) {
 	s, _ := connect(t, g, "Reorder last week's lunch")
 	toCart(t, s)
 	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	keepAll(t, g)
 	// The app changed: Orders is said to lead to a screen it does not.
 	wrong := flow.Step{Tap: &flow.Selector{Role: "tab", Label: "Orders"},
 		Expect: &flow.Condition{App: dinely, Visible: flow.Selectors{{ID: "dinely:gone"}}}}
@@ -230,9 +246,18 @@ func TestPartsOfferedAtLaunch(t *testing.T) {
 	if _, _, err := g.flows.LearnParts([]flow.Ran{{Step: step}}, time.Now()); err != nil {
 		t.Fatal(err)
 	}
+	// A tap that worked once is not offered yet: it may have been luck.
+	// One that worked twice is, and opening the app always is.
+	orders := flow.Step{Tap: &flow.Selector{Role: "tab", Label: "Orders"}, Expect: &flow.Condition{App: dinely, Visible: flow.Selectors{{Label: "Last week"}}}}
+	account := flow.Step{Tap: &flow.Selector{Role: "tab", Label: "Account"}, Expect: &flow.Condition{App: dinely, Visible: flow.Selectors{{Label: "Sign out"}}}}
+	for _, st := range []flow.Step{orders, orders, account} {
+		if _, _, err := g.flows.LearnParts([]flow.Ran{{Step: st, App: dinely}}, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
 	res := s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"})
 	mustStatus(t, res, StatusSettled)
-	if len(res.Parts) != 1 || res.Parts[0].App != dinely || !strings.Contains(res.Message, "Parts of "+dinely) {
+	if len(res.Parts) != 2 || res.Parts[0].App != dinely || strings.Contains(res.Parts[0].Text+res.Parts[1].Text, "Account") || !strings.Contains(res.Message, "Parts of "+dinely) {
 		t.Fatalf("launch: %+v %s", res.Parts, res.Message)
 	}
 	mustStatus(t, s.Act(ctx, Call{}, Action{Tool: "key", Key: "home"}), StatusSettled)
@@ -264,6 +289,7 @@ func TestFlowLaunchRanElsewhere(t *testing.T) {
 	res := s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"})
 	mustStatus(t, tap(s, ref(t, res, "Orders")), StatusSettled)
 	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	keepAll(t, g)
 	name := g.Flows()[0].Name
 	f, err := g.flows.Load(name)
 	if err != nil {
@@ -315,7 +341,7 @@ func TestFlowLaunchRanElsewhere(t *testing.T) {
 	// same two parts.
 	// (Version 3 is the one saved with the optional step above.)
 	f, err = g.flows.Load(name)
-	if err != nil || f.Version != 4 || len(f.Steps) != 2|| f.Steps[0].Part != launch || f.Steps[1].Part != orders {
+	if err != nil || f.Version != 4 || len(f.Steps) != 2 || f.Steps[0].Part != launch || f.Steps[1].Part != orders {
 		t.Fatalf("the repaired flow: %+v %v", f, err)
 	}
 	if _, p, _ := g.flows.Part(launch); len(p.Expect.Visible) != 0 || p.Expect.App != dinely || p.Broke != 0 {
@@ -336,6 +362,7 @@ func TestTestRunsChangeNothing(t *testing.T) {
 	res := s.Act(ctx, Call{}, Action{Tool: "launch", App: "Dinely"})
 	mustStatus(t, tap(s, ref(t, res, "Orders")), StatusSettled)
 	mustStatus(t, s.Release(ctx, ReleaseRequest{}), StatusSettled)
+	keepAll(t, g)
 	name := g.Flows()[0].Name
 	f, _ := g.flows.Load(name)
 	orders := f.Steps[1].Part

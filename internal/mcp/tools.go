@@ -422,7 +422,7 @@ func (s *Server) addTools(srv *sdk.Server, remote bool) {
 
 	sdk.AddTool(srv, &sdk.Tool{Name: "phone_flow_save", Title: "Save a flow",
 		Description: "Save the actions this task ran so far as a flow under a name of your choice, or a flow you wrote or corrected (yaml). " +
-			"You rarely need it: Pinky keeps a task's steps by itself when the task ends with outcome done. Use it for a part of a task that is worth a flow of its own, or to fix a flow. Returns the flow as YAML. " +
+			"You rarely need it: when a task ends with outcome done, Pinky offers its steps to the person to keep as a flow. Use it only when the person asks you to save a flow, or to fix one. Returns the flow as YAML. " +
 			"A flow grants nothing: its steps ask the person as yours do.",
 		InputSchema: schema[flowSaveIn](nil), Annotations: &sdk.ToolAnnotations{DestructiveHint: boolp(false), IdempotentHint: true, OpenWorldHint: boolp(false)}},
 		func(ctx context.Context, req *sdk.CallToolRequest, in flowSaveIn) (*sdk.CallToolResult, any, error) {

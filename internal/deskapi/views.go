@@ -96,6 +96,9 @@ type Task struct {
 	Ended      *time.Time `json:"ended,omitempty"`
 	Steps      []Step     `json:"steps"`
 	ReadOnly   bool       `json:"readOnly,omitempty"`
+	// Suggestion names the suggested flow the task's steps are, while the
+	// person has not decided on it.
+	Suggestion string `json:"suggestion,omitempty"`
 }
 
 // Step is one step of a task.
@@ -116,7 +119,7 @@ type Step struct {
 func taskOf(t gateway.TaskView, dev bool) Task {
 	v := Task{
 		ID: t.ID, DeviceID: t.DeviceID, DeviceName: t.DeviceName, Agent: t.Agent, Title: t.Title,
-		State: string(t.State), Started: t.Started, ReadOnly: t.ReadOnly, Steps: make([]Step, 0, len(t.Steps)),
+		State: string(t.State), Started: t.Started, ReadOnly: t.ReadOnly, Suggestion: t.Suggestion, Steps: make([]Step, 0, len(t.Steps)),
 	}
 	if !t.Ended.IsZero() {
 		e := t.Ended

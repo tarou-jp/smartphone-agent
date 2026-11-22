@@ -173,10 +173,10 @@ func (g *Gateway) tracePerson(l *lease, ev personEvent, after *screen.Screen) bo
 			pt := ev.point
 			a.Point = &pt
 		}
-		g.traceStep(l, Call{}, a, p, before, after)
+		g.traceStep(l, Call{taught: true}, a, p, before, after)
 		return true
 	case "key":
-		g.traceStep(l, Call{}, Action{Tool: "key", Key: ev.key}, &prep{}, before, after)
+		g.traceStep(l, Call{taught: true}, Action{Tool: "key", Key: ev.key}, &prep{}, before, after)
 		return true
 	}
 	return false

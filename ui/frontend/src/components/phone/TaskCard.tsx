@@ -14,6 +14,7 @@ import { useApp } from '@/state/AppState';
 import { useT } from '@/i18n';
 import { duration, isRunning, splitStep, taskStatus } from '@/lib/format';
 import { useGw } from '@/lib/gwtext';
+import { KeepActions } from '@/components/flows/KeepActions';
 
 type StepKind = 'done' | 'now' | 'wait' | 'you' | 'blocked' | 'uncertain';
 
@@ -144,6 +145,33 @@ export function TaskCard({ task }: { task: Task }) {
           <StepRow key={s.index} task={task} step={s} i={hidden + j} dev={!!settings?.developerMode} />
         ))}
       </Box>
+      {!running && task.suggestion && <KeepPrompt task={task} name={task.suggestion} />}
     </Paper>
+  );
+}
+
+/**
+ * Pinky suggests keeping a finished task's steps as a flow: asked once,
+ * where the task ended, and answered with one click.
+ */
+function KeepPrompt({ task, name }: { task: Task; name: string }) {
+  const t = useT();
+  const p = useTheme().pinky;
+  const { run, toast } = useApp();
+  return (
+    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+      <Typography sx={{ fontSize: 14, fontWeight: 600 }}>{t('taskKeepTitle')}</Typography>
+      <Typography sx={{ fontSize: 13, color: p.ink3, mt: 0.25, mb: 1 }}>{t('taskKeepBody')}</Typography>
+      <KeepActions
+        dense
+        name={task.title}
+        onKeep={async (n) => {
+          if (await run(t('flowsCallKeep'), () => api.keepSuggestion(name, n))) toast(t('flowsKept'), 'success');
+        }}
+        onDismiss={async () => {
+          if (await run(t('flowsCallDismiss'), () => api.dismissSuggestion(name))) toast(t('flowsDismissed'), 'success');
+        }}
+      />
+    </Box>
   );
 }

@@ -99,7 +99,8 @@ func (s *Session) keepParts(device string, done bool) map[*lease][]string {
 		}
 		j := job{l: l, title: t.title}
 		for i, st := range t.trace {
-			j.ran = append(j.ran, flow.Ran{Step: st, After: t.traceAfter[i], Part: t.tracePart[i], Repair: done && t.traceSaved[i]})
+			j.ran = append(j.ran, flow.Ran{Step: st, After: t.traceAfter[i], Part: t.tracePart[i], Repair: done && t.traceSaved[i],
+				Taught: i < len(t.traceTaught) && t.traceTaught[i]})
 			var thumb []byte
 			// Only a screenshot a later read confirmed shows where the
 			// step led.
@@ -156,6 +157,7 @@ func (g *Gateway) offerParts(res *Result, l *lease, apps ...string) *Result {
 		}
 	}
 	var names []string
+	used := g.usedParts()
 	for _, app := range apps {
 		g.mu.Lock()
 		shown := l.task.partsShown[app]
@@ -167,7 +169,10 @@ func (g *Gateway) offerParts(res *Result, l *lease, apps ...string) *Result {
 		if err != nil || len(ps.Parts) == 0 {
 			continue
 		}
-		list := ps.Sorted()
+		list := offered(ps, used)
+		if len(list) == 0 {
+			continue
+		}
 		if len(list) > offeredParts {
 			list = list[:offeredParts]
 		}
@@ -187,6 +192,18 @@ func (g *Gateway) offerParts(res *Result, l *lease, apps ...string) *Result {
 			strings.Join(names, " and ")))
 	}
 	return res
+}
+
+// offered is the parts of an app agents are offered: those that worked
+// often enough (flow.Part.Proven) or that a flow uses, and did not break.
+func offered(ps *flow.Parts, used map[string]bool) []*flow.Part {
+	var out []*flow.Part
+	for _, p := range ps.Sorted() {
+		if p.Proven() || used[p.ID] {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func containsFoldAny(list []string, s string) bool {
@@ -229,7 +246,7 @@ func (g *Gateway) listParts(want string) *Result {
 	if err != nil {
 		return errResult(ErrInvalidArgument, "The parts of %s cannot be read: %v.", app, err)
 	}
-	for _, p := range ps.Sorted() {
+	for _, p := range offered(ps, g.usedParts()) {
 		out.Parts = append(out.Parts, partInfo(app, p))
 	}
 	out.Message = fmt.Sprintf("%s of %s. phone_flow_run { parts: [ids] } runs the ones you pick, in order; steps mixes them with other steps.", plural(len(out.Parts), "part"), app)

@@ -181,15 +181,24 @@ type LibraryApp struct {
 	App   string
 	Notes string
 	Flows []LibraryFlow
-	Parts []LibraryPart
+	// Suggestions are tasks' steps Pinky suggests keeping as flows, the
+	// newest first.
+	Suggestions []LibraryFlow
+	Parts       []LibraryPart
 }
 
 // LibraryFlow is a saved flow.
 type LibraryFlow struct {
 	Name        string
 	Description string
-	// Task is the request the flow was kept from, "" for one saved by name.
-	Task    string
+	// Task is the request the flow was kept from, "" for one saved by name,
+	// and Asks the other requests tasks ran its steps for.
+	Task string
+	Asks []string
+	// Runs counts the tasks that ran its steps to a good end, and Last
+	// is the day of the newest.
+	Runs    int
+	Last    string
 	Version int
 	// File is the flow's file, "" for a store in memory.
 	File  string
@@ -237,6 +246,9 @@ type LibraryPart struct {
 	Flows []string
 	// Shot is set when it has a picture of where it leads (PartShot).
 	Shot bool
+	// Learning is set for a part agents are not offered yet: it worked
+	// once, and no flow or suggestion uses it.
+	Learning bool
 }
 
 // PartShot returns the picture of the screen a part leads to, as JPEG.
@@ -280,11 +292,12 @@ func (g *Gateway) Library() LibraryView {
 			parts[p.ID] = p
 		}
 	}
-	flows, broken := g.flows.List()
-	out.Broken = broken
-	for _, f := range flows {
-		lf := LibraryFlow{Name: f.Name, Description: f.Description, Task: f.Task, Version: f.Version}
-		lf.File = g.flows.File(f.Name)
+	libFlow := func(f *flow.Flow, kept bool) LibraryFlow {
+		lf := LibraryFlow{Name: f.Name, Description: f.Description, Task: f.Task, Asks: append([]string(nil), f.Asks...),
+			Runs: f.Runs, Last: f.Last, Version: f.Version}
+		if kept {
+			lf.File = g.flows.File(f.Name)
+		}
 		for _, st := range f.Steps {
 			ls := LibraryStep{Kind: st.Kind(), Text: st.Describe(), Leads: leads(st.Expect), Intent: st.Intent, Optional: st.Optional}
 			if st.Part != "" {
@@ -294,7 +307,7 @@ func (g *Gateway) Library() LibraryView {
 					if ls.Intent == "" {
 						ls.Intent = p.Intent
 					}
-					if !containsFoldAny(used[p.ID], f.Name) {
+					if kept && !containsFoldAny(used[p.ID], f.Name) {
 						used[p.ID] = append(used[p.ID], f.Name)
 					}
 				} else {
@@ -306,9 +319,21 @@ func (g *Gateway) Library() LibraryView {
 			}
 			lf.Steps = append(lf.Steps, ls)
 		}
-		a := app(f.App)
-		a.Flows = append(a.Flows, lf)
+		return lf
 	}
+	flows, broken := g.flows.List()
+	out.Broken = broken
+	for _, f := range flows {
+		a := app(f.App)
+		a.Flows = append(a.Flows, libFlow(f, true))
+	}
+	sugg, _ := g.suggested.List()
+	sort.SliceStable(sugg, func(i, j int) bool { return sugg[i].Last > sugg[j].Last })
+	for _, f := range sugg {
+		a := app(f.App)
+		a.Suggestions = append(a.Suggestions, libFlow(f, false))
+	}
+	inUse := g.usedParts()
 	for _, id := range g.flows.PartApps() {
 		ps, err := g.flows.Parts(id)
 		if err != nil {
@@ -334,7 +359,8 @@ func (g *Gateway) Library() LibraryView {
 		})
 		for _, p := range list {
 			a.Parts = append(a.Parts, LibraryPart{ID: p.ID, Kind: p.Kind(), Text: p.Does(), Leads: leads(p.Expect), Intent: p.Intent,
-				After: append([]string(nil), p.After...), Seen: p.Seen, Last: p.Last, Broken: hidden[p.ID], Flows: used[p.ID], Shot: shots[p.ID]})
+				After: append([]string(nil), p.After...), Seen: p.Seen, Last: p.Last, Broken: hidden[p.ID], Flows: used[p.ID], Shot: shots[p.ID],
+				Learning: !hidden[p.ID] && !p.Proven() && !inUse[p.ID]})
 		}
 	}
 	for _, id := range g.flows.NoteApps() {

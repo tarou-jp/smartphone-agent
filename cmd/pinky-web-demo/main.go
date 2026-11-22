@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/DIYgod/pinky/internal/deskapi"
+	"github.com/DIYgod/pinky/internal/flow"
 	"github.com/DIYgod/pinky/internal/gateway"
 	"github.com/DIYgod/pinky/internal/policy"
 	"github.com/DIYgod/pinky/internal/secret"
@@ -98,6 +99,10 @@ func (w withLibrary) SetNotes(app, text string) error    { return w.g.SetNotes(a
 func (w withLibrary) RemoveFlow(name string) error       { return w.g.RemoveFlow(name) }
 func (w withLibrary) RemovePart(id string) error         { return w.g.RemovePart(id) }
 func (w withLibrary) PartShot(id string) ([]byte, error) { return w.g.PartShot(id) }
+func (w withLibrary) KeepSuggestion(name, description string) (*flow.Flow, error) {
+	return w.g.KeepSuggestion(name, description)
+}
+func (w withLibrary) DismissSuggestion(name string) error { return w.g.DismissSuggestion(name) }
 func (w withLibrary) AppIcon(ctx context.Context, app string) ([]byte, error) {
 	return w.g.AppIcon(ctx, app)
 }

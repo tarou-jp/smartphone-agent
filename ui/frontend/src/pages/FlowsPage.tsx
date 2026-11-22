@@ -12,6 +12,7 @@ import { href, navigate } from '@/lib/router';
 import { isRunning } from '@/lib/format';
 import type { Library, LibraryApp, LibraryFlow, LibraryPart, LibraryStep } from '@/api/types';
 import { AppIcon } from '@/components/flows/AppIcon';
+import { KeepActions } from '@/components/flows/KeepActions';
 import { NoteCards } from '@/components/flows/NoteCards';
 import { PartShot } from '@/components/flows/PartShot';
 import { splitNotes } from '@/lib/notes';
@@ -75,12 +76,26 @@ function StepText({ step }: { step: Pick<LibraryStep, 'text' | 'leads' | 'intent
   );
 }
 
-function FlowCard({ flow, onRemove }: { flow: LibraryFlow; onRemove: () => void }) {
+/** The requests a flow answers: the one it was kept from and the others. */
+function asksOf(flow: LibraryFlow): string[] {
+  return [flow.task, ...(flow.asks ?? [])].filter((a): a is string => !!a);
+}
+
+/**
+ * A flow, or a suggestion to keep one (with its actions as children): its
+ * name, how often it ran and in how many words it was asked for; opened,
+ * those words and its steps.
+ */
+function FlowCard({ flow, onRemove, children }: { flow: LibraryFlow; onRemove?: () => void; children?: ReactNode }) {
   const t = useT();
   const p = useTheme().pinky;
   const [open, setOpen] = useState(false);
   const title = flow.description || flow.task || flow.name;
   const shots = flow.steps.filter((s) => s.part && s.shot);
+  const asks = asksOf(flow);
+  const meta = [t('flowsFlowSteps', { steps: flow.steps.length })];
+  if (flow.runs) meta.push(children ? t('flowsSuggestionRuns', { runs: flow.runs }) : t('flowsFlowRuns', { runs: flow.runs }));
+  if (asks.length > 1) meta.push(t('flowsAsksCount', { count: asks.length }));
   return (
     <CardRows sx={{ mb: 1.5, '& > *:not(:last-child)': { borderBottom: 0 } }}>
       <Stack direction="row" alignItems="center" spacing={0.5} sx={{ pl: 2, pr: 1, py: 1.25 }}>
@@ -104,15 +119,17 @@ function FlowCard({ flow, onRemove }: { flow: LibraryFlow; onRemove: () => void 
               {title}
             </Typography>
             <Typography noWrap sx={{ fontSize: 12.5, color: p.ink3 }}>
-              {t('flowsFlowSteps', { steps: flow.steps.length })}
+              {meta.join(' · ')}
             </Typography>
           </Box>
         </Box>
-        <Tooltip title={t('flowsRemove')}>
-          <IconButton aria-label={t('flowsRemove')} onClick={onRemove} sx={{ color: p.red, '&:hover': { bgcolor: p.redTint } }}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        {onRemove && (
+          <Tooltip title={t('flowsRemove')}>
+            <IconButton aria-label={t('flowsRemove')} onClick={onRemove} sx={{ color: p.red, '&:hover': { bgcolor: p.redTint } }}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Stack>
       {!open && shots.length > 0 && (
         <Stack direction="row" spacing={1} sx={{ px: 2, pb: 1.5, pt: 0.25, overflowX: 'auto' }}>
@@ -144,6 +161,16 @@ function FlowCard({ flow, onRemove }: { flow: LibraryFlow; onRemove: () => void 
         </Stack>
       )}
       <Collapse in={open} unmountOnExit>
+        {asks.length > 0 && (
+          <Box sx={{ px: 2, py: 1.25, borderTop: 1, borderColor: 'divider' }}>
+            <Typography sx={{ fontSize: 12, color: p.ink3, mb: 0.5 }}>{t('flowsAsks')}</Typography>
+            {asks.map((a, i) => (
+              <Typography key={i} className="selectable" sx={{ fontSize: 13.5, lineHeight: '20px', overflowWrap: 'anywhere' }}>
+                “{a}”
+              </Typography>
+            ))}
+          </Box>
+        )}
         <Box component="ol" sx={{ m: 0, p: 0, listStyle: 'none', borderTop: 1, borderColor: 'divider', '& > li:not(:last-child)': { borderBottom: 1, borderColor: 'divider' } }}>
           {flow.steps.map((s, i) => (
             <Stack component="li" key={i} direction="row" alignItems="flex-start" spacing={1.5} sx={{ px: 2, py: 1.25 }}>
@@ -164,6 +191,7 @@ function FlowCard({ flow, onRemove }: { flow: LibraryFlow; onRemove: () => void 
           ))}
         </Box>
       </Collapse>
+      {children}
     </CardRows>
   );
 }
@@ -258,6 +286,42 @@ function PartRow({ part, onRemove }: { part: LibraryPart; onRemove: () => void }
   );
 }
 
+/** The parts agents are not offered yet, folded away under one row. */
+function LearningRows({ count, children }: { count: number; children: ReactNode }) {
+  const t = useT();
+  const p = useTheme().pinky;
+  const [open, setOpen] = useState(false);
+  return (
+    <Box>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1.25}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+        sx={{ pl: 1.25, pr: 2, py: 1, cursor: 'pointer', color: p.ink3, '&:hover': { bgcolor: p.bg2 } }}
+      >
+        <ExpandIcon sx={{ fontSize: 20, flexShrink: 0, transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform 120ms' }} />
+        <Typography sx={{ fontSize: 13.5, lineHeight: '20px' }}>{t('flowsLearning', { count })}</Typography>
+        <Tooltip title={t('flowsLearningAbout')} placement="right">
+          <InfoIcon aria-label={t('flowsLearningAbout')} sx={{ fontSize: 16, cursor: 'help' }} />
+        </Tooltip>
+      </Stack>
+      <Collapse in={open} unmountOnExit>
+        <Box sx={{ opacity: 0.85, '& > *': { borderTop: 1, borderColor: 'divider' } }}>{children}</Box>
+      </Collapse>
+    </Box>
+  );
+}
+
 function AppDetail({ lib, app, onChange }: { lib: Library; app: LibraryApp; onChange: (l: Library) => void }) {
   const t = useT();
   const p = useTheme().pinky;
@@ -283,6 +347,20 @@ function AppDetail({ lib, app, onChange }: { lib: Library; app: LibraryApp; onCh
     const next = await run(t('flowsCallRemoveFlow'), () => api.removeFlow(f.name));
     if (next) onChange(next);
   };
+  const keep = async (f: LibraryFlow, name: string) => {
+    const next = await run(t('flowsCallKeep'), () => api.keepSuggestion(f.name, name));
+    if (!next) return;
+    onChange(next);
+    toast(t('flowsKept'), 'success');
+  };
+  const dismiss = async (f: LibraryFlow) => {
+    const next = await run(t('flowsCallDismiss'), () => api.dismissSuggestion(f.name));
+    if (!next) return;
+    onChange(next);
+    toast(t('flowsDismissed'), 'success');
+  };
+  const offered = app.parts.filter((x) => !x.learning);
+  const learning = app.parts.filter((x) => x.learning);
   const removePart = async (part: LibraryPart) => {
     const used = part.flows ?? [];
     const yes = await confirm({
@@ -322,6 +400,15 @@ function AppDetail({ lib, app, onChange }: { lib: Library; app: LibraryApp; onCh
             <NoteCards key={app.app} saved={app.notes} max={lib.maxNotes} onSave={saveNotes} />
           </Section>
         )}
+        {(app.suggestions ?? []).length > 0 && (
+          <Section title={<Title text={t('flowsSuggestions')} about={t('flowsSuggestionsAbout')} />}>
+            {app.suggestions.map((f) => (
+              <FlowCard key={f.name} flow={f}>
+                <KeepActions name={f.description || f.task || f.name} onKeep={(n) => void keep(f, n)} onDismiss={() => void dismiss(f)} />
+              </FlowCard>
+            ))}
+          </Section>
+        )}
         <Section title={<Title text={t('flowsFlows')} about={t('flowsFlowsAbout')} />}>
           {app.flows.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
@@ -339,9 +426,16 @@ function AppDetail({ lib, app, onChange }: { lib: Library; app: LibraryApp; onCh
               </Typography>
             ) : (
               <CardRows>
-                {app.parts.map((part) => (
+                {offered.map((part) => (
                   <PartRow key={part.id} part={part} onRemove={() => void removePart(part)} />
                 ))}
+                {learning.length > 0 && (
+                  <LearningRows count={learning.length}>
+                    {learning.map((part) => (
+                      <PartRow key={part.id} part={part} onRemove={() => void removePart(part)} />
+                    ))}
+                  </LearningRows>
+                )}
               </CardRows>
             )}
           </Section>
@@ -430,6 +524,7 @@ export function FlowsPage({ app }: { app?: string }) {
                     </Typography>
                     <Typography noWrap sx={{ fontSize: 12.5, color: p.ink3 }}>
                       {t('flowsAppSummary', { flows: a.flows.length, parts: a.parts.length })}
+                      {(a.suggestions?.length ?? 0) > 0 && ` · ${t('flowsSuggestionCount', { count: a.suggestions.length })}`}
                       {splitNotes(a.notes).length > 0 && ` · ${t('flowsNotes')} ${splitNotes(a.notes).length}`}
                     </Typography>
                   </Box>
